@@ -30,7 +30,7 @@ CPU는 입력 준비·일부 연산을, GPU는 지원되는 신경망 연산을 
 - GUI 모듈 검사 통과: Windows 전용 표시, 선택 중 폴링에 의한 입력 초기화 방지, 저장 실패 안내, 작업 중 변경 차단. 기존 모델 폴더 UI 검사도 통과.
 - 관련 Python 회귀 모음 33개 실행: 32개 통과, Windows 전용 1개는 macOS에서 건너뜀. 전사 저장·복구, 품질 입력, 요약 서버, GUI 자산 제공, 포터블 잠금 계약을 검사했다.
 - `test_speech_ui.mjs`는 `작은 발화` 설명문을 기대하는 기존 검사 1건이 실패했다. 변경 전 커밋 `545df71`을 별도 임시 폴더로 추출해 동일 실패를 재현했다. 설명문을 도움말로 옮긴 현재 UI와 테스트의 불일치이며 이번 GPU 설정 코드로 인한 회귀로 분류하지 않았다. 테스트를 삭제하거나 통과 처리하지 않았다.
-- 첫 CI Windows 실행은 공식 SDK 자동 다운로드의 HTTP 403에서 실패했다. LunarG 공식 자동 다운로드 안내에 있는 공유 IP용 `?Human=true` 주소로 변경했다. 변경 후 빌드 결과는 이어 기록한다.
+- 첫 CI Windows 실행은 공식 SDK 자동 다운로드의 HTTP 403에서 실패했다. LunarG 공식 자동 다운로드 안내에 있는 공유 IP용 `?Human=true` 주소로 변경했다. 변경 후 두 OS 빌드가 성공했고, 마지막 오류 처리 보완본도 두 OS 빌드·패키지 기본 실행 검사를 통과했다.
 - 실제 Windows GPU가 없는 현재 Mac에서 GPU 추론의 성능·VRAM·드라이버 호환성 통과를 주장하지 않는다. GTX 1060 등 실제 장치에서 CPU와 GPU 각각 같은 짧은 음성·요약을 실행하고 로그의 GPU 오프로딩, 취소·재개, VRAM 부족 시 복구를 확인해야 한다.
 
 ## 빌드 근거
@@ -41,3 +41,30 @@ CPU는 입력 준비·일부 연산을, GPU는 지원되는 신경망 연산을 
 - [whisper.cpp 공식 소스](https://github.com/ggml-org/whisper.cpp/tree/d1be6fde11ac6e0407606b4e42fe72d34add8037)
 - [LunarG Windows SDK 설치·드라이버 안내](https://vulkan.lunarg.com/doc/view/1.4.328.1/windows/getting_started.html)
 - [공식 SDK 해시 조회](https://sdk.lunarg.com/sdk/sha/1.4.328.1/windows/vulkan_sdk.exe.json)
+
+## 실제 Windows 장치 확인 방법
+
+1. 새 ZIP 전체를 풀고 가져오기에서 CPU만 사용을 적용한다. 짧은 테스트 영상의 전사·요약을 실행해 기본 동작과 시간을 기록한다.
+2. 작업이 끝난 뒤 CPU + GPU 가속을 적용한다. 감지된 장치명과 CPU 대체 안내 유무를 확인한다. 처리 내용이 같은 별도 테스트 자료로 비교해 기존 완료 결과 재사용 시간을 추론 속도로 잘못 비교하지 않는다.
+3. 전사 조각의 `speech/runs/<실행 ID>/<조각>-engine.log`에서 `using Vulkan… backend`, 요약의 `context/engines/<실행 ID>/engine.log`에서 `offloaded N/M layers to GPU`를 확인한다. `compute.json`의 요청값이나 GPU 감지 성공만으로 실제 가속을 판정하지 않는다. 요약의 N이 0이면 GPU 모델 연산을 수행한 것으로 기록하지 않는다.
+4. CPU와 GPU가 늘 같은 사용률을 보여야 한다는 기준은 사용하지 않는다. 같은 입력·모델의 완료 시간, 오류·VRAM 사용량, 전사 시각·요약 의미를 비교한다. 비트 단위 결과 일치는 요구하지 않는다.
+5. 테스트 작업 중 중단·앱 재실행 후 이어하기와 CPU 전환을 확인한다. 완료 자료와 수동 교정이 남아 있어야 한다. 기존 버전·입력 지문이 바뀐 경우에는 기존 복구 정책에 따라 새 작업이 필요하다.
+
+## 최종 CI 확인
+
+- 빌드 커밋: `73cd09129cf80e60bc72606af95bcbd17d826257`.
+- [최종 Actions 실행](https://github.com/redpanya/Chi_Da_analyzer/actions/runs/38726283425): macOS-arm64와 Windows-x64 모두 성공.
+- Windows Server 2022 CI에서 포터블 잠금·프로세스 정리 5개, 처리 장치 검사 7개 통과. Windows 물리 PC에서 GPU 추론을 실행한 결과로 해석하지 않는다.
+- 두 OS 패키지에서 포함 도구 버전 실행, H.264/AAC 생성·읽기·디코딩, 한글·공백 경로, HTTP·정적 모듈, 정상 종료 검사 통과. Windows에는 CPU 실행기와 GPU 실행기 3개가 함께 들어 있으며 처리 장치 설정 API를 CPU + GPU → CPU로 변경·저장하는 검사도 통과했다.
+- macOS는 GPU 선택 UI를 숨기고 기존 Metal 경로를 유지한다. 기존 원본·모델·분석 결과는 수정하지 않았다.
+- 공식 서명·공증 상태는 기존과 같다. macOS 임시 서명, Windows Authenticode 미서명. 실제 GPU 모델 추론 성능·정확도·메모리 측정은 남아 있다.
+
+## 배포본
+
+`v0.18.0-preview.2`를 비공개 초안으로 준비했다. 기존 `preview.1`은 CPU 전용 기준판으로 보존한다. 저장소와 Release를 공개로 바꾸지 않았다. [저장소 Releases](https://github.com/redpanya/Chi_Da_analyzer/releases)에서 초안과 파일을 구분한다.
+
+- Windows: `Chi_Da_analyzer-Windows-x64.zip`, 126,704,148바이트(약 127 MB). SHA-256 `a688b47d67a2e22b43b555ca4d1c1da9bb6e7691bf64d5e1f388abb9c1cc80a4`.
+- macOS: `Chi_Da_analyzer-macOS-arm64.zip`, 102,065,841바이트(약 102 MB). SHA-256 `22929561a03ed1fe0a559be9f2deb3f95f32d08b6f5b29f103963ef341f92b23`.
+- Windows ZIP은 기존 CPU 전용 ZIP보다 약 48.6 MB 증가했다. 별도의 Vulkan 실행기 3개가 추가된 영향이다. 모델·SDK·드라이버는 포함하지 않는다.
+- ZIP 내부를 확인해 GPU 실행기 3개의 존재와 `.gguf`, `.onnx`, `.safetensors`, 영상·오디오 파일이 들어가지 않았음을 확인했다. 아티팩트의 원래 체크섬도 검증했다.
+- Windows 패키지 진단 JSON의 실제 값은 `visible: true`, `bundled: true`, `available: false`, `mode: cpu`였으며 Vulkan 드라이버 미설치 안내를 반환했다. GPU가 없는 CI에서 기본 앱·CPU 경로가 동작하는 확인이며 실제 GPU 추론 검증이 아니다. macOS는 `visible: false`였다.
