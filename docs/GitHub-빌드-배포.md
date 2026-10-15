@@ -8,7 +8,7 @@ macOS Apple Silicon 앱 ZIP, Windows x64 CPU 포터블 ZIP을 각 OS의 GitHub A
 
 ## 로컬 재현
 
-Python 3.11, CMake, C/C++ 컴파일러가 필요합니다. macOS는 Xcode Command Line Tools와 pkg-config, Windows는 Visual Studio 2022 C++ 도구 및 MSYS2 UCRT64의 gcc·make·pkgconf가 필요합니다. 실행은 저장소 루트 기준입니다.
+Python 3.11, CMake, C/C++ 컴파일러가 필요합니다. macOS는 Xcode Command Line Tools와 pkg-config, Windows는 Visual Studio 2022 C++ 도구 및 MSYS2 UCRT64의 gcc·make·pkgconf가 필요합니다. 실행은 저장소 루트 기준입니다. 로컬에서 PyInstaller 캐시를 분리하려면 `PYINSTALLER_CONFIG_DIR`를 저장소의 `build/pyinstaller-cache`로 지정합니다.
 
 ```text
 python -m pip install -r packaging/release/requirements.txt

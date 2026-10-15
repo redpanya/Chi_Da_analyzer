@@ -15,20 +15,21 @@ prefix="$scratch/prefix"
 mkdir -p "$prefix" "$root/build/native/ffmpeg"
 export PKG_CONFIG_PATH="$prefix/lib/pkgconfig"
 extra=(--extra-ldflags=)
-if [[ "${OSTYPE:-}" == msys* ]]; then
-  extra=(--extra-ldflags=-static)
-else
-  export MACOSX_DEPLOYMENT_TARGET=14.0
-fi
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) extra=(--extra-ldflags=-static) ;;
+  Darwin) export MACOSX_DEPLOYMENT_TARGET=14.0 ;;
+  *) echo 'macOS 또는 Windows MSYS2에서 빌드하세요' >&2; exit 1 ;;
+esac
 cd "${x264_source[0]}"
 ./configure --prefix="$prefix" --enable-static --disable-cli --disable-opencl --disable-asm
 make -j3
 make install
 cd "${ffmpeg_source[0]}"
 ./configure --prefix="$prefix" --pkg-config-flags=--static --disable-autodetect --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay --disable-x86asm --enable-gpl --enable-libx264 "${extra[@]}"
+# configure가 정한 기본 타깃을 사용한다. MSYS2의 OSTYPE 값에 의존하지 않는다.
+make -j3
 suffix=""
-[[ "${OSTYPE:-}" != msys* ]] || suffix=.exe
-make -j3 "ffmpeg$suffix" "ffprobe$suffix"
+[[ ! -f ffmpeg.exe ]] || suffix=.exe
 cp "ffmpeg$suffix" "ffprobe$suffix" "$root/build/native/ffmpeg/"
 cp COPYING.GPLv2 LICENSE.md "$root/build/native/ffmpeg/"
 cp "${x264_source[0]}/COPYING" "$root/build/native/ffmpeg/x264-COPYING"
