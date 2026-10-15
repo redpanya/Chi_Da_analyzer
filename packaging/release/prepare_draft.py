@@ -10,7 +10,7 @@ for label in ('macOS-arm64','Windows-x64'):
         sha,name=line.split('  ',1)
         if Path(name).name!=name:raise ValueError('잘못된 아티팩트 경로')
         with (folder/name).open('rb') as f:assert hashlib.file_digest(f,'sha256').hexdigest()==sha
-    shutil.copy2(folder/('Chi_Da_analyzer-'+label+'.zip'),out)
+    shutil.copy2(folder/('ChiDaanalyzer-'+label+'.zip'),out)
     shutil.copy2(folder/'smoke.json',out/(label+'-smoke.json'))
 shutil.copy2(root/'package-macOS-arm64/native-corresponding-sources.zip',out)
 rows=[]

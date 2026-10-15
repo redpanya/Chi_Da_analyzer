@@ -2,7 +2,7 @@
 
 ## 범위
 
-macOS Apple Silicon 앱 ZIP, Windows x64 CPU + Vulkan 선택형 포터블 ZIP을 각 OS의 GitHub Actions에서 빌드합니다. DMG는 만들지 않습니다. 기본 화자 엔진 sherpa와 미디어·전사·요약 실행 도구를 포함하며 모델은 설치 후 다운로드합니다. 기존 전체 macOS 개발 패키징 스크립트와 로컬 결과는 유지합니다.
+`ChiDaanalyzer.app`을 담은 macOS Apple Silicon 앱 ZIP, Windows x64 CPU + Vulkan 선택형 포터블 ZIP을 각 OS의 GitHub Actions에서 빌드합니다. DMG는 만들지 않습니다. 기본 화자 엔진 sherpa와 미디어·전사·요약 실행 도구를 포함하며 모델은 설치 후 다운로드합니다. 기존 전체 macOS 개발 패키징 스크립트와 로컬 결과는 유지합니다.
 
 저장소는 `redpanya/Chi_Da_analyzer` 비공개입니다. Actions의 `앱 빌드`를 수동 실행하면 두 OS 빌드와 간단한 실행 검사를 거쳐 아티팩트를 생성합니다. `draft_tag`를 입력하면 두 빌드가 모두 성공했을 때만 비공개 저장소에 초안 Release와 체크섬·대응 소스를 함께 올립니다. 빈 값이면 아티팩트만 생성합니다. 초안 공개와 저장소 공개 전환은 자동으로 하지 않습니다.
 
@@ -45,7 +45,7 @@ Windows의 FFmpeg 빌드 명령만 MSYS2 UCRT64 셸에서 실행합니다. 나�
 
 ## 공개 전 검증 기준
 
-자동: 두 OS Python 검사, 잠금 중복 거부와 자식 잠금 유지, 앱 강제 종료 시 Windows 자식 종료, 한글·공백 경로, 패키지 독립 실행, 포함 도구 버전, H.264/AAC 영상 생성·probe·디코딩, 서버 페이지·정적 모듈, 준비 파일 생성·종료, 체크섬.
+자동: 두 OS Python 검사, 잠금 중복 거부와 자식 잠금 유지, 앱 강제 종료 시 Windows 자식 종료, 한글·공백 경로, 패키지 독립 실행, 포함 도구 버전, H.264/AAC 영상 생성·probe·디코딩, 서버 페이지·정적 모듈, 준비 파일 생성·종료, 체크섬. macOS 최종 ZIP은 ditto·unzip 두 방식으로 해제한 뒤 서명과 ASCII 번들 경로를 확인하고 LaunchServices로 실제 앱을 시작해 HTTP 응답을 확인합니다. Gatekeeper 허용 결과는 별도로 기록하며 임시 서명 초안의 거부를 공증 통과로 표시하지 않습니다.
 
 수동: 깨끗한 실제 Mac과 Windows PC에서 다운로드 또는 로컬 가져오기→전사→선택 화자 구분→Gemma 요약→반응 이동→댓글 편집/복사. 중단·재실행, 외장 보관함, 모델 최초 다운로드·오프라인 재사용, 휴지통 복원. 기존 원본·수동 교정·화자 배정·분석 보존. CPU 속도와 메모리 측정.
 

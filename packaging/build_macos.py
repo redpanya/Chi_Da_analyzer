@@ -13,7 +13,7 @@ def main():
   if not (folder/name).is_file():raise SystemExit('필수 실행기가 없습니다: '+str(folder/name))
  if not a.fluid_binary.is_file():raise SystemExit('FluidAudio 실행기가 없습니다')
  output=a.output.resolve();output.mkdir(parents=True,exist_ok=True)
- app=output/'치(지직) 다(시보기) 분석기.app'
+ app=output/'ChiDaanalyzer.app'
  if app.exists():raise SystemExit('출력 앱이 이미 있습니다. 새 출력 폴더를 사용하세요')
  contents=app/'Contents';resources=contents/'Resources';(contents/'MacOS').mkdir(parents=True);resources.mkdir()
  shutil.copytree(a.backend,resources/'backend',symlinks=True)
@@ -36,12 +36,13 @@ def main():
  install(internal,a.ggml_source_archive)
  run('codesign','--force','--sign','-',internal/'Python.framework')
  run('xcrun','swiftc','-O','-target','arm64-apple-macos27.0',ROOT/'packaging/Launcher.swift','-o',contents/'MacOS/ArchiveLauncher')
- with (contents/'Info.plist').open('wb') as f:plistlib.dump({'CFBundleIdentifier':'local.chzzk.archive','CFBundleName':'치(지직) 다(시보기) 분석기','CFBundleDisplayName':'치(지직) 다(시보기) 분석기','CFBundleExecutable':'ArchiveLauncher','CFBundlePackageType':'APPL','CFBundleVersion':'25','CFBundleShortVersionString':'0.17.0','LSMinimumSystemVersion':'27.0','NSHighResolutionCapable':True,'NSHumanReadableCopyright':'로컬 검증 버전 · 구성요소 라이선스는 Resources/안내 참조'},f)
- notice=resources/'안내';notice.mkdir();shutil.copyfile(ROOT/'README.md',notice/'사용 안내.md')
- shutil.copytree(ROOT/'packaging/notices',notice/'구성요소',dirs_exist_ok=True)
+ with (contents/'Info.plist').open('wb') as f:plistlib.dump({'CFBundleIdentifier':'local.chzzk.archive','CFBundleName':'ChiDaanalyzer','CFBundleDisplayName':'ChiDaanalyzer','CFBundleExecutable':'ArchiveLauncher','CFBundlePackageType':'APPL','CFBundleVersion':'25','CFBundleShortVersionString':'0.17.0','LSMinimumSystemVersion':'27.0','NSHighResolutionCapable':True,'NSHumanReadableCopyright':'로컬 검증 버전 · 구성요소 라이선스는 Resources/NOTICES 참조'},f)
+ notice=resources/'NOTICES';notice.mkdir();shutil.copyfile(ROOT/'README.md',notice/'README.ko.md')
+ shutil.copytree(ROOT/'packaging/notices',notice/'third-party',dirs_exist_ok=True)
  # 로컬 검증용 임시 서명. Developer ID 서명·공증을 대신하지 않는다.
  run('codesign','--force','--deep','--sign','-',app)
- run('codesign','--verify','--deep','--strict','--verbose=2',app)
+ from release.macos_package_check import verify_bundle
+ verify_bundle(app)
  print(app)
 
 if __name__=='__main__':main()

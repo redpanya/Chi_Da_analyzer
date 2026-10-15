@@ -8,9 +8,10 @@ import plistlib
 import shutil
 import subprocess
 import sys
+from macos_package_check import verify_bundle
 
 ROOT = Path(__file__).resolve().parents[2]
-NAME = '치(지직) 다(시보기) 분석기'
+NAME = 'ChiDaanalyzer'
 
 
 def run(args): subprocess.run([str(x) for x in args],check=True)
@@ -38,13 +39,13 @@ def assemble(version):
         package=output/(NAME+'.app');resources=package/'Contents/Resources'
         dest=resources/'backend'
     else:
-        package=output/'Chi_Da_analyzer';dest=package
+        package=output/'ChiDaanalyzer';dest=package
     if package.exists():raise ValueError('기존 패키지가 있습니다. 빌드 출력 폴더를 별도로 사용하세요')
     shutil.copytree(backend,dest)
     shutil.copytree(ROOT/'build/native',dest/'_internal/native')
     (dest/'_internal/basic-release.json').write_text('{"speakers":["sherpa"]}',encoding='utf-8')
     notices(package/'THIRD-PARTY-NOTICES' if sys.platform!='darwin' else resources/'THIRD-PARTY-NOTICES')
-    shutil.copy2(ROOT/'docs/배포-사용안내.md',package/'사용안내.md' if sys.platform!='darwin' else resources/'사용안내.md')
+    shutil.copy2(ROOT/'docs/배포-사용안내.md',package/'README.ko.md' if sys.platform!='darwin' else resources/'README.ko.md')
     if sys.platform=='darwin':
         executables=package/'Contents/MacOS';executables.mkdir()
         trash=dest/'_internal/bin/vod-trash';trash.parent.mkdir(exist_ok=True)
@@ -56,9 +57,9 @@ def assemble(version):
               'NSHighResolutionCapable':True}
         with (package/'Contents/Info.plist').open('wb') as f:plistlib.dump(info,f)
         run(['codesign','--force','--deep','--sign','-',package])
-        run(['codesign','--verify','--deep','--strict',package])
+        verify_bundle(package)
     else:
-        (dest/'archive-backend.exe').rename(dest/'Chi_Da_analyzer.exe')
+        (dest/'archive-backend.exe').rename(dest/'ChiDaanalyzer.exe')
     print(package)
     return package
 

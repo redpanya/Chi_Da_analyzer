@@ -1,6 +1,6 @@
 치지직 보관함 0.16.0 · macOS Apple Silicon 로컬 검증 버전
 
-1. 치지직 보관함.app을 응용 프로그램 폴더로 복사합니다.
+1. ChiDaanalyzer.app을 응용 프로그램 폴더로 복사합니다.
    현재 사용자만 설치하려면 홈 폴더의 Applications(~/Applications)에 복사해도 됩니다.
 2. 복사한 앱을 실행하면 작은 실행 창과 브라우저 보관함이 열립니다.
 3. 기존 보관함은 ‘가져오기 → 저장 폴더 → VOD 보관함 폴더 → 폴더 확인’으로 엽니다.
@@ -21,7 +21,7 @@ Python·yt-dlp·FFmpeg/ffprobe·whisper-cli·llama.cpp·화자·SAM·BS-Roformer
 Gatekeeper가 차단할 수 있습니다. 차단되면 보호 기능을 끄지 말고 서명·공증된 배포본을 사용하세요.
 macOS 27.0.1 / M1 Pro에서 검증했습니다. Windows·Intel Mac·다른 macOS는 미검증입니다.
 
-구성요소 조건은 앱 Contents/Resources/안내에 있습니다.
+구성요소 조건은 앱 Contents/Resources/NOTICES에 있습니다.
 외부 공개 배포용 대응 소스 전체와 서명·공증 준비는 아직 완료되지 않았습니다.
 
 이번 버전은 DMG 없이 앱 패키지만 제공합니다.

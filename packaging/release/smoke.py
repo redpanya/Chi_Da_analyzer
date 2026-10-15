@@ -16,7 +16,7 @@ def main():
     if sys.platform=='darwin':
         package=next((ROOT/'dist/release').glob('*.app'))
         binary=package/'Contents/Resources/backend/archive-backend'
-    else:binary=ROOT/'dist/release/Chi_Da_analyzer/Chi_Da_analyzer.exe'
+    else:binary=ROOT/'dist/release/ChiDaanalyzer/ChiDaanalyzer.exe'
     env=dict(os.environ)
     env.pop('PYTHONPATH',None);env.pop('PYTHONHOME',None)
     # CI의 UTF-8 강제 설정으로 일반 Windows 사용자의 문자셋 오류를 가리지 않는다.
