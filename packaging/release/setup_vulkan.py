@@ -3,7 +3,7 @@ import hashlib
 import os
 from pathlib import Path
 import subprocess
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 VERSION = '1.4.328.1'
 SHA256 = 'a8675df6d538079c2a719a9373994948091db785b48f142e024254e76348d16c'
@@ -14,7 +14,10 @@ def install():
     work = Path(os.environ.get('RUNNER_TEMP', 'build')).resolve()
     work.mkdir(parents=True, exist_ok=True)
     installer = work/f'vulkan-{VERSION}.exe'
-    with urlopen(f'https://sdk.lunarg.com/sdk/download/{VERSION}/windows/vulkan_sdk.exe', timeout=120) as response, installer.open('wb') as file:
+    # LunarG의 자동 다운로드 API 안내에 명시된 공유 IP용 URL이다.
+    request = Request(f'https://sdk.lunarg.com/sdk/download/{VERSION}/windows/vulkan_sdk.exe?Human=true',
+                      headers={'User-Agent':'ChiDaAnalyzer-build/1.0'})
+    with urlopen(request, timeout=120) as response, installer.open('wb') as file:
         while block := response.read(1024*1024): file.write(block)
     with installer.open('rb') as file:
         if hashlib.file_digest(file, 'sha256').hexdigest() != SHA256:

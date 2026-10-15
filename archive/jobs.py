@@ -102,7 +102,7 @@ class Manager:
             self.speech_idle()
             if set(data) == {'mode'}:
                 compute.apply(data['mode'])
-            elif data != {'refresh': True}:
+            elif set(data) != {'refresh'} or data['refresh'] is not True:
                 raise ValueError('처리 장치 설정 형식이 올바르지 않습니다')
             if data.get('refresh'): compute.status(refresh=True)
             return self.folders()

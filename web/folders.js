@@ -1,8 +1,8 @@
 import {createCompute} from './compute.js';
 export function createFolders({api, onApplied}) {
-  const compute = createCompute({api});
   const $ = id => document.getElementById(id);
   let applied = '', busy = false, saving = false, serial = 0;
+  const compute = createCompute({api, onApplying: () => {serial++;}});
   function controls() {
     $('model-root').disabled = saving || busy;
     $('apply-model-folder').disabled = saving || busy || $('model-root').value === applied;
@@ -34,7 +34,7 @@ export function createFolders({api, onApplied}) {
     finally { saving = false; controls(); }
   };
   return {set, async refresh() {
-    if (saving) return;
+    if (saving || compute.isSaving()) return;
     const request = ++serial;
     try { const value = await api('folders', {}); if (request === serial) set(value); }
     catch (error) { if (request === serial) $('model-folder-state').textContent = error.message; }
