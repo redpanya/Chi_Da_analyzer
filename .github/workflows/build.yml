@@ -30,6 +30,7 @@ jobs:
     timeout-minutes: 90
     env:
       PYTHONUTF8: '1'
+      PYINSTALLER_CONFIG_DIR: ${{ github.workspace }}/build/pyinstaller-cache
       HF_HUB_DISABLE_TELEMETRY: '1'
       PYANNOTE_METRICS_ENABLED: '0'
     steps:

@@ -3,9 +3,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 root="$PWD"
-x264_source=("$root"/build/native-src/x264/*)
-ffmpeg_source=("$root"/build/native-src/ffmpeg/*)
-prefix="$root/build/ffmpeg-prefix"
+# pkg-config/FFmpeg configure는 비ASCII 소스 경로를 잘못 이스케이프할 수 있다.
+scratch=$(mktemp -d)
+trap 'rm -rf -- "$scratch"' EXIT
+mkdir -p "$scratch/x264" "$scratch/ffmpeg"
+tar -xzf "$root/build/release-sources/x264.tar.gz" -C "$scratch/x264"
+tar -xzf "$root/build/release-sources/ffmpeg.tar.gz" -C "$scratch/ffmpeg"
+x264_source=("$scratch"/x264/*)
+ffmpeg_source=("$scratch"/ffmpeg/*)
+prefix="$scratch/prefix"
 mkdir -p "$prefix" "$root/build/native/ffmpeg"
 export PKG_CONFIG_PATH="$prefix/lib/pkgconfig"
 extra=(--extra-ldflags=)

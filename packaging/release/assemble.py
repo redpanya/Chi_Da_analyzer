@@ -49,7 +49,7 @@ def assemble(version):
         executables=package/'Contents/MacOS';executables.mkdir()
         trash=dest/'_internal/bin/vod-trash';trash.parent.mkdir(exist_ok=True)
         for source,target in [('Launcher.swift',executables/'ArchiveLauncher'),('Trash.swift',trash)]:
-            run(['swiftc','-O','-target','arm64-apple-macos14.0',ROOT/'packaging'/source,'-o',target])
+            run(['swiftc','-O','-target','arm64-apple-macos14.0','-module-cache-path',ROOT/'build/swift-cache',ROOT/'packaging'/source,'-o',target])
         info={'CFBundleIdentifier':'local.chzzk.archive','CFBundleName':NAME,'CFBundleDisplayName':NAME,
               'CFBundleExecutable':'ArchiveLauncher','CFBundlePackageType':'APPL','CFBundleShortVersionString':version,
               'CFBundleVersion':os.environ.get('GITHUB_RUN_NUMBER','1'),'LSMinimumSystemVersion':'14.0',
