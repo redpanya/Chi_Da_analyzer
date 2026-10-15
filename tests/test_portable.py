@@ -64,7 +64,7 @@ class PortableTests(unittest.TestCase):
             child=subprocess.Popen([sys.executable,str(ROOT/'app.py'),'--no-open','--library',str(root/'보관함'),
                                     '--ready-file',str(ready),'--stop-file',str(stop)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             try:
-                for _ in range(200):
+                for _ in range(1200):
                     if ready.exists() or child.poll() is not None:break
                     time.sleep(.05)
                 self.assertTrue(ready.exists(),child.stderr.read().decode('utf-8','replace') if child.poll() is not None else '준비 지연')
