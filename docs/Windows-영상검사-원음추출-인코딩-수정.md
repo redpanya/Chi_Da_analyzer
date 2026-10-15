@@ -20,12 +20,28 @@ Windows에서 치지직 다운로드 뒤 `the JSON object must be str, bytes or 
 
 ## 검증 기준과 현재 기록
 
-- 새 미디어 JSON 검사 6개: macOS 5개 통과, Windows 읽기 스레드 재현 1개는 Windows CI에서 실행한다. CP949 환경을 모의한 실제 바이트 파이프, 한글·일본어·이모지 보존, 빈/손상 출력, 트랙·길이 검사, 시간 초과·파일 오류 전파를 확인했다.
+- 새 미디어 JSON 검사 6개: macOS 5개 통과·Windows 전용 1개 건너뜀, Windows CI 6개 통과. CP949 환경을 모의한 실제 바이트 파이프, 한글·일본어·이모지 보존, 빈/손상 출력, 트랙·길이 검사, 시간 초과·파일 오류 전파를 확인했다. 실제 Windows subprocess에서 기존 방식의 디코딩 오류·`stdout=None`·동일 TypeError를 재현했다.
 - 기존 다운로드 검사 2개, 로컬 가져오기 검사 6개, 전사·원음 추출·보존 검사 17개 통과. 로컬 HTTP 검사는 샌드박스의 루프백 바인딩 제한을 해제한 뒤 통과했다. 전체 테스트 모음·모델 추론을 실행한 결과는 아니다.
 - macOS 개발 실행에서 임시 1초 H.264/AAC 영상으로 수신 후 검사 재개 → 실제 ffprobe·전체 디코딩 → 원음 정보 API → 원음 추출 API를 통과했다. 출력은 16kHz·모노·16비트 PCM·16,000프레임이며 원본 SHA-256과 채팅 바이트가 유지됐다. 네트워크 수신 부분만 대체했고 실제 치지직 다운로드를 새로 실행하지 않았다.
 - CI 기본 실행 검사를 위 미디어 흐름까지 확장했다. 패키지 자식 프로세스에 CI의 UTF-8 강제 설정을 넘기지 않는다. Windows CP949 재현 검사는 기존 `text=True` 방식에서 디코딩 예외·`stdout=None`·동일 TypeError가 함께 발생하는지 확인한다.
-- Windows와 macOS의 수정 패키지 실행 결과 및 다운로드 위치는 CI 완료 후 아래에 기록한다. 실제 사용자 Windows PC의 장시간 다운로드·전사·GPU 추론은 별도 확인 대상이다.
+- 실제 사용자 Windows PC의 장시간 다운로드·전사·GPU 추론은 별도 확인 대상이다.
+
+## Windows·macOS CI 결과
+
+- 커밋 `e887165cd7fafa1a622c215c6f35793a5788dd92`, [Actions 38749503182](https://github.com/redpanya/Chi_Da_analyzer/actions/runs/38749503182): Windows-x64·macOS-arm64 모두 빌드와 패키지 실행 검사 통과.
+- 다운로드 이후 원본 검사 재개, 실제 패키지의 음성 트랙 조회와 원음 추출 API, 출력 WAV의 1초·16kHz·모노·16비트 형식과 SHA-256, 원본 영상·채팅 보존 확인까지 통과했다. 실제 모델 추론이나 외부 치지직 서버 수신 성공을 대신하는 결과는 아니다.
+- 패키지 진단값은 Windows `text_encoding=cp1252`, `python_utf8_mode=0`, macOS `text_encoding=UTF-8`, `python_utf8_mode=0`이었다. UTF-8 모드를 강제하지 않은 Windows 패키지에서도 한글 경로·다국어 제목을 정상 처리했다. CP949의 기존 오류 재현은 같은 Windows CI의 별도 검사에서 확인했다.
+- 첫 CI 실행에서는 새 검사의 재생 경로 문자열을 `/`로 고정 비교해 Windows `\\` 경로에서 테스트가 실패했다. 앱의 영상 검사는 이미 완료된 상태였으며, 테스트 비교를 `Path`로 바꾼 다음 두 OS 검사가 통과했다. 앱의 저장 경로 형식을 일괄 변경하지 않았다.
 
 ## 기존 자료로 재시도
 
 수정본으로 앱을 교체하되 보관함과 모델 폴더는 유지한다. 영상 검사가 오류로 남아 있으면 같은 VOD의 영상 이어받기/재시도로 검사부터 다시 진행한다. 기존 원본과 수신 식별 정보가 일치해야 하며 제공 영상 정보가 달라진 경우에는 기존 충돌 보호를 유지한다. 영상이 이미 완료 상태이면 음성 전사 메뉴에서 원음 정보를 다시 불러와 원음 추출을 실행한다. 보관함 삭제나 Windows 언어 설정 변경은 필요하지 않다.
+
+## 수정 배포본
+
+[GitHub Releases](https://github.com/redpanya/Chi_Da_analyzer/releases)의 `v0.18.0-preview.3` 비공개 초안으로 준비했다. 이전 preview.1·preview.2와 저장소 비공개 상태는 유지했다. Windows에서는 ZIP 전체를 새 폴더에 풀고 이전 실행기를 종료한 뒤 실행한다.
+
+- Windows ZIP: `Chi_Da_analyzer-Windows-x64.zip`, 126,704,798바이트. SHA-256 `31f2908f84a10285b56c189a47c7de6e10684a36c0bd17548594eeedc3efa3c1`.
+- macOS ZIP: `Chi_Da_analyzer-macOS-arm64.zip`, 102,066,321바이트. SHA-256 `936d64e57a9a81b76dd919728ee072b410288aaf2430523a673c3beb8f90a676`.
+- 각 OS 실행 기록 JSON, SHA256SUMS, 네이티브 대응 소스를 함께 업로드했다. CI 아티팩트 체크섬과 업로드한 ZIP의 서버 체크섬·크기를 확인했다.
+- ZIP의 모델·영상·오디오 미포함과 기존 Windows Vulkan 실행기 포함을 확인했다. Windows 미서명, macOS 임시 서명·미공증 상태를 유지한다. DMG는 생성하지 않았다.
