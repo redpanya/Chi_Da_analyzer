@@ -26,9 +26,9 @@ make -j3
 make install
 cd "${ffmpeg_source[0]}"
 ./configure --prefix="$prefix" --pkg-config-flags=--static --disable-autodetect --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay --disable-x86asm --enable-gpl --enable-libx264 "${extra[@]}"
-make -j3 ffmpeg ffprobe
 suffix=""
 [[ "${OSTYPE:-}" != msys* ]] || suffix=.exe
+make -j3 "ffmpeg$suffix" "ffprobe$suffix"
 cp "ffmpeg$suffix" "ffprobe$suffix" "$root/build/native/ffmpeg/"
 cp COPYING.GPLv2 LICENSE.md "$root/build/native/ffmpeg/"
 cp "${x264_source[0]}/COPYING" "$root/build/native/ffmpeg/x264-COPYING"

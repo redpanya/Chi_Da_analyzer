@@ -67,23 +67,37 @@ jobs:
       - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
         id: native-cache
         with:
-          path: build/native
-          key: native-${{ matrix.label }}-${{ hashFiles('packaging/release/sources.json', 'packaging/release/build_native.py', 'packaging/release/build_ffmpeg.sh') }}
+          path: |
+            build/native/llama
+            build/native/whisper
+          key: infer-${{ matrix.label }}-${{ hashFiles('packaging/release/sources.json', 'packaging/release/build_native.py') }}
       - name: 전사·요약 엔진 빌드
         if: steps.native-cache.outputs.cache-hit != 'true'
         run: python packaging/release/build_native.py
-      - name: FFmpeg 빌드 (macOS)
-        if: runner.os == 'macOS' && steps.native-cache.outputs.cache-hit != 'true'
-        run: bash packaging/release/build_ffmpeg.sh
-      - name: FFmpeg 빌드 (Windows)
-        if: runner.os == 'Windows' && steps.native-cache.outputs.cache-hit != 'true'
-        shell: msys2 {0}
-        run: bash packaging/release/build_ffmpeg.sh
       - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
         if: steps.native-cache.outputs.cache-hit != 'true'
         with:
-          path: build/native
+          path: |
+            build/native/llama
+            build/native/whisper
           key: ${{ steps.native-cache.outputs.cache-primary-key }}
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        id: media-cache
+        with:
+          path: build/native/ffmpeg
+          key: media-${{ matrix.label }}-${{ hashFiles('packaging/release/sources.json', 'packaging/release/build_ffmpeg.sh') }}
+      - name: FFmpeg 빌드 (macOS)
+        if: runner.os == 'macOS' && steps.media-cache.outputs.cache-hit != 'true'
+        run: bash packaging/release/build_ffmpeg.sh
+      - name: FFmpeg 빌드 (Windows)
+        if: runner.os == 'Windows' && steps.media-cache.outputs.cache-hit != 'true'
+        shell: msys2 {0}
+        run: bash packaging/release/build_ffmpeg.sh
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        if: steps.media-cache.outputs.cache-hit != 'true'
+        with:
+          path: build/native/ffmpeg
+          key: ${{ steps.media-cache.outputs.cache-primary-key }}
       - name: Python 실행기 패키징
         run: python -m PyInstaller --noconfirm --clean --distpath build/frozen --workpath build/pyinstaller packaging/release/backend.spec
       - name: 앱 구성
