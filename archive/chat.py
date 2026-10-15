@@ -1,16 +1,17 @@
 """원본 페이지 기반 재개와 메모리 사용을 제한한 채팅 내보내기·경계 검사."""
 
-from collections import Counter
 from contextlib import closing
 import csv
 from datetime import datetime, timezone
 import json
+import heapq
 from pathlib import Path
 import sqlite3
 import uuid
 
 from .source import Cancelled, check_cancel, request_json
 from .storage import save_json, read_json
+from . import chat_boundary
 
 
 def validate(payload, cursor):
@@ -33,7 +34,7 @@ def fetch(vod, cursor, stop):
 
 
 def fingerprint(message):
-    return json.dumps(message, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+    return chat_boundary.fingerprint(message)
 
 
 def row(message, vod, sequence, status):
@@ -66,35 +67,44 @@ def safe_csv(value):
     return "'" + value if isinstance(value, str) and value.startswith(('=', '+', '-', '@', '\t', '\r')) else value
 
 
-def export(project, paths, label, stop):
+def export(project, paths, label, stop, extras=None):
     generation = project.path / 'exports' / uuid.uuid4().hex
     generation.mkdir(parents=True)
     db = sqlite3.connect(generation / 'counts.sqlite')
     db.execute('CREATE TABLE counts (fingerprint TEXT PRIMARY KEY, amount INTEGER NOT NULL)')
     vod = project.data['vod_id']
     count, failed = 0, 0
+    extra_iterator = chat_boundary.extra_messages(extras) if extras else None
     try:
         with (generation / 'chat.json').open('w', encoding='utf-8') as js, (generation / 'chat.jsonl').open('w', encoding='utf-8') as jl, (generation / 'chat.csv').open('w', encoding='utf-8-sig', newline='') as cs, (generation / 'chat.txt').open('w', encoding='utf-8') as tx:
             js.write(json.dumps({'vod_id': vod, 'collection_status': label, 'time_basis': 'VOD 경과 밀리초'}, ensure_ascii=False)[:-1] + ',"messages":[\n')
             tx.write(f'VOD {vod} / {label} / 영상 경과시간 기준\n')
             writer = csv.DictWriter(cs, fieldnames=list(row({'playerMessageTime': 0}, vod, 0, label)))
             writer.writeheader()
-            for sequence, path in enumerate(paths):
+            def original_messages():
+                for sequence, path in enumerate(paths):
+                    check_cancel(stop)
+                    wrapper = read_json(path)
+                    for message in wrapper['response']['content']['videoChats']:
+                        yield message, sequence
+            messages = original_messages()
+            if extras:
+                messages = heapq.merge(messages, extra_iterator, key=lambda item: item[0]['playerMessageTime'])
+            for message, sequence in messages:
                 check_cancel(stop)
-                wrapper = read_json(path)
-                for message in wrapper['response']['content']['videoChats']:
-                    item = row(message, vod, sequence, label)
-                    encoded = json.dumps(item, ensure_ascii=False)
-                    js.write((',' if count else '') + encoded + '\n')
-                    jl.write(encoded + '\n')
-                    writer.writerow({key: safe_csv(value) for key, value in item.items()})
-                    tx.write(f"[{item['timecode']}] {json.dumps(item['nickname'], ensure_ascii=False)}: {json.dumps(item['text'], ensure_ascii=False)}\n")
-                    db.execute('INSERT INTO counts VALUES (?, 1) ON CONFLICT(fingerprint) DO UPDATE SET amount=amount+1', (fingerprint(message),))
-                    count += 1
-                    failed += item['profile_parse_failed']
+                item = row(message, vod, sequence, label)
+                encoded = json.dumps(item, ensure_ascii=False)
+                js.write((',' if count else '') + encoded + '\n')
+                jl.write(encoded + '\n')
+                writer.writerow({key: safe_csv(value) for key, value in item.items()})
+                tx.write(f"[{item['timecode']}] {json.dumps(item['nickname'], ensure_ascii=False)}: {json.dumps(item['text'], ensure_ascii=False)}\n")
+                db.execute('INSERT INTO counts VALUES (?, 1) ON CONFLICT(fingerprint) DO UPDATE SET amount=amount+1', (fingerprint(message),))
+                count += 1
+                failed += item['profile_parse_failed']
             js.write(']}\n')
         db.commit()
     finally:
+        if extra_iterator is not None: extra_iterator.close()
         db.close()
     save_json(generation / 'summary.json', {'status': label, 'messages': count, 'profile_parse_failed': failed})
     return generation, count
@@ -110,7 +120,7 @@ def collect(project, stop):
                        progress={'messages': 0, 'pages': 0}, assets=export_assets(project, generation))
         return
     cursor, count, previous, overlap = 0, 0, None, False
-    paths, cursors = [], {0}
+    paths, cursors, boundaries = [], {0}, {}
     cached = sorted(p for p in pages.glob('*.json') if not p.name.startswith('._'))
     paused = False
     try:
@@ -147,6 +157,8 @@ def collect(project, stop):
                     raise ValueError('종료 커서 뒤에 추가 보존 페이지가 있습니다')
                 break
             cursors.add(cursor - 1)
+            if messages and cursor == messages[-1]['playerMessageTime']:
+                boundaries[cursor-1] = sequence
             if sequence >= len(cached) and stop.wait(.2):
                 raise Cancelled()
         else:
@@ -162,30 +174,48 @@ def collect(project, stop):
         return
     project.update('chat', state='exporting', message='채팅 결과를 정리하고 경계를 검사하고 있습니다')
     generation, count = export(project, paths, '제공 범위 순회 완료 · 경계 검증 전', stop)
-    checks = []
-    with closing(sqlite3.connect(generation / 'counts.sqlite')) as db:
+    checks, fetched, reused = [], 0, 0
+    database = generation/'counts.sqlite'
+    with closing(sqlite3.connect(database)) as db:
+        chat_boundary.prepare(db)
         for cursor in sorted(cursors):
             check_cancel(stop)
-            payload = fetch(vod, cursor, stop)
+            saved = project.path/'diagnostics/chat-audit'/f'{cursor}.json'
+            if saved.is_symlink() or saved.parent.is_symlink():
+                raise ValueError('채팅 경계 검사 경로의 연결 파일은 사용할 수 없습니다')
+            if saved.exists():
+                payload = read_json(saved)
+                reused += 1
+            else:
+                payload = fetch(vod, cursor, stop)
+                validate(payload, cursor)
+                save_json(saved, payload)
+                fetched += 1
             messages, _ = validate(payload, cursor)
-            save_json(project.path / 'diagnostics' / 'chat-audit' / f'{cursor}.json', payload)
-            missing = 0
-            for key, occurrences in Counter(fingerprint(m) for m in messages).items():
-                found = db.execute('SELECT amount FROM counts WHERE fingerprint=?', (key,)).fetchone()
-                missing += max(0, occurrences - (found[0] if found else 0))
-            dense = len(messages) >= 200 and len({m['playerMessageTime'] for m in messages}) == 1
-            checks.append({'cursor': cursor, 'missing': missing, 'single_timestamp_full_page': dense})
-            if stop.wait(.15):
-                raise Cancelled()
+            checks.append(chat_boundary.reconcile(db, messages, cursor, boundaries.get(cursor)))
+            if stop.wait(.15): raise Cancelled()
     valid = not overlap and all(not c['missing'] and not c['single_timestamp_full_page'] for c in checks)
-    save_json(project.path / 'diagnostics' / 'chat-audit.json', {'checks': checks, 'overlap': overlap, 'match': valid})
-    label = ('제공 범위 순회·경계 대조 완료' if count else '현재 제공된 채팅 없음') if valid else '제공 범위 순회 · 경계 검증 필요'
-    # 확정 상태를 모든 내보내기 형식에 동일하게 기록한다. 이전 묶음은 참조를 바꾼 뒤에도 보존한다.
-    final, _ = export(project, paths, label, stop)
+    audit = {'checks': checks, 'overlap': overlap, 'match': valid, 'revision': 2,
+             'cached_requests': reused, 'network_requests': fetched,
+             'recovered': sum(c['recovered'] for c in checks)}
+    save_json(generation/'boundary-recovery.json', audit)
+    if not (project.path/'diagnostics/chat-audit.json').exists():
+        save_json(project.path/'diagnostics/chat-audit.json', audit)
+    recovered = audit['recovered']
+    label = ('제공 범위 순회·경계 대조 완료' if count or recovered else '현재 제공된 채팅 없음') if valid else '제공 범위 순회 · 경계 검증 필요'
+    # 원본 페이지와 이전 내보내기는 유지하고, 보완분을 시간순으로 합친 새 묶음만 연결한다.
+    final, count = export(project, paths, label, stop, extras=database)
+    save_json(final/'boundary-recovery.json', audit | {'source_generation': str(generation.relative_to(project.path))})
+    progress = project.snapshot()['tasks']['chat'].get('progress', {}) | {'messages': count}
+    message = label+(f' · 경계 누락 {recovered}건 보완' if recovered else '')
+    missing = sum(c['missing'] for c in checks)
+    if not valid: message += f' · 미확인 {missing}건'+(' · 페이지 겹침' if overlap else '')+(' · 같은 시각의 응답 한도 도달' if any(c['single_timestamp_full_page'] for c in checks) else '')
     project.update('chat', state=('complete' if count else 'empty') if valid else 'review',
-                   message=label, assets=export_assets(project, final),
-                   verification={'boundary_requests': len(checks), 'missing': sum(c['missing'] for c in checks),
-                                 'scope': '현재 제공 범위이며 삭제 전 역사적 전체 건수 대조가 아님'})
+                   message=message, assets=export_assets(project, final), progress=progress,
+                   verification={'boundary_requests': len(checks), 'missing': missing, 'recovered': recovered,
+                                 'cached_requests': reused, 'network_requests': fetched,
+                                 'audit': str((final/'boundary-recovery.json').relative_to(project.path)),
+                                 'scope': '저장된 제공 응답의 경계 대조이며 삭제 전 역사적 전체 건수 대조가 아님'})
 
 
 def export_assets(project, generation):

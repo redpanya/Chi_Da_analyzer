@@ -8,10 +8,12 @@ import shutil
 import subprocess
 from . import processes
 import time
+import uuid
 
 from yt_dlp import YoutubeDL
 from .source import Cancelled, check_cancel, metadata, ydl_options
 from .storage import save_json, read_json, Conflict
+from . import media_timeline
 
 
 def playlist(text):
@@ -23,7 +25,7 @@ def playlist(text):
 
 def run_media(args, project, stop, log_name):
     log = project.path / 'diagnostics' / log_name
-    log.parent.mkdir(exist_ok=True)
+    log.parent.mkdir(parents=True, exist_ok=True)
     with log.open('wb') as errors:
         # 부모가 강제 종료돼도 쓰는 자식이 종료될 때까지 프로젝트 잠금을 유지한다.
         process = processes.popen(args, stdout=subprocess.DEVNULL, stderr=errors,
@@ -81,6 +83,33 @@ def reusable_mp4(path, info):
             and browser_streams(info) and math.isfinite(start) and abs(start) < .05)
 
 
+def received_original(media, data):
+    """수신 후 probe까지 도달한 원본만 네트워크 없이 다시 검사한다."""
+    original, source, receipt = media/'original.mp4', media/'source.json', media/'probe.json'
+    if not all(p.is_file() for p in (original, source, receipt)) or any(media.glob('original.mp4.part*')):
+        return False
+    saved, info = read_json(source), read_json(receipt)
+    if saved.get('id') != data['vod_id'] or saved.get('format_id') != data['format_id']:
+        raise Conflict('저장된 원본의 VOD·화질이 다릅니다. 기존 파일은 보존했습니다')
+    try:
+        size = original.stat().st_size
+        if size <= 0 or int(info['format']['size']) != size:
+            raise ValueError()
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError('수신 후 검사 기록과 원본 크기가 다릅니다. 기존 파일을 보존하고 확인하세요') from error
+    if saved.get('protocol') == 'm3u8_native':
+        return bool(saved.get('playlist', {}).get('end') and saved['playlist'].get('durations'))
+    return saved.get('protocol') == 'https' and saved.get('filesize') in (None, size)
+
+
+def validate_playback(project, original, original_info, playback, playback_info, copied, stop):
+    cache = project.path/'media/packet-checks'
+    def update(**values): project.update('video', **values)
+    source = media_timeline.scan(original, original_info, cache, stop, project.lock, update)
+    target = media_timeline.scan(playback, playback_info, cache, stop, project.lock, update)
+    return media_timeline.compare(source, target, copied=copied)
+
+
 def download(project, stop):
     if not shutil.which('ffmpeg') or not shutil.which('ffprobe'):
         raise ValueError('FFmpeg와 ffprobe 설치 경로를 확인한 뒤 다시 실행하세요')
@@ -110,75 +139,104 @@ def download(project, stop):
             last = time.monotonic()
 
     options = ydl_options() | {'format': format_id, 'outtmpl': str(original), 'progress_hooks': [progress]}
-    with YoutubeDL(options) as downloader:
-        info = downloader.extract_info(f'https://chzzk.naver.com/video/{vod}', download=False)
-        check_cancel(stop)
-        if info.get('id') != vod or info.get('format_id') != format_id or info.get('has_drm'):
-            raise Conflict('선택한 영상·화질과 현재 제공 정보가 다릅니다')
-        protocol = info.get('protocol')
-        if info.get('ext') != 'mp4' or protocol not in ('m3u8_native', 'https'):
-            raise ValueError('현재 지원하는 MP4 전송 경로가 아닙니다')
-        identity = {key: info.get(key) for key in ('id', 'format_id', 'ext', 'protocol', 'width', 'height', 'vcodec', 'acodec')}
-        if protocol == 'm3u8_native':
-            with downloader.urlopen(info['url']) as response:
-                identity['playlist'] = playlist(response.read().decode())
-            if not identity['playlist']['end'] or not identity['playlist']['durations']:
-                raise ValueError('아직 확정되지 않은 영상 목록입니다. 나중에 다시 확인하세요')
-        else:
-            identity['filesize'] = info.get('filesize')
-        source = media / 'source.json'
-        if source.exists():
-            if read_json(source) != identity:
-                raise Conflict('이전 영상·화질·조각 목록과 달라 이어받기를 중단했습니다. 원본은 유지됩니다')
-        else:
-            if any(media.glob('original.mp4*')):
-                raise Conflict('식별 정보가 없는 영상은 자동 인수하지 않습니다')
-            save_json(source, identity)
-        downloader.process_info(info)
-        check_cancel(stop)
-        if not original.is_file() or original.stat().st_size == 0:
-            raise ValueError('완성된 영상 파일이 없습니다')
-        if protocol == 'm3u8_native':
-            with downloader.urlopen(info['url']) as response:
-                if playlist(response.read().decode()) != identity['playlist']:
-                    raise ValueError('수신 중 영상 목록이 바뀌었습니다. 검증이 필요합니다')
-        latest = metadata(vod, stop)
-        if latest['duration'] != info.get('duration'):
-            raise ValueError('수신 중 영상 길이가 바뀌었습니다. 검증이 필요합니다')
-    project.update('video', state='verifying', message='수신 완료 · 영상 전체를 검사하고 있습니다')
+    offline = received_original(media, data)
+    if not offline:
+        with YoutubeDL(options) as downloader:
+            info = downloader.extract_info(f'https://chzzk.naver.com/video/{vod}', download=False)
+            check_cancel(stop)
+            if info.get('id') != vod or info.get('format_id') != format_id or info.get('has_drm'):
+                raise Conflict('선택한 영상·화질과 현재 제공 정보가 다릅니다')
+            protocol = info.get('protocol')
+            if info.get('ext') != 'mp4' or protocol not in ('m3u8_native', 'https'):
+                raise ValueError('현재 지원하는 MP4 전송 경로가 아닙니다')
+            identity = {key: info.get(key) for key in ('id', 'format_id', 'ext', 'protocol', 'width', 'height', 'vcodec', 'acodec')}
+            if protocol == 'm3u8_native':
+                with downloader.urlopen(info['url']) as response:
+                    identity['playlist'] = playlist(response.read().decode())
+                if not identity['playlist']['end'] or not identity['playlist']['durations']:
+                    raise ValueError('아직 확정되지 않은 영상 목록입니다. 나중에 다시 확인하세요')
+            else:
+                identity['filesize'] = info.get('filesize')
+            source = media / 'source.json'
+            if source.exists():
+                if read_json(source) != identity:
+                    raise Conflict('이전 영상·화질·조각 목록과 달라 이어받기를 중단했습니다. 원본은 유지됩니다')
+            else:
+                if any(media.glob('original.mp4*')):
+                    raise Conflict('식별 정보가 없는 영상은 자동 인수하지 않습니다')
+                save_json(source, identity)
+            downloader.process_info(info)
+            check_cancel(stop)
+            if not original.is_file() or original.stat().st_size == 0:
+                raise ValueError('완성된 영상 파일이 없습니다')
+            if protocol == 'm3u8_native':
+                with downloader.urlopen(info['url']) as response:
+                    if playlist(response.read().decode()) != identity['playlist']:
+                        raise ValueError('수신 중 영상 목록이 바뀌었습니다. 검증이 필요합니다')
+            latest = metadata(vod, stop)
+            if latest['duration'] != info.get('duration'):
+                raise ValueError('수신 중 영상 길이가 바뀌었습니다. 검증이 필요합니다')
+    run_id = uuid.uuid4().hex
+    diagnostics = project.path/'diagnostics'/run_id
+    diagnostics.mkdir(parents=True)
+    save_json(diagnostics/'project-before.json', data)
+    project.update('video', state='verifying', message='저장된 원본을 다시 검사합니다' if offline else '수신 완료 · 영상 전체를 검사하고 있습니다',
+                   progress={'downloaded_bytes': original.stat().st_size, 'total_bytes': original.stat().st_size})
     original_info = probe(original)
-    save_json(media / 'probe.json', original_info)
+    original_identity = media_timeline.identity(original)
+    save_json(diagnostics/'original-probe.json', original_info)
+    if not (media/'probe.json').exists(): save_json(media/'probe.json', original_info)
     run_media(['ffmpeg', '-nostdin', '-v', 'error', '-xerror', '-i', str(original),
-               '-map', '0:v:0', '-map', '0:a:0?', '-f', 'null', '-'], project, stop, 'decode.log')
-    playback, playback_info, mode = original, original_info, 'original'
+               '-map', '0:v:0', '-map', '0:a:0?', '-f', 'null', '-'], project, stop, run_id+'/decode.log')
+    playback, playback_info, mode, timeline = original, original_info, 'original', None
+    reused = False
     if reusable_mp4(original, original_info):
         project.update('video', message='호환 MP4 원본을 재생·음성 추출에 함께 사용합니다')
     else:
         copy_streams = browser_streams(original_info)
-        needed = original.stat().st_size * (1 if copy_streams else 2) + 256 * 1024 * 1024
-        if shutil.disk_usage(media).free < needed:
-            raise OSError(28, '별도 재생용 MP4를 만들 공간이 부족합니다. 다운로드한 원본은 유지됩니다')
-        project.update('video', message='원본을 유지하고 호환 재생용 MP4를 만들고 있습니다')
-        temporary, playback = media / 'playback.tmp.mp4', media / 'playback.mp4'
-        encoding = ['-c', 'copy'] if copy_streams else ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18',
-                                                        '-pix_fmt', 'yuv420p', '-c:a', 'aac']
         mode = 'remux' if copy_streams else 'transcode'
-        run_media(['ffmpeg', '-nostdin', '-v', 'error', '-y', '-i', str(original), '-map', '0:v:0',
-                   '-map', '0:a:0?', *encoding, '-movflags', '+faststart', str(temporary)], project, stop, mode+'.log')
-        playback_info = probe(temporary)
-        if abs(float(playback_info['format']['duration'])-float(original_info['format']['duration'])) > 1:
-            raise ValueError('재생용 영상의 길이가 달라졌습니다. 원본은 보존했습니다')
-        check_cancel(stop)
-        temporary.replace(playback)
+        # 이전 임시 재생본도 전체 패킷 내용이 같을 때만 재사용한다. 파일 이름은 유지한다.
+        if copy_streams:
+            for candidate in (media/'playback.mp4', media/'playback.tmp.mp4'):
+                if not candidate.is_file(): continue
+                try:
+                    candidate_info = probe(candidate)
+                    if not reusable_mp4(candidate, candidate_info): continue
+                    timeline = validate_playback(project, original, original_info, candidate, candidate_info, True, stop)
+                except ValueError as error:
+                    save_json(diagnostics/(candidate.name+'.rejected.json'), {'error': str(error)})
+                    continue
+                playback, playback_info, reused = candidate, candidate_info, True
+                break
+        if not reused:
+            needed = original.stat().st_size * (1 if copy_streams else 2) + 256 * 1024 * 1024
+            if shutil.disk_usage(media).free < needed:
+                raise OSError(28, '별도 재생용 MP4를 만들 공간이 부족합니다. 기존 파일은 유지됩니다')
+            project.update('video', message='기존 파일을 유지하고 새 호환 재생용 MP4를 만들고 있습니다')
+            temporary, playback = media/f'playback-{run_id}.part.mp4', media/f'playback-{run_id}.mp4'
+            encoding = ['-c', 'copy'] if copy_streams else ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18',
+                                                         '-pix_fmt', 'yuv420p', '-c:a', 'aac']
+            run_media(['ffmpeg', '-nostdin', '-v', 'error', '-y', '-i', str(original), '-map', '0:v:0',
+                       '-map', '0:a:0?', *encoding, '-movflags', '+faststart', str(temporary)], project, stop, run_id+'/'+mode+'.log')
+            playback_info = probe(temporary)
+            timeline = validate_playback(project, original, original_info, temporary, playback_info, copy_streams, stop)
+            check_cancel(stop)
+            temporary.replace(playback)
+    playback_identity = media_timeline.identity(playback)
     digest = hashlib.sha256()
     with original.open('rb') as file:
         while chunk := file.read(4 * 1024 * 1024):
             check_cancel(stop)
             digest.update(chunk)
+    if media_timeline.identity(original) != original_identity or media_timeline.identity(playback) != playback_identity:
+        raise ValueError('검사 중 영상 파일이 변경됐습니다. 기존 결과를 보존하고 다시 확인하세요')
     verification = {'decode_exit_code': 0, 'original_sha256': digest.hexdigest(),
                     'bytes': original.stat().st_size, 'duration': float(playback_info['format']['duration']),
-                    'original_start': original_info['format'].get('start_time'), 'playback_mode': mode}
-    save_json(media / 'verification.json', verification)
+                    'original_start': original_info['format'].get('start_time'), 'playback_mode': mode,
+                    'timeline': timeline, 'received_file_reused': offline, 'playback_file_reused': reused}
+    save_json(diagnostics/'verification.json', verification)
+    if not (media/'verification.json').exists(): save_json(media/'verification.json', verification)
     project.update('video', state='complete', message='영상 수신과 전체 검사 완료 · '+
-                   ('원본을 재생·음성 추출에 함께 사용합니다' if mode == 'original' else '별도 재생용 MP4를 사용합니다'),
+                   ('원본을 재생·음성 추출에 함께 사용합니다' if mode == 'original' else
+                    '저장된 재생본의 패킷 보존 확인·복구 완료' if reused else '별도 재생용 MP4를 사용합니다'),
                    verification=verification, assets={'original': 'media/original.mp4', 'playback': str(playback.relative_to(project.path))})

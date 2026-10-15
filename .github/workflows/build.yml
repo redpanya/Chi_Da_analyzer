@@ -53,6 +53,7 @@ jobs:
           python -m unittest discover -s tests -p test_portable.py -v
           python -m unittest discover -s tests -p test_compute.py -v
           python -m unittest discover -s tests -p test_media_probe.py -v
+          python -m unittest discover -s tests -p test_import_recovery.py -v
       - name: macOS 빌드 도구
         if: runner.os == 'macOS'
         run: |

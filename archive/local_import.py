@@ -99,7 +99,8 @@ class Upload:
                 pending=self.folder/'import-playback.part.mp4'
                 video.run_media(['ffmpeg','-nostdin','-v','error','-y','-i',str(self.part),'-map','0:v:0','-map','0:a?','-c:v','libx264','-preset','veryfast','-crf','18','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart',str(pending)],self.project,self.stop,'import-playback.log')
                 check=video.probe(pending)
-                if abs(float(check['format']['duration'])-duration)>1:raise ValueError('재생용 영상의 길이가 달라졌습니다')
+                video.validate_playback(self.project,self.part,detail,pending,check,False,self.stop)
+                duration=float(check['format']['duration'])
                 video.run_media(['ffmpeg','-nostdin','-v','error','-xerror','-i',str(pending),'-f','null','-'],self.project,self.stop,'import-playback-check.log')
                 playback=self.folder/'import-playback.mp4';pending.replace(playback)
             check_cancel(self.stop)

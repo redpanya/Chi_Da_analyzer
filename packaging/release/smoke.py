@@ -42,6 +42,7 @@ def main():
         assert {s['codec_name'] for s in json.loads(probe)['streams']}=={'h264','aac'}
         subprocess.run([ffmpeg,'-v','error','-xerror','-i',str(movie),'-f','null','-'],check=True,timeout=30)
         fixture=media_smoke.prepare(work,movie,ffmpeg)
+        recovery_fixture=media_smoke.prepare_recovery(work,movie,ffmpeg)
         ready=work/'ready.json';stop=work/'stop'
         with (work/'run.log').open('wb') as log:
             proc=subprocess.Popen([str(binary),'--no-open','--library',str(work/'보관함'),
@@ -64,11 +65,13 @@ def main():
                         with http.open(request,timeout=30) as response: applied=json.load(response)
                         assert applied['compute']['mode']==mode
                 report['media_pipeline']=media_smoke.check(http,url,fixture)
+                report['import_recovery']=media_smoke.check_recovery(http,url,recovery_fixture)
                 stop.touch();assert proc.wait(timeout=20)==0;assert not ready.exists()
             finally:
                 if proc.poll() is None:proc.kill();proc.wait(timeout=10)
         report['checks']=['포함 도구 실행','H.264/AAC 생성·읽기·디코딩','한글·공백 경로·다국어 제목',
                           '다운로드 후 검사 재개 (수신 대체)','패키지 원음 정보·추출 API','원본·채팅 보존',
+                          '시작 시각 이동·기존 임시 재생본 복구','저장된 경계 응답의 채팅 보완',
                           'HTTP 및 정적 모듈','정상 종료']
         (ROOT/'dist/smoke.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
         print('패키지 기본 실행 검사 통과 (모델 추론 제외)')
