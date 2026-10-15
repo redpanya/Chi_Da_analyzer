@@ -1,5 +1,6 @@
 """앱에 포함한 도구와 사용자 설정. 개발 실행의 환경은 변경하지 않는다."""
 import os
+import locale
 from pathlib import Path
 import shutil
 import subprocess
@@ -78,5 +79,6 @@ def diagnose():
         if r.returncode: raise RuntimeError(f'{name} 실행 실패')
         tools[name] = {'path':file,'version':(r.stdout+r.stderr).splitlines()[0]}
     return {'frozen':FROZEN,'python':sys.version,'executable':sys.executable,'tools':tools,
+            'text_encoding':locale.getencoding(),'python_utf8_mode':sys.flags.utf8_mode,
             'engines':{name:version(name) for name in ['yt-dlp','sherpa-onnx','numpy','soundfile']},
             'certificate':os.environ.get('SSL_CERT_FILE'), 'compute':compute.status()}

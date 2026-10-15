@@ -19,7 +19,7 @@ def contract(profile="standard"):
 
 def validate(file,duration_ms,rate=48000):
     # ffprobe는 영상 전용 검사와 분리하여 오디오 형식·길이만 검사한다.
-    result=subprocess.run(['ffprobe','-v','error','-show_streams','-show_format','-of','json',str(file)],capture_output=True,text=True,timeout=30)
+    result=subprocess.run(['ffprobe','-v','error','-show_streams','-show_format','-of','json',str(file)],capture_output=True,timeout=30)
     if result.returncode:raise ValueError('음성 분리 파일을 읽을 수 없습니다')
     value=json.loads(result.stdout);stream=value['streams'][0]
     if int(stream.get('sample_rate',0))!=rate or stream.get('channels')!=1 or abs(float(value['format']['duration'])*1000-duration_ms)>1:

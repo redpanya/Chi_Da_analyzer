@@ -40,14 +40,26 @@ def run_media(args, project, stop, log_name):
 
 
 def probe(path):
+    # ffprobe JSON은 UTF-8이다. Windows 기본 문자셋의 읽기 스레드에서 디코딩하지 않는다.
     result = subprocess.run(['ffprobe', '-v', 'error', '-show_format', '-show_streams',
-                             '-of', 'json', str(path)], capture_output=True, text=True, timeout=30)
+                             '-of', 'json', str(path)], capture_output=True, timeout=30)
     if result.returncode:
         raise ValueError('받은 영상 파일을 읽을 수 없습니다. 원본을 보존했습니다')
-    info = json.loads(result.stdout)
-    if not any(s['codec_type'] == 'video' for s in info.get('streams', [])):
+    try:
+        info = json.loads(result.stdout)
+        if (not isinstance(info, dict) or not isinstance(info.get('format'), dict)
+                or not isinstance(info.get('streams'), list)
+                or not all(isinstance(s, dict) for s in info['streams'])):
+            raise ValueError('잘못된 영상 정보 구조')
+    except (TypeError, ValueError) as error:
+        raise ValueError('영상 정보(ffprobe JSON)가 비어 있거나 올바르지 않습니다. 원본을 보존했습니다') from error
+    if not any(s.get('codec_type') == 'video' for s in info['streams']):
         raise ValueError('영상 트랙이 없습니다')
-    if float(info['format'].get('duration', 0)) <= 0:
+    try:
+        duration = float(info['format'].get('duration', 0))
+    except (TypeError, ValueError) as error:
+        raise ValueError('영상 길이를 확인할 수 없습니다') from error
+    if not math.isfinite(duration) or duration <= 0:
         raise ValueError('영상 길이를 확인할 수 없습니다')
     return info
 

@@ -18,7 +18,7 @@ def contract(profile='fast'):
             'context_seconds':8,'overlap':p['overlap'],'fp16':p['fp16'],'gain':1,'version':1}
 
 def validate(file,duration):
-    result=subprocess.run(['ffprobe','-v','error','-show_streams','-show_format','-of','json',str(file)],capture_output=True,text=True,timeout=30)
+    result=subprocess.run(['ffprobe','-v','error','-show_streams','-show_format','-of','json',str(file)],capture_output=True,timeout=30)
     if result.returncode:raise ValueError('분리 파일을 읽을 수 없습니다')
     value=json.loads(result.stdout);stream=value['streams'][0]
     if int(stream.get('sample_rate',0))!=44100 or stream.get('channels')!=2 or abs(float(value['format']['duration'])*1000-duration)>1:raise ValueError('분리 파일 형식·길이가 일치하지 않습니다')

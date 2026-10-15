@@ -7,6 +7,7 @@ import sys
 import tempfile
 import time
 from urllib.request import build_opener, ProxyHandler, Request
+import media_smoke
 
 ROOT=Path(__file__).resolve().parents[2]
 
@@ -18,6 +19,8 @@ def main():
     else:binary=ROOT/'dist/release/Chi_Da_analyzer/Chi_Da_analyzer.exe'
     env=dict(os.environ)
     env.pop('PYTHONPATH',None);env.pop('PYTHONHOME',None)
+    # CI의 UTF-8 강제 설정으로 일반 Windows 사용자의 문자셋 오류를 가리지 않는다.
+    env['PYTHONUTF8']='0';env.pop('PYTHONIOENCODING',None)
     with tempfile.TemporaryDirectory(prefix='치 다 패키지 ') as temp:
         work=Path(temp)
         result=subprocess.run([str(binary),'--diagnose'],cwd=work,env=env,capture_output=True,timeout=90)
@@ -33,10 +36,12 @@ def main():
         movie=work/'한글 영상.mp4'
         subprocess.run([ffmpeg,'-v','error','-f','lavfi','-i','color=c=black:s=320x180:r=25',
                         '-f','lavfi','-i','sine=frequency=440:sample_rate=16000','-t','1',
-                        '-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac',str(movie)],check=True,timeout=30)
+                        '-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac',
+                        '-metadata','title=한글 제목 日本語 🤩',str(movie)],check=True,timeout=30)
         probe=subprocess.check_output([ffprobe,'-v','error','-show_streams','-of','json',str(movie)])
         assert {s['codec_name'] for s in json.loads(probe)['streams']}=={'h264','aac'}
         subprocess.run([ffmpeg,'-v','error','-xerror','-i',str(movie),'-f','null','-'],check=True,timeout=30)
+        fixture=media_smoke.prepare(work,movie,ffmpeg)
         ready=work/'ready.json';stop=work/'stop'
         with (work/'run.log').open('wb') as log:
             proc=subprocess.Popen([str(binary),'--no-open','--library',str(work/'보관함'),
@@ -58,10 +63,13 @@ def main():
                                         headers={'Content-Type':'application/json','Origin':url.rstrip('/').rsplit('/',1)[0]})
                         with http.open(request,timeout=30) as response: applied=json.load(response)
                         assert applied['compute']['mode']==mode
+                report['media_pipeline']=media_smoke.check(http,url,fixture)
                 stop.touch();assert proc.wait(timeout=20)==0;assert not ready.exists()
             finally:
                 if proc.poll() is None:proc.kill();proc.wait(timeout=10)
-        report['checks']=['포함 도구 실행','H.264/AAC 생성·읽기·디코딩','한글·공백 경로','HTTP 및 정적 모듈','정상 종료']
+        report['checks']=['포함 도구 실행','H.264/AAC 생성·읽기·디코딩','한글·공백 경로·다국어 제목',
+                          '다운로드 후 검사 재개 (수신 대체)','패키지 원음 정보·추출 API','원본·채팅 보존',
+                          'HTTP 및 정적 모듈','정상 종료']
         (ROOT/'dist/smoke.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
         print('패키지 기본 실행 검사 통과 (모델 추론 제외)')
 
