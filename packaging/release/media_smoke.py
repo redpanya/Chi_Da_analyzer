@@ -37,7 +37,8 @@ def prepare(work, movie, ffmpeg):
             factory.return_value.__enter__.return_value = downloader
             video.download(project, threading.Event())
         task = project.snapshot()['tasks']['video']
-        assert task['state'] == 'complete' and task['assets']['playback'] == 'media/original.mp4'
+        assert task['state'] == 'complete', task
+        assert Path(task['assets']['playback']) == Path('media/original.mp4'), task['assets']
         assert task['verification']['original_sha256'] == before
         assert hashlib.sha256(original.read_bytes()).hexdigest() == before
         chat = path/'exports/chat.jsonl'; chat.parent.mkdir()
