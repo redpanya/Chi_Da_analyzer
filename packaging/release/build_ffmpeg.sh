@@ -8,7 +8,7 @@ ffmpeg_source=("$root"/build/native-src/ffmpeg/*)
 prefix="$root/build/ffmpeg-prefix"
 mkdir -p "$prefix" "$root/build/native/ffmpeg"
 export PKG_CONFIG_PATH="$prefix/lib/pkgconfig"
-extra=()
+extra=(--extra-ldflags=)
 if [[ "${OSTYPE:-}" == msys* ]]; then
   extra=(--extra-ldflags=-static)
 else
@@ -19,7 +19,7 @@ cd "${x264_source[0]}"
 make -j3
 make install
 cd "${ffmpeg_source[0]}"
-./configure --prefix="$prefix" --disable-autodetect --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay --disable-x86asm --enable-gpl --enable-libx264 "${extra[@]}"
+./configure --prefix="$prefix" --pkg-config-flags=--static --disable-autodetect --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay --disable-x86asm --enable-gpl --enable-libx264 "${extra[@]}"
 make -j3 ffmpeg ffprobe
 suffix=""
 [[ "${OSTYPE:-}" != msys* ]] || suffix=.exe

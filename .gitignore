@@ -34,3 +34,5 @@ outputs/
 .cache/
 .DS_Store
 ._*
+
+.release-venv/
