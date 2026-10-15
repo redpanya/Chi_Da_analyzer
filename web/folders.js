@@ -1,4 +1,6 @@
+import {createCompute} from './compute.js';
 export function createFolders({api, onApplied}) {
+  const compute = createCompute({api});
   const $ = id => document.getElementById(id);
   let applied = '', busy = false, saving = false, serial = 0;
   function controls() {
@@ -6,6 +8,7 @@ export function createFolders({api, onApplied}) {
     $('apply-model-folder').disabled = saving || busy || $('model-root').value === applied;
   }
   function set(value) {
+    compute.set(value.compute, value.busy);
     if (!applied || $('model-root').value === applied) $('model-root').value = value.models;
     applied = value.models; busy = value.busy;
     $('model-folder-current').textContent = `현재 적용: ${applied}`;

@@ -3,7 +3,7 @@
 import threading
 
 from . import analysis_store, chat, source, video, speech, speech_store, speech_media, speech_model
-from . import task_timing, local_import, speech_options
+from . import task_timing, local_import, speech_options, compute
 from . import voices, voice_store, voice_models, deletion, context_job, context_input, model_paths, context_model
 from .storage import (Project, ProjectLock, Conflict, FINISHED, ACTIVE, create_or_load,
                       library, load_project, project_path, recover)
@@ -93,9 +93,19 @@ class Manager:
                 problem = ''
             except (OSError, ValueError) as error:
                 problem = source.safe_error(error)
-            return {'models': str(model_paths.root()), 'busy': busy, 'problem': problem,
+            return {'models': str(model_paths.root()), 'busy': busy, 'problem': problem, 'compute': compute.status(),
                     'ready': {name: not problem and module.status()['ready'] for name, module in
                               [('speech', speech_model), ('voices', voice_models), ('context', context_model)]}}
+
+    def compute_settings(self, data):
+        with self.guard:
+            self.speech_idle()
+            if set(data) == {'mode'}:
+                compute.apply(data['mode'])
+            elif data != {'refresh': True}:
+                raise ValueError('처리 장치 설정 형식이 올바르지 않습니다')
+            if data.get('refresh'): compute.status(refresh=True)
+            return self.folders()
 
     def import_start(self, root, vod, value):
         value=local_import.options(value);path=project_path(root,vod)

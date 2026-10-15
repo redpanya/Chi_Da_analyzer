@@ -10,9 +10,9 @@
 - [빌드·배포와 검증 기준](docs/GitHub-빌드-배포.md)
 - [진행 결과와 남은 검증](docs/GitHub-구현기록.md)
 
-Actions → **앱 빌드** → Run workflow에서 macOS Apple Silicon 앱 ZIP과 Windows x64 CPU 포터블 ZIP을 만듭니다. `draft_tag`가 비어 있으면 아티팩트만 생성하며, 태그를 넣으면 두 OS 검사 성공 후 초안 Release를 생성합니다. 비공개 상태에서는 접근 권한을 가진 사용자만 다운로드할 수 있습니다.
+Actions → **앱 빌드** → Run workflow에서 macOS Apple Silicon 앱 ZIP과 Windows x64 CPU + GPU 선택형 포터블 ZIP을 만듭니다. `draft_tag`가 비어 있으면 아티팩트만 생성하며, 태그를 넣으면 두 OS 검사 성공 후 초안 Release를 생성합니다. 비공개 상태에서는 접근 권한을 가진 사용자만 다운로드할 수 있습니다.
 
-모델은 실행 후 다운로드합니다. macOS는 Metal, 첫 Windows 기준판은 CPU 추론입니다. FluidAudio와 pyannote는 기본 ZIP에 포함하지 않습니다. Windows GPU 가속과 장시간 실제 모델 추론은 후속 검증 대상입니다.
+모델은 실행 후 다운로드합니다. macOS는 Metal, Windows는 CPU 기본값에 Vulkan GPU 가속 선택을 제공합니다. 가져오기 화면에서 설정합니다. FluidAudio와 pyannote는 기본 ZIP에 포함하지 않습니다. 실제 Windows GPU 모델 추론과 장시간 처리는 후속 장치 검증 대상입니다.
 
 ## 개발
 

@@ -10,7 +10,7 @@ import uuid
 from . import context_input as inputs, context_model as model
 from .source import Cancelled, check_cancel, safe_error
 from .storage import read_json, save_json, stamp
-from . import task_timing
+from . import task_timing, compute
 
 
 class EngineError(ValueError):
@@ -80,7 +80,9 @@ class ContextJob:
         hash_started=time.monotonic()
         if model.digest(self.model_path)!=self.model_info['sha256']:raise ValueError('요약 모델이 변경됐습니다. 모델 준비를 다시 실행하세요')
         self.model_hash_seconds=time.monotonic()-hash_started
-        binary=shutil.which('llama-server' if self.inference else 'llama-completion')
+        self.compute=compute.select('llama-server' if self.inference else 'llama-completion')
+        binary=self.compute['binary']
+        if compute.windows(): self.update(compute=self.compute)
         if not binary:raise ValueError('로컬 요약 엔진이 없습니다. 앱을 다시 설치하세요')
         version=subprocess.run([binary,'--version'],capture_output=True,text=True,timeout=15,check=True)
         self.engine_version=(version.stdout+version.stderr).strip()
@@ -115,14 +117,16 @@ class ContextJob:
         return value|{'inference':self.inference} if self.inference else value
     def infer_value(self,value,folder,prompt=None,schema=None):
         if self.server:return self.server.infer(value,folder,prompt,schema)
-        binary=shutil.which('llama-completion')
+        execution=getattr(self,'compute',None) or compute.select('llama-completion')
+        binary=execution['binary']
         folder.mkdir(parents=True,exist_ok=False)
         save_json(folder/'input.json',value)
         (folder/'prompt.txt').write_text(prompt or inputs.prompt(value),encoding='utf-8')
         save_json(folder/'schema.json',schema or inputs.schema(value['evidence']))
         args=[binary,'-m',str(self.model_path),'-f',str(folder/'prompt.txt'),'-jf',str(folder/'schema.json'),
               '--offline','--no-conversation','--no-display-prompt','--color','off','--no-context-shift',
-              '-c','16384','-n','3600','-t','6','-ngl','99','--temp','0.2','--seed','42']
+              '-c','16384','-n','3600','-t','6',*execution['args'],'--temp','0.2','--seed','42']
+        if compute.windows(): save_json(folder/'compute.json',execution)
         started=time.monotonic()
         with (folder/'raw.txt').open('wb') as output,(folder/'engine.log').open('wb') as log:
             child=processes.popen(args,stdout=output,stderr=log,stdin=subprocess.DEVNULL,lock_fd=self.lock.fd)
@@ -133,7 +137,7 @@ class ContextJob:
                     if elapsed>900:raise EngineError('요약 처리 제한 시간 15분을 넘었습니다. 구간을 줄여 다시 시도하세요')
                     self.update(progress=self.value.get('progress',{})|{'seconds':elapsed})
                 check_cancel(self.stop)
-                if child.returncode:raise EngineError(f'로컬 요약 엔진 오류({child.returncode}). 메모리와 해당 요약의 engine.log를 확인하세요')
+                if child.returncode:raise EngineError(f'로컬 요약 엔진 오류({child.returncode}). 메모리와 해당 요약의 engine.log를 확인하세요'+compute.failure_hint(execution))
             finally:
                 processes.stop(child, timeout=5)
         raw=(folder/'raw.txt').read_text(encoding='utf-8').strip()

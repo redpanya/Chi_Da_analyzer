@@ -36,7 +36,7 @@ export function createSpeech({api, player, showVideo, showVoices, showExplore, o
     const s = project.speech, running = s.owned || (project.locked && ['running','stopping'].includes(s.state));
     $('speech-title').textContent = project.metadata.title;
     const oldSeparation=!running&&['paused','error'].includes(s.state)&&(['separate','sam-model','roformer-model'].includes(s.action)||s.action==='transcribe'&&s.options?.input_kind&&s.options.input_kind!=='original');
-    $('speech-status').textContent = s.message + (oldSeparation?' · 이전 분리 작업은 이어받지 않습니다. 아래 원음 전사를 시작하면 기존 결과를 보존하고 별도 작업을 만듭니다.':'') + (s.stale ? ' · 입력이 달라지거나 파일이 없어 이전 결과입니다. 추출·전사를 다시 확인하세요.' : '');
+    $('speech-status').textContent = s.message + (s.action==='transcribe'&&s.compute?.note?' · '+s.compute.note:'') + (oldSeparation?' · 이전 분리 작업은 이어받지 않습니다. 아래 원음 전사를 시작하면 기존 결과를 보존하고 별도 작업을 만듭니다.':'') + (s.stale ? ' · 입력이 달라지거나 파일이 없어 이전 결과입니다. 추출·전사를 다시 확인하세요.' : '');
     const p = s.progress || {}, progress = $('speech-progress');
     const ratio = p.total_bytes ? p.bytes / p.total_bytes : p.duration_ms ? p.processed_ms / p.duration_ms : null;
     if (running && ratio === null) progress.removeAttribute('value'); else progress.value = ratio === null ? 0 : ratio * 100;

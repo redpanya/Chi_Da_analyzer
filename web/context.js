@@ -181,7 +181,7 @@ export function createContext({api,player,onProject}) {
       const finished=['complete','review'].includes(state?.state);
       const status=state?.state==='review'&&currentResult?.id===state.run&&currentResult.complete
         ?`문맥 처리 완료 · 근거 확인 필요 ${currentResult.evidence_reviews||0}개. 해당 항목의 초안·원문·원음을 확인하세요.`:state?.message||'';
-      $('context-status').textContent=status+(!finished&&p.total!=null?` · ${p.done}/${p.total} 처리 단위`:'')+(state?.owned&&p.seconds!=null?` · 현재 단위 ${p.seconds}초 경과`:'');
+      $('context-status').textContent=status+(!finished&&p.total!=null?` · ${p.done}/${p.total} 처리 단위`:'')+(state?.owned&&p.seconds!=null?` · 현재 단위 ${p.seconds}초 경과`:'')+(state?.action!=='model'&&state?.compute?.note?' · '+state.compute.note:'');
       const progress=$('context-progress');
       const percent=phaseProgress(p,finished,currentResult?.pipeline_revision,currentResult?.version);
       if(p.total_bytes)progress.value=Math.min(99,p.bytes/p.total_bytes*100);else if(percent!=null)progress.value=percent;else if(p.duration_ms)progress.value=p.processed_ms/p.duration_ms*100;else if(state?.owned)progress.removeAttribute('value');else progress.value=0;

@@ -12,7 +12,7 @@ if sys.platform=='darwin':
     app=next((ROOT/'dist/release').glob('*.app'))
     subprocess.run(['ditto','-c','-k','--sequesterRsrc','--keepParent',str(app),str(out/'Chi_Da_analyzer-macOS-arm64.zip')],check=True)
 else:
-    shutil.make_archive(str(out/'Chi_Da_analyzer-Windows-x64-CPU'),'zip',ROOT/'dist/release','Chi_Da_analyzer')
+    shutil.make_archive(str(out/'Chi_Da_analyzer-Windows-x64'),'zip',ROOT/'dist/release','Chi_Da_analyzer')
 with zipfile.ZipFile(out/'native-corresponding-sources.zip','w',compression=zipfile.ZIP_DEFLATED) as archive:
     for folder in (ROOT/'build/release-sources',ROOT/'packaging/release'):
         for file in sorted(folder.iterdir()):

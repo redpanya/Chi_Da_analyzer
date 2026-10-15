@@ -6,7 +6,7 @@ import secrets
 import shutil
 import socket
 import subprocess
-from . import processes
+from . import processes, compute
 import sys
 import threading
 import time
@@ -50,11 +50,13 @@ class Server:
             sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
         self.url=f'http://127.0.0.1:{port}';self.key=secrets.token_urlsafe(32)
         self.http=urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        args=[shutil.which('llama-server'),'-m',str(job.model_path),'--host','127.0.0.1','--port',str(port),
-              '--offline','--no-webui','--api-key',self.key,'-c','16384','-np','1','-t','6','-ngl','99',
+        self.compute=getattr(job,'compute',None) or compute.select('llama-server')
+        args=[self.compute['binary'],'-m',str(job.model_path),'--host','127.0.0.1','--port',str(port),
+              '--offline','--no-webui','--api-key',self.key,'-c','16384','-np','1','-t','6',*self.compute['args'],
               '--jinja','--reasoning','on' if self.profile['thinking'] else 'off','--reasoning-format','deepseek','--reasoning-budget',str(self.profile['thinking_budget']),
               '--no-context-shift','--cache-ram','0']
         save_json(folder/'options.json',[x if x!=self.key else '[임시 인증키 생략]' for x in args])
+        if compute.windows(): save_json(folder/'compute.json',self.compute)
         command=[sys.executable]
         if not getattr(sys,'frozen',False):command.append(str(Path(__file__).resolve().parents[1]/'app.py'))
         command.append('--context-worker')
@@ -65,7 +67,7 @@ class Server:
             self.child.stdin.close()
             while True:
                 check_cancel(job.stop)
-                if self.child.poll() is not None:raise ValueError('Gemma 추론 서버 시작 실패: engine.log를 확인하세요')
+                if self.child.poll() is not None:raise ValueError('Gemma 추론 서버 시작 실패: engine.log를 확인하세요'+compute.failure_hint(self.compute))
                 try:
                     if self.request('/health',timeout=1).get('status')=='ok':break
                 except (OSError,ValueError):pass
@@ -125,7 +127,7 @@ class Server:
             check_cancel(self.job.stop)
             elapsed=int(time.monotonic()-begin)
             if elapsed>900 or self.child.poll() is not None:
-                self.close();raise FatalEngineError('Gemma 응답 제한 시간을 넘었거나 추론 서버가 종료됐습니다. 완료 결과는 유지됩니다')
+                self.close();raise FatalEngineError('Gemma 응답 제한 시간을 넘었거나 추론 서버가 종료됐습니다. 완료 결과는 유지됩니다'+compute.failure_hint(getattr(self,'compute',{})))
             if elapsed!=previous:self.job.update(progress=self.job.value.get('progress',{})|{'seconds':elapsed});previous=elapsed
         check_cancel(self.job.stop)
         if 'error' in result:

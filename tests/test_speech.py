@@ -30,7 +30,7 @@ class SpeechTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.path = self.root / 'vod-1'
         # 이 모음은 저장·복구 계약을 검사한다. 실제 발화 창은 별도 품질 테스트에서 검사한다.
-        def recognize(binary, model_file, chunk, folder, index, duration, language, vad, stop, lock, options=None):
+        def recognize(binary, model_file, chunk, folder, index, duration, language, vad, stop, lock, options=None, execution=None):
             prefix=folder/f'{index:05d}-raw'
             media.process([binary,'-f',str(chunk),'-of',str(prefix)],folder/f'{index:05d}-engine.log',stop,lock)
             return store.read_engine_output(prefix.with_suffix('.json'))

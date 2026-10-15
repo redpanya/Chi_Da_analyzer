@@ -67,6 +67,7 @@ def remember_library(root):
 
 
 def diagnose():
+    from . import compute
     import numpy, soundfile, sherpa_onnx
     from importlib.metadata import version
     tools = {}
@@ -78,4 +79,4 @@ def diagnose():
         tools[name] = {'path':file,'version':(r.stdout+r.stderr).splitlines()[0]}
     return {'frozen':FROZEN,'python':sys.version,'executable':sys.executable,'tools':tools,
             'engines':{name:version(name) for name in ['yt-dlp','sherpa-onnx','numpy','soundfile']},
-            'certificate':os.environ.get('SSL_CERT_FILE')}
+            'certificate':os.environ.get('SSL_CERT_FILE'), 'compute':compute.status()}

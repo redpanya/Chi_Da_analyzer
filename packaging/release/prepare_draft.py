@@ -4,7 +4,7 @@ from pathlib import Path
 import shutil
 
 root=Path('artifacts');out=Path('release');out.mkdir(exist_ok=False)
-for label in ('macOS-arm64','Windows-x64-CPU'):
+for label in ('macOS-arm64','Windows-x64'):
     folder=root/('package-'+label)
     for line in (folder/'SHA256SUMS.txt').read_text(encoding='utf-8').splitlines():
         sha,name=line.split('  ',1)

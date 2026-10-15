@@ -98,6 +98,8 @@ def make_server(manager, port=0):
                     result = manager.folders()
                 elif action == '/api/model-folder':
                     result = manager.model_folder(data['path'])
+                elif action == '/api/compute':
+                    result = manager.compute_settings(data)
                 elif action == '/api/delete-preview':
                     result = manager.deletion_preview(data['root'], data['vod_id'])
                 elif action == '/api/delete-project':
@@ -190,7 +192,7 @@ def make_server(manager, port=0):
                      '/app.js': ('app.js', 'text/javascript; charset=utf-8')}
             files['/sam-options.js'] = ('sam-options.js', 'text/javascript; charset=utf-8')
             files.update({f'/{name}.js': (f'{name}.js', 'text/javascript; charset=utf-8')
-                          for name in ('help', 'help-content', 'voice-model-help', 'local-import', 'reactions', 'player', 'speech', 'voices', 'voice-review', 'voice-suggestions', 'explore', 'timeline', 'context', 'project-delete', 'folders', 'task-timing', 'audio-preview', 'context-reactions', 'context-copy', 'context-tree', 'context-interpretations')})
+                          for name in ('help', 'help-content', 'voice-model-help', 'local-import', 'reactions', 'player', 'speech', 'voices', 'voice-review', 'voice-suggestions', 'explore', 'timeline', 'context', 'project-delete', 'folders', 'compute', 'task-timing', 'audio-preview', 'context-reactions', 'context-copy', 'context-tree', 'context-interpretations')})
             if path in files:
                 filename, mime = files[path]
                 content = (WEB / filename).read_bytes()

@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {createCompute} from '../web/compute.js';
+const elements=new Map();
+const el=id=>{if(!elements.has(id))elements.set(id,{value:id==='compute-mode'?'cpu':'',textContent:'',disabled:false});return elements.get(id);};
+globalThis.document={getElementById:el};
+let mode='cpu',calls=0,fail=false;
+const ui=createCompute({api:async(action,data)=>{calls++;if(fail)throw Error('적용 실패');mode=data.mode||mode;return {busy:false,compute:{visible:true,mode,note:'현재 장치'}};}});
+ui.set({visible:false});assert.equal(el('compute-settings').hidden,true);
+ui.set({visible:true,mode,note:'CPU'});assert.equal(el('compute-settings').hidden,false);
+el('compute-mode').value='hybrid';el('compute-mode').onchange();
+ui.set({visible:true,mode,note:'CPU'});assert.equal(el('compute-mode').value,'hybrid');
+fail=true;await el('compute-form').onsubmit({preventDefault(){}});assert.match(el('compute-notice').textContent,/실패/);assert.equal(mode,'cpu');
+fail=false;await el('compute-form').onsubmit({preventDefault(){}});assert.equal(mode,'hybrid');assert.equal(el('compute-apply').disabled,true);
+ui.set({visible:true,mode,note:'GPU'},true);const before=calls;
+await el('compute-refresh').onclick();assert.equal(calls,before);assert.equal(el('compute-mode').disabled,true);
+console.log('Windows 전용 표시·입력 유지·저장 실패·작업 중 변경 차단 통과');

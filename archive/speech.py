@@ -6,7 +6,7 @@ import time
 import uuid
 
 from . import speech_media as media, speech_model as model, speech_store as store, speech_options
-from . import audio_limits
+from . import audio_limits, compute
 from . import speech_vad, speech_quality, speech_recognition
 from .source import Cancelled, check_cancel, safe_error
 from .storage import save_json, stamp
@@ -29,6 +29,10 @@ def transcribe(path, data, language, stop, lock, update, input_audio=None, raw_a
         raise ValueError('추출 음성이 변경됐습니다. 다시 추출하세요')
     wav_identity = media.identity(wav, path)
     binary, version = model.engine_version()
+    execution = compute.select('whisper-cli')
+    if compute.windows():
+        binary = execution['binary']
+        update(compute=execution)
     model_file = model.verify()
     vad_model = speech_vad.prepare(stop, update) if options['vad'] != 'off' else None
     signature = {'audio_sha256': audio['sha256'], 'language': language, 'engine': version,
@@ -67,7 +71,7 @@ def transcribe(path, data, language, stop, lock, update, input_audio=None, raw_a
             raw = {'transcription': [], 'reason': 'digital_silence'}
             save_json(raw_prefix.with_suffix('.json'), raw)
         else:
-            raw = speech_recognition.recognize(binary,model_file,chunk,folder,index,end-start,language,vad_model,stop,lock,options)
+            raw = speech_recognition.recognize(binary,model_file,chunk,folder,index,end-start,language,vad_model,stop,lock,options,execution)
         rows = speech_quality.annotate(store.normalize(raw, start, end, index))
         if audio['source'] != media.identity(media.source(path, data), path) or wav_identity != media.identity(wav, path):
             raise ValueError('전사 중 영상 또는 추출 음성이 변경됐습니다. 입력을 다시 확인하세요')

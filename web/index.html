@@ -27,6 +27,11 @@
       <div class="folder"><label for="root">VOD 보관함 폴더</label><div class="input-row"><input id="root" type="text" spellcheck="false" placeholder="VOD를 저장할 폴더의 전체 경로"><button id="load-library" class="secondary" type="button">폴더 확인</button></div><p id="destination" class="path"></p></div>
       <form id="model-folder-form" class="folder"><label for="model-root">공용 AI 모델 폴더</label><div class="input-row"><input id="model-root" type="text" required spellcheck="false" aria-describedby="model-folder-current"><button id="apply-model-folder" class="secondary" type="submit">경로 적용</button></div><p id="model-folder-current" class="path"></p><p id="model-folder-state" class="hint"></p><p id="model-folder-notice" role="status" aria-live="polite"></p></form>
     </div>
+    <div id="compute-settings" class="folder-settings" hidden>
+      <h3 data-help="compute">Windows AI 처리 장치</h3>
+      <form id="compute-form"><label for="compute-mode">전사·문맥 요약 처리 방식</label><div class="input-row"><select id="compute-mode"><option value="cpu">CPU만 사용</option><option value="hybrid">CPU + GPU 가속 (Vulkan)</option></select><button id="compute-apply" class="secondary" type="submit">적용</button><button id="compute-refresh" class="secondary" type="button">GPU 다시 확인</button></div></form>
+      <p id="compute-status" class="hint" role="status"></p><p id="compute-notice" role="status" aria-live="polite"></p>
+    </div>
     <div class="action-row"><button id="start" class="primary" disabled>영상·채팅 다운로드 시작 →</button></div>
   </section>
   <section id="download-panel" hidden>
