@@ -27,8 +27,10 @@ def recognize(binary, model, audio, folder, index, duration, language, vad_model
         if execution and execution['backend'] != 'default': save_json(folder/f'{index:05d}-compute.json', execution)
         try: media.process(args,folder/f'{index:05d}-engine.log',stop,lock)
         except Cancelled: raise
-        except (OSError, ValueError) as error:
-            raise ValueError(str(error)+compute.failure_hint(execution or {})) from error
+        except ValueError as error:
+            hint = compute.failure_hint(execution or {})
+            if hint: raise ValueError(str(error)+hint) from error
+            raise
     for wav,file,start,end in inputs:
         raw = store.read_engine_output(file)
         # 각 창의 패딩·형식을 먼저 검사한다. 모델 원출력 JSON은 별도로 보존한다.

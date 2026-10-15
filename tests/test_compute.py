@@ -1,6 +1,7 @@
 """처리 장치 선택은 OS·드라이버 실패·기존 작업 보존을 함께 지켜야 한다."""
 import subprocess
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,6 +10,9 @@ from unittest.mock import patch
 from archive import compute, runtime
 from archive.jobs import Manager
 from archive.storage import Conflict
+from archive.storage import save_json, read_json
+from archive import speech_recognition
+from archive.source import Cancelled
 
 
 class ComputeTests(unittest.TestCase):
@@ -63,6 +67,30 @@ class ComputeTests(unittest.TestCase):
     def test_missing_gpu_payload_falls_back_in_status(self):
         with patch.object(compute,'windows',return_value=True), patch.object(compute,'mode',return_value='hybrid'), patch.object(compute,'gpu_binary',return_value=Path('/존재하지-않는-실행기')):
             value=compute.status(); self.assertFalse(value['available']); self.assertIn('CPU',value['note'])
+
+    def test_whisper_receives_selected_flags_and_preserves_cancellation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder); source=path/'원본.wav'; source.write_bytes(b'original')
+            plan={'binary':'cpu.exe','backend':'cpu','args':['--no-gpu'],'note':'CPU'}
+            def engine(args, *unused):
+                self.assertEqual(args[0],'cpu.exe');self.assertIn('--no-gpu',args)
+                output=Path(args[args.index('-of')+1]).with_suffix('.json')
+                save_json(output,{'transcription':[{'offsets':{'from':0,'to':500},'text':'발언'}]})
+            call=lambda:speech_recognition.recognize(plan['binary'],path/'모델',source,path,0,1000,'ko',None,
+                threading.Event(),None,{'vad':'off'},plan)
+            with patch.object(speech_recognition.media,'chunk_audio',side_effect=lambda src,target,*args:target.touch()), patch.object(speech_recognition.media,'process',side_effect=engine):
+                self.assertEqual(call()['transcription'][0]['text'],'발언')
+                self.assertEqual(read_json(path/'00000-compute.json')['backend'],'cpu')
+            plan.update(binary='gpu.exe',backend='vulkan',args=[])
+            with patch.object(speech_recognition.media,'chunk_audio',side_effect=lambda src,target,*args:target.touch()):
+                with patch.object(speech_recognition.media,'process',side_effect=ValueError('메모리 부족')):
+                    with self.assertRaisesRegex(ValueError,'CPU만 사용'):call()
+                with patch.object(speech_recognition.media,'process',side_effect=Cancelled()):
+                    with self.assertRaises(Cancelled):call()
+                with patch.object(speech_recognition.media,'process',side_effect=OSError(28,'공간 부족')):
+                    with self.assertRaises(OSError) as error:call()
+                    self.assertEqual(error.exception.errno,28)
+            self.assertEqual(source.read_bytes(),b'original')
 
 
 if __name__ == '__main__': unittest.main()
