@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import tempfile
 import threading
+import time
 from . import task_timing
 
 ACTIVE = {'queued', 'running', 'downloading', 'verifying', 'exporting', 'stopping'}
@@ -30,7 +31,15 @@ def save_json(path, value):
             json.dump(value, file, ensure_ascii=False, indent=2)
             file.flush()
             os.fsync(file.fileno())
-        os.replace(name, path)
+        for attempt in range(9):
+            try:
+                os.replace(name, path)
+                break
+            except PermissionError as error:
+                # Windows에서 상태 조회가 잠깐 파일을 열고 있으면 교체가 거부된다.
+                if os.name != 'nt' or getattr(error, 'winerror', None) not in (5, 32, 33) or attempt == 8:
+                    raise
+                time.sleep(.025 * (attempt + 1))
     finally:
         if os.path.exists(name):
             os.unlink(name)

@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from archive import processes
@@ -14,6 +15,17 @@ ROOT=Path(__file__).resolve().parents[1]
 
 
 class PortableTests(unittest.TestCase):
+    def test_state_replace_waits_for_short_lived_reader(self):
+        with tempfile.TemporaryDirectory() as temp:
+            file=Path(temp)/'state.json';save_json(file,{'value':'이전'})
+            reader=file.open('rb')
+            release=threading.Timer(.15,reader.close);release.start()
+            try:
+                save_json(file,{'value':'새 상태'})
+                self.assertEqual(read_json(file),{'value':'새 상태'})
+            finally:
+                release.join();reader.close()
+
     def test_unicode_atomic_json_and_exclusive_lock(self):
         with tempfile.TemporaryDirectory(prefix='치 다 ') as temp:
             root=Path(temp)
