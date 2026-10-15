@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {contextGroups,phaseProgress,relationLabel,contextClipRange} from '../web/context-tree.js';
+const topic={id:'t',kind:'topic',start_ms:0,end_ms:100000};
+const story={id:'s',kind:'story',parent_id:'t',start_ms:0,end_ms:90000};
+const unknown={id:'u',kind:'reaction',parent_id:null,start_ms:30000,end_ms:35000};
+const later={id:'x',kind:'reaction',parent_id:null,start_ms:120000,end_ms:130000};
+const value={topics:[topic],items:[later,unknown,story,topic]},before=JSON.stringify(value);
+const groups=contextGroups(value);
+assert.deepEqual(groups[0].children.map(x=>x.id),['s','u']);assert.equal(groups[1].children[0].id,'x');
+assert.equal(groups[0].children[1].parent_id,null);assert.equal(JSON.stringify(value),before);
+assert.equal(phaseProgress({stage:'stories',done:10,total:10},false),25);
+assert.equal(phaseProgress({stage:'summaries',done:10,total:10},false),75);
+assert.equal(phaseProgress({},true),100);assert.equal(phaseProgress({},false),null);
+assert.equal(relationLabel.unknown,'원인 확인 필요');
+assert.deepEqual(contextClipRange({start_ms:2000,end_ms:5000,play_start_ms:1000,play_end_ms:6000,summary:{title:'제목\n  정리'}}),{start_ms:1000,end_ms:6000,name:'제목 정리'});
+const long=contextClipRange({start_ms:0,end_ms:1000,summary:{title:'🤩'.repeat(90)}}).name;assert.equal(Array.from(long).length,80);assert.ok(long.endsWith('…'));
+console.log('계층·독립 반응 시간순 배치·원본 불변·단계 진행 검사 통과');
+
+assert.equal(phaseProgress({stage:'reactions',done:10,total:10},false),99);
+assert.equal(phaseProgress({stage:'review'},false),99);
+assert.equal(phaseProgress({stage:'grounding',done:1,total:2},false,1,9),72.5);
+assert.equal(phaseProgress({stage:'dialogue-chat',done:1,total:2},false,1,9),92.5);

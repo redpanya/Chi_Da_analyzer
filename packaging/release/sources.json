@@ -1,0 +1,26 @@
+{
+  "llama": {
+    "repo": "ggml-org/llama.cpp",
+    "commit": "d81235049384534c167caea52b85a694f6103d14",
+    "version": "0.6.0",
+    "sha256": "6b58785f0a82898f4c3442417ff962e2d4b231b1bee5d033902ad90b27901e14"
+  },
+  "whisper": {
+    "repo": "ggml-org/whisper.cpp",
+    "commit": "d1be6fde11ac6e0407606b4e42fe72d34add8037",
+    "version": "1.9.5",
+    "sha256": "645445da884df6dbd52b30f82d7be7c01d1767c938714e477e786b88d529e9f4"
+  },
+  "ffmpeg": {
+    "repo": "FFmpeg/FFmpeg",
+    "commit": "1041abdc962f4cc4f394aa8de9dc5236c0c3b9e7",
+    "version": "8.1.3",
+    "sha256": "a406fe831cbb605f5fe50e43eb566e502ae63ff3b3206bfa744e4b31b8bb73ac"
+  },
+  "x264": {
+    "repo": "mirror/x264",
+    "commit": "31e19f92f00c7003fa115047ce50978bc98c3a0d",
+    "version": "stable-31e19f9",
+    "sha256": "d053c9d86988d6bc78237ca5205865c5ddf99c98ef4cd9927eec8f6d388f6dd9"
+  }
+}

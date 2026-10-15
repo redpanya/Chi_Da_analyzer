@@ -1,0 +1,212 @@
+{
+  "fluid": {
+    "repo": "FluidInference/speaker-diarization-coreml",
+    "revision": "df2625ac79a7ac6b65ad868fee6d80f320da4232",
+    "files": [
+      {
+        "name": "Embedding.mlmodelc/analytics/coremldata.bin",
+        "size": 243,
+        "sha256": "8d6706436639b53830b4dbe8aaf9c9a843f7f582d63e16f3cb8bb7c6ccd58682",
+        "git_sha1": "9bb85ecb74a463fe3bc7246b5ff311f4ea915724"
+      },
+      {
+        "name": "Embedding.mlmodelc/coremldata.bin",
+        "size": 704,
+        "sha256": "4a705bac27d151d9642f37609296042a15602a42253039e0921dc9e75da7e004",
+        "git_sha1": "0eae1193e7b451a7512456f6e3f6cbfa9bca80bc"
+      },
+      {
+        "name": "Embedding.mlmodelc/metadata.json",
+        "size": 2818,
+        "sha256": null,
+        "git_sha1": "71c70e8c4972bbba271728ee32d9629a31498976"
+      },
+      {
+        "name": "Embedding.mlmodelc/model.mil",
+        "size": 78432,
+        "sha256": null,
+        "git_sha1": "39c8175875111f64245779cecad5185968a6db34"
+      },
+      {
+        "name": "Embedding.mlmodelc/weights/weight.bin",
+        "size": 13412288,
+        "sha256": "99356b2985b8d43880a657024d941d450b38820451ccff903f76ed4e52d1868b",
+        "git_sha1": "4850d4a677b029d48337ace753d2d171fa621612"
+      },
+      {
+        "name": "FBank.mlmodelc/analytics/coremldata.bin",
+        "size": 243,
+        "sha256": "0e8bd3a8b82ac123580989f490e4d9245127c535857630b543311268accc3f0a",
+        "git_sha1": "96e8f68f4880c85fe6e884d7f1af1a7f19b98c5d"
+      },
+      {
+        "name": "FBank.mlmodelc/coremldata.bin",
+        "size": 853,
+        "sha256": "57ac436bb0671cbb5527a339134d695f752eb77f7a18966b93c6835335595759",
+        "git_sha1": "885df78f8ff440f30de98182e080e97e5863d742"
+      },
+      {
+        "name": "FBank.mlmodelc/metadata.json",
+        "size": 3409,
+        "sha256": null,
+        "git_sha1": "b48f04253ef4cd5f92ef76453c57d82ccee3ba31"
+      },
+      {
+        "name": "FBank.mlmodelc/model.mil",
+        "size": 15667,
+        "sha256": null,
+        "git_sha1": "0e01e8a188d4fe7ee97866948c2ee159fe505248"
+      },
+      {
+        "name": "FBank.mlmodelc/weights/weight.bin",
+        "size": 1776896,
+        "sha256": "9e83fdd3ea78064b078069e4d9141603c61c47a27fd19e7e3142ff7476f8db36",
+        "git_sha1": "47fb7d765856068576a27e98982d38b864e83161"
+      },
+      {
+        "name": "LICENSE",
+        "size": 19759,
+        "sha256": null,
+        "git_sha1": "176bb6930255c9859428728b4b5bdeb2ee40ae21"
+      },
+      {
+        "name": "NOTICE.md",
+        "size": 1925,
+        "sha256": null,
+        "git_sha1": "cdb9708dc53442725a9f23773851777327ec15f2"
+      },
+      {
+        "name": "PROVENANCE.md",
+        "size": 3377,
+        "sha256": null,
+        "git_sha1": "f29e592d324cdf6449c866b34bcb109e7dc06314"
+      },
+      {
+        "name": "PldaRho.mlmodelc/analytics/coremldata.bin",
+        "size": 243,
+        "sha256": "8940ea6044dbcbefa22da8cc41e0b485e1fb5ed89aecaf37c6e0c483a97ddcd7",
+        "git_sha1": "d2e219116893e0f670ac7f05a36e7d8366480d22"
+      },
+      {
+        "name": "PldaRho.mlmodelc/coremldata.bin",
+        "size": 763,
+        "sha256": "4d9741477f721c79b09fcdfe455110c4b7d4272e2de3496bf1729d966d3ee418",
+        "git_sha1": "d9e94fc38317664d96e1b52e5257767c7fb9a736"
+      },
+      {
+        "name": "PldaRho.mlmodelc/metadata.json",
+        "size": 2749,
+        "sha256": null,
+        "git_sha1": "b964649416a95f0d8b3f7155a9a1ef46b79543aa"
+      },
+      {
+        "name": "PldaRho.mlmodelc/model.mil",
+        "size": 7613,
+        "sha256": null,
+        "git_sha1": "30c6a1b1bfb5a5a2a9498d52c9529c15ba9e3917"
+      },
+      {
+        "name": "PldaRho.mlmodelc/weights/weight.bin",
+        "size": 200192,
+        "sha256": "80f7d229202636d372428c90596f11a91545f07da77259f07153aaf225914a36",
+        "git_sha1": "dd9ccb693387907cdaa082170f36ad3d514fbc53"
+      },
+      {
+        "name": "Segmentation.mlmodelc/analytics/coremldata.bin",
+        "size": 243,
+        "sha256": "64265f8e7ad41a5f68d630c15288c2499cca5892ad49e20096819cdeac004cdb",
+        "git_sha1": "2ae8775ade89657365149516dc9d6e8b7e92c4fc"
+      },
+      {
+        "name": "Segmentation.mlmodelc/coremldata.bin",
+        "size": 812,
+        "sha256": "ea51481b8bd3e496ad3cf16f066ddaa37f20e8772eaac76b3393c28de20e06bc",
+        "git_sha1": "f9036310803e81e76f0a7d407d7080a9ab96b1b6"
+      },
+      {
+        "name": "Segmentation.mlmodelc/metadata.json",
+        "size": 3410,
+        "sha256": null,
+        "git_sha1": "604d6f1f829f47120b5d291825e28a7ee01b5d18"
+      },
+      {
+        "name": "Segmentation.mlmodelc/model.mil",
+        "size": 43063,
+        "sha256": null,
+        "git_sha1": "60b457187b267fd64cd00410f4165d218c4fe7d7"
+      },
+      {
+        "name": "Segmentation.mlmodelc/weights/weight.bin",
+        "size": 5959360,
+        "sha256": "c3189a64946c75bc24fcb98afe89ad78c52bdbadfdf65e857fb1b81e2cc9fbb2",
+        "git_sha1": "6eb74379a3b6e07f6b377a7b48cf88192bb93e04"
+      },
+      {
+        "name": "plda-parameters.json",
+        "size": 89416,
+        "sha256": null,
+        "git_sha1": "104dc2572aec3eb7d606a619fa738cdc43824cff"
+      },
+      {
+        "name": "provenance.json",
+        "size": 10048,
+        "sha256": null,
+        "git_sha1": "738c0ec5b83cde499afe7baebfc0ddf1d658ecaa"
+      }
+    ]
+  },
+  "pyannote": {
+    "repo": "pyannote/speaker-diarization-community-1",
+    "revision": "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",
+    "files": [
+      {
+        "name": "README.md",
+        "size": 9978,
+        "sha256": null,
+        "git_sha1": "8356d6634d7b1074581dd36e2225887ec809326e"
+      },
+      {
+        "name": "config.yaml",
+        "size": 444,
+        "sha256": null,
+        "git_sha1": "4022db43960736338378fdb6b5a85cfdae198910"
+      },
+      {
+        "name": "embedding/README.md",
+        "size": 938,
+        "sha256": null,
+        "git_sha1": "d71f943e00016652680bef1e6c49fbc842e0d4c4"
+      },
+      {
+        "name": "embedding/pytorch_model.bin",
+        "size": 26646242,
+        "sha256": "6f10ff60898a1d185fa22e1d11e0bfa8a92efec811f11bca48cb8cafebefd929",
+        "git_sha1": "6347697826a1958253dd195fa296d8d97b8f6280"
+      },
+      {
+        "name": "plda/README.md",
+        "size": 220,
+        "sha256": null,
+        "git_sha1": "5c01ad2e673203fe32a82d7a140eb817db9930b7"
+      },
+      {
+        "name": "plda/plda.npz",
+        "size": 133852,
+        "sha256": "9b77bcd840692710dd3496f62ecfeed8d8e5f002fd991b785079b244eab7d255",
+        "git_sha1": "e61936ef2108eccdff801c440d5e3f6c6995aba4"
+      },
+      {
+        "name": "plda/xvec_transform.npz",
+        "size": 134376,
+        "sha256": "325f1ce8e48f7e55e9c8aa47e05d2766b7c48c4b25b8de8dd751e7a4cc5fbe8f",
+        "git_sha1": "b8079f30a35a68fe7d996bd7abc2170338ba6767"
+      },
+      {
+        "name": "segmentation/pytorch_model.bin",
+        "size": 5906507,
+        "sha256": "7ad24338d844fb95985486eb1a464e32d229f6d7a03c9abe60f978bacf3f816e",
+        "git_sha1": "e3b91de5a5374fc40b556f9cc51317d280b4ea79"
+      }
+    ]
+  }
+}

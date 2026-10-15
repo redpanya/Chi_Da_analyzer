@@ -1,0 +1,11 @@
+# macOS arm64 Python 3.11 전용. 기존 sherpa 환경과 분리한다.
+mlx-audio==0.5.9
+mlx==0.32.3
+mlx-metal==0.32.3
+numpy==2.4.6
+scipy==1.17.1
+transformers==5.19.0
+huggingface-hub==2.2.0
+soundfile==0.14.0
+sentencepiece==0.2.2
+pyinstaller==6.22.3

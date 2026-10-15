@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {createPlayer} from '../web/player.js';
+const handlers=new Map(),elements=new Map();
+const video={duration:200,currentTime:0,paused:true,error:null,getAttribute:()=>'/fixture.mp4',addEventListener:(name,fn)=>{handlers.set(name,[...(handlers.get(name)||[]),fn]);},pause(){this.paused=true;},async play(){this.paused=false;}};
+globalThis.document={getElementById(id){if(id==='player')return video;if(!elements.has(id))elements.set(id,{textContent:'',value:'1',scrollIntoView(){}});return elements.get(id);}};
+const player=createPlayer(),tick=()=>{for(const fn of handlers.get('timeupdate'))fn();};
+player.seek(10000,true,12000);assert.equal(video.currentTime,10);assert.equal(video.paused,false);
+video.currentTime=12.2;tick();assert.equal(video.currentTime,12);assert.equal(video.paused,true);
+player.seek(10000,true,12000);player.seek(20000,true);video.currentTime=21;tick();assert.equal(video.paused,false);
+player.seek(10000,true,12000);player.clearRange();video.currentTime=13;tick();assert.equal(video.paused,false);
+player.seek(10000,true,12000);player.reset();video.currentTime=30;tick();assert.equal(video.currentTime,30);assert.equal(video.paused,true);
+console.log('문맥 구간 재생·끝 정지·일반 탐색·단계 전환·초기화 검사 8개 통과');
