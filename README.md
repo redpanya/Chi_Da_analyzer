@@ -8,6 +8,7 @@
 
 ## 사용
 
+- [v0.18.1-preview.1 — macOS·Windows 실행 파일 다운로드](https://github.com/redpanya/Chi_Da_analyzer/releases/tag/v0.18.1-preview.1)
 - [HTML 사용설명서 바로 열기](https://redpanya.github.io/Chi_Da_analyzer/)
 - [매뉴얼 웹 게시 설정·확인 결과](docs/HTML-매뉴얼-게시.md)
 - [배포·사용 안내](docs/배포-사용안내.md)
