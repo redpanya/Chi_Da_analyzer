@@ -8,11 +8,11 @@
   <button id="new" class="primary wide">＋ 새 VOD 가져오기</button>
   <div class="library-head"><h2>저장한 VOD</h2><button id="refresh" class="subtle" aria-label="프로젝트 목록 새로고침">↻</button></div>
   <div id="projects"><p class="muted">저장한 프로젝트가 여기에 표시됩니다.</p></div>
-  <footer><span class="dot"></span> 이 컴퓨터에 저장<br><small>공개 VOD · 0.18.0</small></footer>
+  <footer><span class="dot"></span> 이 컴퓨터에 저장<br><small>공개 VOD · 0.18.1</small></footer>
 </aside>
 <main>
   <header><div><span class="eyebrow">내 컴퓨터의 방송 기록</span><h1 id="heading" tabindex="-1" data-help="import">VOD 가져오기</h1></div><div class="play-actions"><span class="local-badge">로컬 보관함</span><button id="delete-project" class="danger" hidden>VOD 삭제</button></div></header>
-  <nav aria-label="작업 단계"><button id="step1" class="step current">1 <span>가져오기</span></button><button id="step2" class="step" disabled>2 <span>가져오기 진행</span></button><button id="step3" class="step" disabled>3 <span>음성 전사</span></button><button id="step4" class="step" disabled>4 <span>화자 구분 (선택)</span></button><button id="step5" class="step" disabled>5 <span>통합 분석·재생</span></button><button id="step6" class="step" disabled>6 <span>AI 문맥 정리</span></button></nav>
+  <nav aria-label="작업 단계"><button id="step1" class="step current">1 <span>가져오기</span></button><button id="step2" class="step" disabled>2 <span>가져오기 진행</span></button><button id="step3" class="step" disabled>3 <span>음성 전사</span></button><button id="step4" class="step" disabled>4 <span>화자 구분 (선택)</span></button><button id="step5" class="step" disabled>5 <span>통합 분석·재생</span></button><button id="step6" class="step" disabled>6 <span>AI 문맥 정리</span></button><button id="step7" class="step">7 <span>리포트</span></button></nav>
   <div id="notice" role="status" aria-live="polite" hidden></div>
   <section id="import-panel" class="panel">
     <div class="section-heading"><h2 data-help="import">보관할 방송을 알려주세요</h2></div>
@@ -22,6 +22,25 @@
     <div id="metadata" hidden><div class="vod-summary"><span class="cover">▶</span><div><p id="channel" class="eyebrow"></p><h3 id="title"></h3><p id="duration" class="muted"></p></div></div>
       <label id="quality-label" for="quality">저장 화질</label><select id="quality"></select><p id="estimate" class="hint"></p>
     </div>
+
+    <section class="queue-section" aria-labelledby="queue-heading">
+      <h2 id="queue-heading" data-help="automation">여러 VOD 순차 작업</h2>
+      <div id="queue-inputs"></div><button id="queue-more" class="secondary" type="button">＋ 주소 입력칸 추가</button>
+      <div class="settings-grid queue-settings">
+        <label>진행 범위<select id="queue-mode"><option value="download">영상·채팅 다운로드만</option><option value="analysis">다운로드부터 AI 요약까지</option></select></label>
+        <label>최대 화질<select id="queue-height"><option value="0">제공 최고 화질</option><option value="1080">1080p 이하</option><option value="720">720p 이하</option><option value="480">480p 이하</option></select></label>
+      </div>
+      <div id="queue-analysis-options" hidden>
+        <div class="settings-grid queue-settings"><label>전사 언어<select id="queue-language"><option value="ko">한국어</option><option value="auto">자동 감지</option><option value="ja">일본어</option><option value="en">영어</option></select></label><label>발화 검출<select id="queue-vad"><option value="standard">표준</option><option value="sensitive">민감</option><option value="off">끄기</option></select></label></div>
+        <label>전사 용어 힌트(선택)<textarea id="queue-prompt" rows="2" maxlength="500"></textarea></label>
+        <div class="settings-grid queue-settings"><label class="inline-check"><input id="queue-voices" type="checkbox">화자 구분 포함(선택)</label><label>화자 도구<select id="queue-backend"><option value="sherpa">sherpa-onnx</option><option value="pyannote">pyannote · Community-1</option><option value="fluid">FluidAudio · Community-1 (macOS)</option></select></label></div>
+        <label class="inline-check"><input id="queue-thinking" type="checkbox" checked>Gemma 사고 켜기</label>
+        <label class="inline-check"><input id="queue-partial-chat" type="checkbox">채팅 경계 검증이 필요한 일부 자료도 분석에 사용</label>
+        <label class="inline-check"><input id="queue-continue-voice" type="checkbox" checked>화자 구분 실패 시 화자 불명 상태로 요약 계속</label>
+      </div>
+      <div class="play-actions"><button id="queue-add" class="secondary">입력 순서대로 목록 등록</button><button id="queue-start" class="primary" disabled>순차 작업 시작·이어가기</button><button id="queue-pause" class="secondary" disabled>일시정지</button></div>
+      <p id="queue-status" role="status"></p><p id="queue-notice" role="status" class="queue-error"></p><div id="queue-list"></div>
+    </section>
     <div class="folder-settings" aria-labelledby="folder-heading">
       <h3 id="folder-heading" data-help="folders">저장 폴더</h3>
       <div class="folder"><label for="root">VOD 보관함 폴더</label><div class="input-row"><input id="root" type="text" spellcheck="false" placeholder="VOD를 저장할 폴더의 전체 경로"><button id="load-library" class="secondary" type="button">폴더 확인</button></div><p id="destination" class="path"></p></div>
@@ -183,6 +202,31 @@
     </div></div>
   </section>
 
+
+  <section id="report-panel" class="panel" hidden>
+    <h2 data-help="report">분석기 리포트</h2>
+    <h3>현재 PC</h3>
+    <pre id="report-hardware"></pre>
+    <div class="input-row"><label>실행 기록<select id="report-select"></select></label><button id="report-refresh" class="secondary">리포트 새로고침</button></div>
+    <p id="report-notice" role="status"></p>
+    <div id="report-data" hidden>
+      <h3 id="report-vod"></h3>
+      <pre id="report-run-hardware" aria-label="이 실행에 기록된 PC 사양"></pre>
+      <table class="report-table"><thead><tr><th>단계</th><th>상태</th><th>이번 실행 시간</th><th>오류 분류</th></tr></thead><tbody id="report-stages"></tbody></table>
+      <div id="report-counts" class="settings-grid queue-settings"></div>
+      <details><summary>로컬 처리 로그 열기·닫기</summary><pre id="report-log"></pre></details>
+      <section class="report-export-box" aria-labelledby="report-export-title">
+        <h3 id="report-export-title">성능 리포트 이메일로 보내기(선택)</h3>
+        <p>JSON에 포함되는 정보: <strong>작업한 VOD 번호</strong>, CPU·GPU 모델, 코어 수·RAM·운영체제, 앱 버전·분석 옵션, 영상 길이, 단계별 처리 시간·성공/실패 코드, 전사·채팅 문자 수와 계측된 토큰 수입니다. VOD 번호로 같은 영상의 PC 사양별 처리 시간을 비교합니다.</p>
+        <p>영상·음성·전사·채팅·요약 원문, 닉네임·화자 이름, VOD 주소·제목, 파일 경로, 로그인 정보·토큰, 컴퓨터 이름·장치 식별자, 위의 로컬 상세 로그는 제출하지 않습니다.</p>
+        <p>보내주신 정보는 치다 분석기의 속도·안정성·오류 개선에 사용합니다. 보내지 않아도 모든 분석 기능을 사용할 수 있습니다. VOD 번호로 분석 대상을 알 수 있으며, 메일을 보내면 발신 이메일 주소·표시 이름도 수신자에게 전달될 수 있습니다.</p>
+        <ol><li>아래 <strong>이메일 첨부용 JSON 미리보기</strong>에서 내용을 확인하세요.</li><li><strong>JSON 파일 저장</strong>을 눌러 파일을 내려받으세요.</li><li>제공에 동의하는 경우 <a href="mailto:redpanyaday@gmail.com?subject=%EC%B9%98%EB%8B%A4%20%EB%B6%84%EC%84%9D%EA%B8%B0%20%EC%84%B1%EB%8A%A5%20%EB%A6%AC%ED%8F%AC%ED%8A%B8">redpanyaday@gmail.com</a>으로 메일을 작성하고 저장한 JSON 파일을 직접 첨부해 보내세요. 제목에 VOD 번호를 적어주시면 확인에 도움이 됩니다.</li></ol>
+        <p>파일 저장이나 이메일 주소 클릭만으로 전송되지 않습니다. 이메일 첨부·발송은 메일 앱이나 웹메일에서 직접 진행합니다. 위의 로컬 처리 로그와 원본 자료는 첨부하지 마세요. 제출 자료 삭제 문의도 같은 주소로 보내주세요.</p>
+        <div class="play-actions"><button id="report-preview" class="secondary">이메일 첨부용 JSON 미리보기</button><button id="report-save" class="subtle" disabled>JSON 파일 저장</button></div>
+        <textarea id="report-payload" readonly rows="12" aria-label="이메일에 첨부할 JSON 정보"></textarea>
+      </section>
+    </div>
+  </section>
 </main>
 <dialog id="delete-dialog" aria-labelledby="delete-title"><h2 id="delete-title">저장한 VOD 삭제</h2><p id="delete-description"></p><p id="delete-path" class="path"></p><p>이 VOD 폴더의 영상·채팅·전사·분석·화자·분리 음원·구간 영상·요약·진단을 모두 휴지통으로 이동합니다. 공용 모델과 폴더 밖 복사본은 유지합니다. 휴지통을 비우기 전에는 복원할 수 있습니다.</p><form id="delete-form"><label>확인할 VOD 번호<input id="delete-confirmation" required autocomplete="off"></label><p id="delete-error" role="status"></p><div class="play-actions"><button id="delete-cancel" type="button" class="secondary">취소</button><button id="delete-confirm" class="danger">관련 자료 모두 휴지통으로 이동</button></div></form></dialog>
 <dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title">

@@ -1,6 +1,7 @@
 """화면 수명과 분리된 작업, 개별 중단, 재시작 복구."""
 
 import threading
+import time
 
 from . import analysis_store, chat, source, video, speech, speech_store, speech_media, speech_model
 from . import task_timing, local_import, speech_options, compute
@@ -80,6 +81,10 @@ class Manager:
         self.voice_job = None
         self.import_job = None
         self.context_job = None
+        from .automation import Automation
+        from .reports import Reports
+        self.automation = Automation(self)
+        self.reports = Reports(self)
 
     def folders(self):
         with self.guard:
@@ -202,11 +207,13 @@ class Manager:
         return sorted(results, key=lambda x: x['updated_at'], reverse=True)
 
     def start(self, root, vod, format_id, kind):
+        self.automation.idle()
         if self.import_job and not self.import_job.closed:raise Conflict('파일 가져오기를 먼저 완료하거나 중단하세요')
         if kind not in ('all', 'video', 'chat'):
             raise ValueError('작업 종류가 올바르지 않습니다')
         path = project_path(root, vod)
         with self.guard:
+            self.automation.idle()
             if (self.speech_job and not self.speech_job.closed) or (self.voice_job and not self.voice_job.closed) or (self.context_job and not self.context_job.closed):
                 raise Conflict('음성 작업 중입니다. 완료 또는 중단 후 다운로드하세요')
             if self.analysis_path is not None:
@@ -243,8 +250,10 @@ class Manager:
                 project = Project(path, data, lock)
                 job = Job(project, self.guard)
                 self.job = job
+                job.report_started = time.monotonic()
                 job.add(kinds)
                 job.thread.start()
+                self.reports.watch(job, 'download')
             except Exception:
                 if job is not None:
                     for stop in job.stops.values():
@@ -266,10 +275,12 @@ class Manager:
         with self.guard:
             if not self.job or not self.job.thread.is_alive() or self.job.project.path != project_path(root, vod):
                 raise Conflict('이 실행기가 진행하는 작업이 아닙니다')
+            if self.automation.running: self.automation.pause()
             self.job.cancel(kind)
         return self.view(root, vod)
 
     def close(self):
+        self.automation.close()
         if self.import_job:
             self.import_job.cancel()
             if self.import_job.thread:self.import_job.thread.join()
@@ -290,6 +301,9 @@ class Manager:
         if self.context_job:
             self.context_job.cancel()
             self.context_job.thread.join()
+        for worker in (self.job, self.speech_job, self.voice_job, self.context_job):
+            observer = getattr(worker, 'report_thread', None)
+            if observer: observer.join()
 
     def analyze(self, root, vod, options, allow_partial=False):
         with self.guard:self.speech_idle()
@@ -301,7 +315,20 @@ class Manager:
             self.analysis_path = path
         try:
             data = recover(path, load_project(path, vod))
-            return analysis_store.run(path, data, options, allow_partial)
+            token = None
+            try:
+                token = self.reports.begin(path, 'reactions')
+            except (OSError, ValueError):
+                self.reports.warning = '반응 분석 성능 기록을 시작하지 못했습니다'
+            try:
+                result = analysis_store.run(path, data, options, allow_partial)
+            except Exception as error:
+                if token:
+                    self.reports.safe_finish(path, token, 'reactions', 'error', source.safe_error(error))
+                raise
+            if token:
+                self.reports.safe_finish(path, token, 'reactions', 'complete')
+            return result
         finally:
             with self.guard:
                 lock.close()
@@ -346,7 +373,10 @@ class Manager:
                 speech_store.update(path, state='running', action=action, message='음성 작업을 준비합니다', progress={},
                                     options=settings, timing_key=key, timing=task_timing.start(previous, resume=action != 'audio' and previous.get('action') == action and previous.get('timing_key', key) == key))
                 self.speech_job = speech.SpeechJob(path, data, lock, action, {'track': track, 'language': language, 'input_kind': 'original', 'asr_options':options})
+                self.speech_job.report_started = time.monotonic()
                 self.speech_job.thread.start()
+                if action != 'model':
+                    self.reports.watch(self.speech_job, action, {'language': language, 'vad': options['vad'], 'hint_characters': len(options['prompt'])})
             except Exception:
                 lock.close()
                 self.speech_job = None
@@ -354,6 +384,7 @@ class Manager:
         return self.view(root, vod)
 
     def speech_idle(self):
+        self.automation.idle()
         if self.import_job and not self.import_job.closed:raise Conflict('파일 가져오기 중입니다. 완료 또는 중단 후 진행하세요')
         if self.analysis_path is not None or (self.job and not self.job.closed) or (self.speech_job and not self.speech_job.closed) or (self.voice_job and not self.voice_job.closed) or (self.context_job and not self.context_job.closed):
             raise Conflict('다른 작업이 진행 중입니다. 완료 또는 중단 후 진행하세요')
@@ -362,6 +393,7 @@ class Manager:
         with self.guard:
             if not self.speech_job or self.speech_job.closed or self.speech_job.path != project_path(root, vod):
                 raise Conflict('이 실행기가 처리하는 음성 작업이 아닙니다')
+            if self.automation.running: self.automation.pause()
             self.speech_job.cancel()
         return self.view(root, vod)
 
@@ -421,7 +453,10 @@ class Manager:
                 voice_store.update(path, **settings, state='running', action=action, message='M4 작업을 준비합니다', progress={},
                                    timing=task_timing.start(voice_store.state(path)))
                 self.voice_job = voices.VoiceJob(path, data, lock, action, options)
+                self.voice_job.report_started = time.monotonic()
                 self.voice_job.thread.start()
+                if action == 'diarize':
+                    self.reports.watch(self.voice_job, 'diarize', {'speaker_backend': backend})
             except Exception:
                 lock.close(); self.voice_job = None
                 raise
@@ -431,6 +466,7 @@ class Manager:
         with self.guard:
             if not self.voice_job or self.voice_job.closed or self.voice_job.path != project_path(root,vod):
                 raise Conflict('이 실행기가 처리하는 M4 작업이 아닙니다')
+            if self.automation.running: self.automation.pause()
             self.voice_job.cancel()
         return self.view(root,vod)
 
@@ -506,7 +542,10 @@ class Manager:
                 else:
                     value=context_input.build(path,vod,options or {}) if action=='summarize' else {'model_name':(options or {}).get('model')}
                 self.context_job=context_job.ContextJob(path,vod,lock,action,value)
+                self.context_job.report_started = time.monotonic()
                 self.context_job.thread.start()
+                if action in ('whole', 'resume'):
+                    self.reports.watch(self.context_job, 'summary', {'thinking': (value.get('inference') or {}).get('thinking', True), 'summary_model': context_model.DEFAULT_NAME if self.context_job.model_info['name'] == context_model.DEFAULT_NAME else 'unknown'})
             except Exception:
                 lock.close();self.context_job=None;raise
         return self.view(root,vod)
@@ -514,6 +553,7 @@ class Manager:
     def context_stop(self, root, vod):
         with self.guard:
             if not self.context_job or self.context_job.closed or self.context_job.path!=project_path(root,vod): raise Conflict('현재 처리 중인 문맥 작업이 아닙니다')
+            if self.automation.running: self.automation.pause()
             self.context_job.cancel()
         return self.view(root,vod)
 

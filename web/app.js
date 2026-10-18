@@ -1,3 +1,5 @@
+import {createQueue} from './queue.js';
+import {createReports} from './reports.js';
 import {connectHelp} from './help.js';
 import {createLocalImport} from './local-import.js';
 import {createPlayer} from './player.js';
@@ -24,6 +26,8 @@ const reactions=createReactions({api,onDone:()=>{explorer.refresh();context.refr
 const voices=createVoices({api,player,showExplore,showVideo:()=>go(5),onProject:value=>{current=value;render();}});
 const speech=createSpeech({api,player,showExplore,showVoices:range=>{voices.chooseRange(range);go(4);},showVideo:()=>go(5),onProject:value=>{current=value;render();}});
 const folders=createFolders({api,onApplied:async()=>{if(current){current=await api('state',{root:current.root,vod_id:current.vod_id});render();}}});
+const reports=createReports({api,getProject:()=>current});
+const queue=createQueue({api,getRoot:()=>$('root').value,onOpen:(root,vod)=>perform(async()=>{current=await api('state',{root,vod_id:vod});render();go(2);}),onChanged:()=>list().catch(()=>{})});
 function notice(text=''){$('notice').textContent=text;$('notice').hidden=!text;}
 async function api(action,data){
  const response=await fetch(`api/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
@@ -32,10 +36,10 @@ async function api(action,data){
 }
 function bytes(value){if(!Number.isFinite(value))return '크기 미확인';return value>=1e9?`${(value/1e9).toFixed(2)} GB`:`${(value/1e6).toFixed(1)} MB`;}
 function duration(seconds){if(!Number.isFinite(seconds))return '길이 미확인';const h=Math.floor(seconds/3600),m=Math.floor(seconds%3600/60),s=Math.floor(seconds%60);return `${h?`${h}시간 `:''}${m}분 ${s}초`;}
-function go(step){step=Math.min(6,Math.max(1,step));if(page!==step){player.clearRange();voices.stopPreview();}page=step;['import-panel','download-panel','speech-panel','voices-panel','explore-panel','context-panel'].forEach((id,i)=>$(id).hidden=i+1!==step);[1,2,3,4,5,6].forEach(n=>$(`step${n}`).classList.toggle('current',step===n));$('heading').textContent=['VOD 가져오기','가져오기 진행','음성 추출·전사','화자 구분 (선택)','통합 분석·재생','AI 문맥 정리'][step-1];
- help.setPage(step);
- if(step>=5){const target=$({5:'explore-video',6:'context-video'}[step]);for(const id of ['video-result','video-unready'])if($(id).parentElement!==target)target.append($(id));}
- explorer.open(step===5);if(step===6)context.refresh();}
+function go(step){step=Math.min(7,Math.max(1,step));if(page!==step){player.clearRange();voices.stopPreview();}page=step;['import-panel','download-panel','speech-panel','voices-panel','explore-panel','context-panel','report-panel'].forEach((id,i)=>$(id).hidden=i+1!==step);[1,2,3,4,5,6,7].forEach(n=>$(`step${n}`).classList.toggle('current',step===n));$('heading').textContent=['VOD 가져오기','가져오기 진행','음성 추출·전사','화자 구분 (선택)','통합 분석·재생','AI 문맥 정리','리포트'][step-1];
+ help.setPage(step);if(step!==7)reports.clear();
+ if(step===5||step===6){const target=$({5:'explore-video',6:'context-video'}[step]);for(const id of ['video-result','video-unready'])if($(id).parentElement!==target)target.append($(id));}
+ explorer.open(step===5);if(step===6)context.refresh();if(step===7)reports.refresh();}
 function locationPreview(){const root=$('root').value.replace(/\/$/,'');$('destination').textContent=meta?`${root}/vod-${meta.id}`:'';}
 function qualityPreview(){if(!meta)return;if(localImport.isLocal()){$('estimate').textContent=meta.metadata_warning||'전체 제공 채팅 · 내 영상 범위에서 탐색';return;}const f=meta.formats.find(f=>f.id===$('quality').value);$('estimate').textContent=f?.estimated_bytes?`원본 예상 ${bytes(f.estimated_bytes)} · 변환 필요 시 추가 공간 확인`:'예상 용량 미확인 · 저장 공간을 확인하세요.';}
 async function list(){const projects=await api('projects',{root:$('root').value});$('projects').replaceChildren();if(!projects.length){const p=document.createElement('p');p.className='muted';p.textContent='이 폴더에 저장한 VOD가 없습니다.';$('projects').append(p);}for(const project of projects){const button=document.createElement('button');button.dataset.path=project.path;button.className='project-item'+(current?.path===project.path?' selected':'');const title=document.createElement('strong'),summary=document.createElement('small');title.textContent=project.metadata.title;summary.textContent=`영상 ${labels[project.tasks.video.state]} · 채팅 ${labels[project.tasks.chat.state]}`;button.append(title,summary);button.onclick=()=>perform(async()=>{current=await api('state',{root:project.root,vod_id:project.vod_id});render();go(2);});$('projects').append(button);}}
@@ -62,7 +66,7 @@ $('inspect-form').onsubmit=event=>{event.preventDefault();perform(async()=>{meta
 $('url').oninput=()=>{meta=null;$('metadata').hidden=true;$('start').disabled=true;locationPreview();};$('root').oninput=locationPreview;$('quality').onchange=qualityPreview;
 $('start').onclick=()=>perform(async()=>{if(!meta)return;if(localImport.isLocal()){await localImport.start(meta,$('root').value);await list();return;}current=await api('start',{root:$('root').value,vod_id:meta.id,format_id:$('quality').value,kind:'all'});render();go(2);await list();});
 $('load-library').onclick=$('refresh').onclick=()=>perform(list);
-function clearProject(){help.setProject(null);notice();meta=null;current=null;sessionStorage.removeItem('project');$('metadata').hidden=true;$('url').value='';$('start').disabled=true;for(let i=2;i<=6;i++)$(`step${i}`).disabled=true;player.reset();$('player').removeAttribute('src');$('player').load();reactions.setProject(null);speech.setProject(null);voices.setProject(null);explorer.setProject(null);context.setProject(null);$('delete-project').hidden=true;go(1);$('url').focus();}
+function clearProject(){reports.clear();help.setProject(null);notice();meta=null;current=null;sessionStorage.removeItem('project');$('metadata').hidden=true;$('url').value='';$('start').disabled=true;for(let i=2;i<=6;i++)$(`step${i}`).disabled=true;player.reset();$('player').removeAttribute('src');$('player').load();reactions.setProject(null);speech.setProject(null);voices.setProject(null);explorer.setProject(null);context.setProject(null);$('delete-project').hidden=true;go(1);$('url').focus();}
 $('new').onclick=clearProject;
 connectDeletion({api,beforeOpen:help.close,getProject:()=>current,onDeleted:async removed=>{sessionStorage.removeItem('explore:'+removed.path);clearProject();await list();notice('VOD 관련 자료를 모두 휴지통으로 이동했습니다. 공용 모델과 다른 VOD는 유지됩니다.');}});
 for(const kind of ['video','chat']){$(`${kind}-resume`).onclick=()=>perform(()=>start(kind));$(`${kind}-stop`).onclick=()=>perform(async()=>{current=await api('stop',{root:current.root,vod_id:current.vod_id,kind});render();});}
@@ -72,6 +76,7 @@ $('step3').onclick=$('show-speech').onclick=()=>go(3);
 $('step4').onclick=$('show-voices').onclick=()=>go(4);
 $('step5').onclick=$('show-results').onclick=$('speech-next-step').onclick=()=>go(5);
 $('voices-next-step').onclick=()=>go(5);
-$('step6').onclick=()=>go(6);
+$('step6').onclick=()=>go(6);$('step7').onclick=()=>go(7);
+setInterval(()=>queue.refresh(),2000);
 setInterval(async()=>{if(page===1)await folders.refresh();if(!current||polling||busy)return;polling=true;const selected=current.path;try{const fresh=await api('state',{root:current.root,vod_id:current.vod_id});if(current?.path===selected){const changed=JSON.stringify(current.tasks)!==JSON.stringify(fresh.tasks);current=fresh;render();if(changed&&!fresh.locked)await list();}}catch(error){notice(error.message);}finally{polling=false;}},1000);
-(async()=>{try{const config=await (await fetch('api/config')).json();folders.set(config.folders);const saved=JSON.parse(sessionStorage.getItem('project')||'null');$('root').value=saved?.root||config.root;await list();if(saved){current=await api('state',saved);render();go(2);}if(!config.media_tools)notice('FFmpeg와 ffprobe를 찾지 못했습니다. 영상 다운로드 전 설치 경로를 확인하세요.');}catch(error){notice('실행기에 연결하지 못했습니다. '+error.message);}})();
+(async()=>{try{const config=await (await fetch('api/config')).json();folders.set(config.folders);const saved=JSON.parse(sessionStorage.getItem('project')||'null');$('root').value=saved?.root||config.root;await list();await queue.refresh();if(saved){current=await api('state',saved);render();go(2);}if(!config.media_tools)notice('FFmpeg와 ffprobe를 찾지 못했습니다. 영상 다운로드 전 설치 경로를 확인하세요.');}catch(error){notice('실행기에 연결하지 못했습니다. '+error.message);}})();

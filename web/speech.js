@@ -3,7 +3,7 @@ import {timecode} from './player.js';
 
 export function createSpeech({api, player, showVideo, showVoices, showExplore, onProject}) {
   const $ = id => document.getElementById(id);
-  let project = null, generation = 0, rowGeneration = 0, details = null, fingerprint = '', rowsKey = '', next = null, cursor = 0, requesting = false;
+  let project = null, generation = 0, infoGeneration = 0, rowGeneration = 0, details = null, fingerprint = '', rowsKey = '', next = null, cursor = 0, requesting = false;
   const selected = () => ({root: project.root, vod_id: project.vod_id});
   const message = text => { $('speech-notice').textContent = text; };
   const fileURL = key => `file?${new URLSearchParams({...selected(), kind: !['audio','audio-save','sam'].includes(key) && project.voices?.run && !project.voices.stale ? 'voices' : 'speech', key, revision: project.voices?.updated_at || project.speech.updated_at || ''})}`;
@@ -12,10 +12,16 @@ export function createSpeech({api, player, showVideo, showVoices, showExplore, o
   }
   async function info() {
     if (!project) return;
-    const token = generation;
+    const token = generation, requestId = ++infoGeneration;
+    details = null;
+    $('speech-track').replaceChildren();
+    const ready = project.tasks?.video?.state === 'complete';
+    $('speech-source').textContent = ready ? '영상의 오디오 정보를 확인하고 있습니다…' : '영상 다운로드·검증 완료 후 오디오 정보를 확인합니다.';
+    render();
+    if (!ready) return;
     try {
       const value = await api('speech-info', selected());
-      if (token !== generation) return;
+      if (token !== generation || requestId !== infoGeneration) return;
       details = value;
       $('speech-track').replaceChildren();
       for (const track of value.tracks) {
@@ -29,7 +35,7 @@ export function createSpeech({api, player, showVideo, showVoices, showExplore, o
       const m = value.model;
       $('speech-model').textContent = `${m.name} · ${(m.bytes / 1024**2).toFixed(0)} MiB · ${m.ready ? '준비됨' : '준비 필요'} · ${m.engine ? '전사 엔진 감지됨' : 'whisper-cli 설치 필요'} · 남은 공간 ${(m.free_bytes / 1e9).toFixed(1)} GB`;
       render();
-    } catch (error) { if (token === generation) { details = null; $('speech-source').textContent = error.message; render(); } }
+    } catch (error) { if (token === generation && requestId === infoGeneration) { details = null; $('speech-source').textContent = error.message; render(); } }
   }
   function render() {
     if (!project) return;
@@ -147,6 +153,8 @@ export function createSpeech({api, player, showVideo, showVoices, showExplore, o
   return {setProject(value) {
     const changed = value?.path !== project?.path;
     const modelChanged = value?.model_root !== project?.model_root;
+    const videoChanged = value?.tasks?.video?.state !== project?.tasks?.video?.state
+      || value?.tasks?.video?.assets?.playback !== project?.tasks?.video?.assets?.playback;
     if (modelChanged && !changed) {generation++; details=null; fingerprint=''; $('speech-model').textContent='모델 상태 확인 중';}
     if (changed) {
       generation++; details=null; fingerprint=''; rowsKey=''; cursor=0; next=null;
@@ -163,7 +171,7 @@ export function createSpeech({api, player, showVideo, showVoices, showExplore, o
       $('speech-vad').value = options.vad || 'standard';
       $('speech-prompt').value = options.prompt || '';
     }
-    if (changed || modelChanged || (previous?.owned && !value.speech.owned) || (value.speech.action === 'model' && value.speech.state === 'complete' && previous?.updated_at !== value.speech.updated_at)) info();
+    if (changed || modelChanged || videoChanged || (previous?.owned && !value.speech.owned) || (value.speech.action === 'model' && value.speech.state === 'complete' && previous?.updated_at !== value.speech.updated_at)) info();
     const nextFingerprint=JSON.stringify(value.speech)+JSON.stringify(value.voices)+value.locked;
     if (nextFingerprint !== fingerprint) {fingerprint=nextFingerprint;render();}
     const key=`${value.speech.run}:${value.speech.transcript?.processed_ms}:${value.voices?.updated_at}:${value.voices?.revision}`;

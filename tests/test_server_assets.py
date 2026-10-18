@@ -41,3 +41,11 @@ class ServerAssetTests(unittest.TestCase):
             client.request('POST',p.path+'api/clips-start',body='{}',headers={'Origin':f'http://{p.netloc}','Content-Type':'application/json'})
             r=client.getresponse();self.assertEqual(r.status,410);self.assertIn('제거',r.read().decode())
         finally:client.close();server.shutdown();server.server_close();thread.join()
+
+    def test_removed_report_upload_is_unavailable(self):
+        server,url=make_server(None);thread=threading.Thread(target=server.serve_forever);thread.start()
+        p=urlsplit(url);client=HTTPConnection(p.hostname,p.port,timeout=5)
+        try:
+            client.request('POST',p.path+'api/report-submit',body='{}',headers={'Origin':f'http://{p.netloc}','Content-Type':'application/json'})
+            r=client.getresponse();self.assertEqual(r.status,410);self.assertIn('이메일',r.read().decode())
+        finally:client.close();server.shutdown();server.server_close();thread.join()

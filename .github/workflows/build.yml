@@ -54,6 +54,13 @@ jobs:
           python -m unittest discover -s tests -p test_compute.py -v
           python -m unittest discover -s tests -p test_media_probe.py -v
           python -m unittest discover -s tests -p test_import_recovery.py -v
+          python -m unittest discover -s tests -p test_automation_reports.py -v
+          python -m unittest discover -s tests -p test_server_assets.py -v
+      - name: 순차 작업·리포트·전사 화면 검사
+        run: |
+          node tests/test_reports_ui.mjs
+          node tests/test_speech_readiness.mjs
+          node tests/test_speech_ui.mjs
       - name: macOS 빌드 도구
         if: runner.os == 'macOS'
         run: |
@@ -117,7 +124,7 @@ jobs:
       - name: Python 실행기 패키징
         run: python -m PyInstaller --noconfirm --clean --distpath build/frozen --workpath build/pyinstaller packaging/release/backend.spec
       - name: 앱 구성
-        run: python packaging/release/assemble.py --version 0.18.0
+        run: python packaging/release/assemble.py --version 0.18.1
       - name: 패키지 독립 실행 검사
         run: python packaging/release/smoke.py
       - name: ZIP·대응 소스·체크섬 생성

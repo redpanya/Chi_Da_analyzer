@@ -31,7 +31,7 @@ def collect(folder, tokenizer, started, job=None):
         'checkpoint_reuses':sum(r['checkpoint_reused'] for r in events),
         'measured_responses':len(metrics),'prompt_ms':total('prompt_ms'),'generation_ms':total('predicted_ms'),
         'completed_prompt_ms':total('prompt_ms',True),'completed_generation_ms':total('predicted_ms',True),
-        'generated_tokens':total('predicted_n'),'cached_prompt_tokens':total('cache_n'),
+        'generated_tokens':total('predicted_n'),'prompt_tokens':total('prompt_n'),'cached_prompt_tokens':total('cache_n'),
         'tokenizer_seconds':round(getattr(tokenizer,'seconds',0),3),
         'tokenizer_requests':getattr(tokenizer,'tokenizer_requests',None),
         'tokenizer_hits':getattr(tokenizer,'tokenizer_hits',None),

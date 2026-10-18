@@ -4,7 +4,7 @@
 
 `ChiDaanalyzer.app`을 담은 macOS Apple Silicon 앱 ZIP, Windows x64 CPU + Vulkan 선택형 포터블 ZIP을 각 OS의 GitHub Actions에서 빌드합니다. DMG는 만들지 않습니다. 기본 화자 엔진 sherpa와 미디어·전사·요약 실행 도구를 포함하며 모델은 설치 후 다운로드합니다. 기존 전체 macOS 개발 패키징 스크립트와 로컬 결과는 유지합니다.
 
-저장소는 `redpanya/Chi_Da_analyzer` 비공개입니다. Actions의 `앱 빌드`를 수동 실행하면 두 OS 빌드와 간단한 실행 검사를 거쳐 아티팩트를 생성합니다. `draft_tag`를 입력하면 두 빌드가 모두 성공했을 때만 비공개 저장소에 초안 Release와 체크섬·대응 소스를 함께 올립니다. 빈 값이면 아티팩트만 생성합니다. 초안 공개와 저장소 공개 전환은 자동으로 하지 않습니다.
+저장소는 `redpanya/Chi_Da_analyzer` 공개 저장소입니다. Actions의 `앱 빌드`를 수동 실행하면 두 OS 빌드와 간단한 실행 검사를 거쳐 아티팩트를 생성합니다. `draft_tag`를 입력하면 두 빌드가 모두 성공했을 때만 초안 Release와 체크섬·대응 소스를 함께 올립니다. 빈 값이면 아티팩트만 생성합니다. 초안 Release는 공개 게시 전까지 일반 이용자에게 보이지 않습니다.
 
 ## 로컬 재현
 
@@ -16,7 +16,7 @@ python packaging/release/fetch_sources.py
 python packaging/release/build_native.py
 bash packaging/release/build_ffmpeg.sh
 python -m PyInstaller --noconfirm --clean --distpath build/frozen --workpath build/pyinstaller packaging/release/backend.spec
-python packaging/release/assemble.py --version 0.18.0
+python packaging/release/assemble.py --version 0.18.1
 python packaging/release/smoke.py
 python packaging/release/archive_release.py
 ```

@@ -8,6 +8,7 @@ import tempfile
 import time
 from urllib.request import build_opener, ProxyHandler, Request
 import media_smoke
+import report_smoke
 
 ROOT=Path(__file__).resolve().parents[2]
 
@@ -54,7 +55,7 @@ def main():
                 if not ready.exists():raise RuntimeError((work/'run.log').read_text(encoding='utf-8',errors='replace'))
                 url=json.loads(ready.read_text(encoding='utf-8'))['url']
                 http=build_opener(ProxyHandler({}))
-                for relative in ('','app.js','voice-model-help.js','compute.js'):
+                for relative in ('','app.js','voice-model-help.js','compute.js','queue.js','reports.js'):
                     with http.open(url+relative,timeout=15) as response:assert response.status==200
                 with http.open(url+'api/config', timeout=30) as response: config=json.load(response)
                 assert config['folders']['compute']['visible'] == (sys.platform == 'win32')
@@ -66,12 +67,14 @@ def main():
                         assert applied['compute']['mode']==mode
                 report['media_pipeline']=media_smoke.check(http,url,fixture)
                 report['import_recovery']=media_smoke.check_recovery(http,url,recovery_fixture)
+                report['automation_reports']=report_smoke.check(http,url,fixture[0])
                 stop.touch();assert proc.wait(timeout=20)==0;assert not ready.exists()
             finally:
                 if proc.poll() is None:proc.kill();proc.wait(timeout=10)
         report['checks']=['포함 도구 실행','H.264/AAC 생성·읽기·디코딩','한글·공백 경로·다국어 제목',
                           '다운로드 후 검사 재개 (수신 대체)','패키지 원음 정보·추출 API','원본·채팅 보존',
                           '시작 시각 이동·기존 임시 재생본 복구','저장된 경계 응답의 채팅 보완',
+                          '순차 작업 상태·VOD 번호 포함 리포트·구형 사본 보존·자동 전송 제거',
                           'HTTP 및 정적 모듈','정상 종료']
         (ROOT/'dist/smoke.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
         print('패키지 기본 실행 검사 통과 (모델 추론 제외)')

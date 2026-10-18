@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {createSpeech} from '../web/speech.js';
+import {getHelpContent} from '../web/help-content.js';
 
 const nodes = new Map();
 function node() {
@@ -13,6 +14,7 @@ globalThis.document = {
 };
 const $ = id=>document.getElementById(id), calls=[];
 let project={path:'/검증/vod-1',root:'/검증',vod_id:'1',metadata:{title:'검증'},locked:false,voices:{},
+  tasks:{video:{state:'complete',assets:{playback:'media/original.mp4'}}},
   speech:{state:'idle',message:'',raw_audio:{track:1},options:{input_kind:'sam',sam_profile:'standard'},versions:[]}};
 const details={tracks:[{index:1,channels:1}],duration_ms:10000,estimated_bytes:320000,
   model:{ready:true,engine:true,bytes:1,free_bytes:1},
@@ -31,14 +33,14 @@ view.setProject(project);await settle();
 assert.equal($('transcribe').disabled,false);
 assert.equal($('speech-vad').value,'standard');
 $('speech-vad').value='sensitive';$('speech-vad').onchange();
-$('speech-prompt').value='사용자 용어';assert.match($('speech-vad-hint').textContent,/작은 발화/);
+$('speech-prompt').value='사용자 용어';assert.match(getHelpContent('speech-options',id=>$(id).value).current,/sensitive/);
 project={...project,speech:{...project.speech,updated_at:'폴링'}};view.setProject(project);
 assert.equal($('speech-vad').value,'sensitive');assert.equal($('speech-prompt').value,'사용자 용어');
 await $('transcribe').onclick();
 assert.equal(calls.at(-1).data.input_kind,'original');
 assert.deepEqual(calls.at(-1).data.asr_options,{vad:'sensitive',prompt:'사용자 용어'});
 assert.equal(calls.at(-1).data.sam_profile,undefined);
-$('speech-vad').value='off';$('speech-vad').onchange();assert.match($('speech-vad-hint').textContent,/잘못된 전사/);
+$('speech-vad').value='off';$('speech-vad').onchange();assert.match(getHelpContent('speech-options',id=>$(id).value).current,/off/);
 view.setProject({...project,locked:true});assert.equal($('speech-vad').disabled,true);assert.equal($('speech-prompt').disabled,true);
 project={...project,path:'/검증/vod-2',speech:{...project.speech,options:{asr_options:{vad:'off',prompt:'다른 자료'}}}};
 view.setProject(project);await settle();

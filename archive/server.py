@@ -88,7 +88,21 @@ def make_server(manager, port=0):
                 if not isinstance(data, dict):
                     raise ValueError('요청 값이 올바르지 않습니다')
                 action = urlsplit(self.path).path[len(prefix):]
-                if action == '/api/import-start':
+                if action.startswith('/api/queue-'):
+                    result = manager.automation.dispatch(action.rsplit('-', 1)[1], data)
+                elif action == '/api/report-config':
+                    from .report_hardware import collect
+                    result = {'hardware': collect()}
+                elif action == '/api/reports':
+                    result = manager.reports.list(data['root'], data['vod_id'])
+                elif action == '/api/report-read':
+                    result = manager.reports.snapshot(data['root'], data['vod_id'], data['report_id'])
+                elif action == '/api/report-preview':
+                    result = {'payload': manager.reports.snapshot(data['root'], data['vod_id'], data['report_id'])['payload']}
+                elif action == '/api/report-submit':
+                    self.reply(410, {'error': '자동 제출 기능은 제거되었습니다. JSON을 저장해 이메일에 직접 첨부하세요'})
+                    return
+                elif action == '/api/import-start':
                     result=manager.import_start(data['root'],data['vod_id'],data['file'])
                 elif action in ('/api/import-finish','/api/import-cancel'):
                     result=manager.import_action(data['upload'],action.rsplit('-',1)[1])
@@ -192,7 +206,7 @@ def make_server(manager, port=0):
                      '/app.js': ('app.js', 'text/javascript; charset=utf-8')}
             files['/sam-options.js'] = ('sam-options.js', 'text/javascript; charset=utf-8')
             files.update({f'/{name}.js': (f'{name}.js', 'text/javascript; charset=utf-8')
-                          for name in ('help', 'help-content', 'voice-model-help', 'local-import', 'reactions', 'player', 'speech', 'voices', 'voice-review', 'voice-suggestions', 'explore', 'timeline', 'context', 'project-delete', 'folders', 'compute', 'task-timing', 'audio-preview', 'context-reactions', 'context-copy', 'context-tree', 'context-interpretations')})
+                          for name in ('queue', 'reports', 'help', 'help-content', 'voice-model-help', 'local-import', 'reactions', 'player', 'speech', 'voices', 'voice-review', 'voice-suggestions', 'explore', 'timeline', 'context', 'project-delete', 'folders', 'compute', 'task-timing', 'audio-preview', 'context-reactions', 'context-copy', 'context-tree', 'context-interpretations')})
             if path in files:
                 filename, mime = files[path]
                 content = (WEB / filename).read_bytes()
