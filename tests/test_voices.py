@@ -115,7 +115,9 @@ class VoiceTests(unittest.TestCase):
         manager=Manager(self.root); entered=threading.Event()
         def worker(job,*args,**kwargs):
             entered.set();job.stop.wait(5);raise Cancelled()
-        with patch.object(voices.VoiceJob,'worker',worker):
+        # 취소·잠금 계약은 검사 장치에 별도 엔진이 설치되어 있는지와 무관하다.
+        with patch.object(voices.VoiceJob,'worker',worker), \
+             patch('archive.diarization_backends.status',return_value={'supported':True,'engine':True}):
             manager.voices_start(str(self.root),'1','diarize',{})
             self.assertTrue(entered.wait(2))
             with self.assertRaises(Conflict):manager.speech_start(str(self.root),'1','model')
