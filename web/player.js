@@ -49,7 +49,6 @@ export function createPlayer() {
       return;
     }
     pending = {milliseconds, playing};
-    $('video-result').scrollIntoView({block: 'nearest'});
     apply();
   }
   video.addEventListener('timeupdate', () => {
@@ -59,14 +58,7 @@ export function createPlayer() {
   video.addEventListener('loadedmetadata', () => { apply(); showTime(); });
   for (const event of ['timeupdate', 'pause', 'play', 'ended']) video.addEventListener(event, showTime);
   video.addEventListener('error', () => { pending = null; status('영상 파일을 불러오지 못했습니다. 원본을 보존하고 다운로드 상태와 파일 경로를 확인하세요.'); });
-  $('seek-start').onclick = () => seek(0);
-  $('seek-middle').onclick = () => seek(video.duration * 500);
-  $('seek-end').onclick = () => seek(Math.max(0, video.duration - 3) * 1000);
   $('play-toggle').onclick = () => video.paused ? play() : video.pause();
   $('playback-speed').onchange = () => { video.defaultPlaybackRate = video.playbackRate = Number($('playback-speed').value); };
-  $('seek-form').onsubmit = event => {
-    event.preventDefault();
-    try { seek(parseTime($('seek-time').value)); } catch (error) { status(error.message); }
-  };
   return {seek, clearRange() { range = null; }, reset() { range = null; pending = null; video.pause(); status(''); }};
 }

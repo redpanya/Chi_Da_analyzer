@@ -24,6 +24,14 @@ assert.equal($('voices-run').disabled,true);assert.equal($('voices-prepare').dis
 assert.match($('voices-model').textContent,/최초 다운로드 시 HF 로그인/);
 assert.equal($('voices-model').dataset.ready,'false');
 await $('voices-prepare').onclick();assert.equal(calls.at(-1).data.options.backend,'pyannote');
+result.diarization_models.pyannote.engine=false;
+$('voices-backend').onchange();
+assert.equal($('voices-prepare').disabled,true);assert.equal($('voices-tool-install').disabled,false);
+assert.equal($('voices-tool-check').disabled,true);
+await $('voices-tool-install').onclick();
+assert.equal(calls.at(-1).data.action,'install-engine');assert.equal(calls.at(-1).data.options.backend,'pyannote');
+result.diarization_models.pyannote.engine=true;$('voices-backend').onchange();
+assert.equal($('voices-tool-check').disabled,false);assert.equal($('voices-prepare').disabled,false);
 $('voices-backend').value='fluid';$('voices-number').value='4';$('voices-backend').onchange();
 assert.equal($('voices-number').disabled,false);assert.match($('voices-resume-hint').textContent,/처음부터/);
 await $('voices-run').onclick();assert.deepEqual(calls.at(-1).data.options,{backend:'fluid',speakers:4});
@@ -31,6 +39,7 @@ project={...project,voices:{...project.voices,updated_at:'폴링'}};view.setProj
 assert.equal($('voices-backend').value,'fluid');
 project={...project,locked:true};view.setProject(project);
 assert.equal($('voices-backend').disabled,true);assert.equal($('voices-run').disabled,true);
+assert.equal($('voices-tool-install').disabled,true);assert.equal($('voices-tool-check').disabled,true);
 project={...project,path:'/검증/vod-2',locked:false,voices:{runs:[],stems:[],backend:'fluid'}};view.setProject(project);await settle();
 assert.equal($('voices-backend').value,'fluid');assert.equal($('voices-number').disabled,false);
 project={...project,path:'/검증/이전-nemo',voices:{runs:[],stems:[],backend:'nemo'}};view.setProject(project);await settle();

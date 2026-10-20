@@ -26,6 +26,7 @@ def fingerprints():
 
 
 def status():
+    from . import speaker_tools
     folder = home()
     try:
         current = fingerprints()
@@ -33,7 +34,7 @@ def status():
         ready = len(current) == 3 and {k:saved.get(k) for k in current} == current
     except (OSError, ValueError):
         ready = False
-    return {'ready': ready, 'engine': PYTHON.is_file(), 'bytes': sum(v[2] for v in FILES.values()),
+    return {'ready': ready, 'engine': speaker_tools.resolve('sherpa')[0].is_file(), 'bytes': sum(v[2] for v in FILES.values()),
             'free_bytes': model_paths.free_bytes()}
 
 

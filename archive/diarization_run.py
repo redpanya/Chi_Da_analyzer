@@ -1,7 +1,7 @@
 """추가 엔진 실행과 공통 결과 변환. 자동으로 다른 엔진에 대체하지 않는다."""
 import sys
 
-from . import diarization_backends as backends, diarization_models as models, speech_media as media, voice_models
+from . import diarization_backends as backends, diarization_models as models, speech_media as media, voice_models, speaker_tools
 from .storage import read_json, save_json
 
 
@@ -22,9 +22,7 @@ def process(backend,folder,request,stop,lock,update):
                 count=f" {value.get('completed',0)}/{value['total']}" if value.get('total') else ''
                 update(message=value.get('message') or ('화자 구분 · '+value.get('phase','처리 중')+count),progress=value.get('progress',{}))
     if backend=='pyannote':
-        args=[str(engine)]
-        if not getattr(sys,'frozen',False): args.append(str(backends.ROOT/'workers/diarization_pyannote.py'))
-        args.append(str(folder/'request.json'))
+        args=speaker_tools.command(backend,folder/'request.json')
     elif backend=='fluid': args=[str(engine),str(folder/'request.json')]
     else: raise ValueError('지원하지 않는 추가 화자 엔진입니다')
     try: media.process(args,folder/'engine.log',stop,lock,on_poll=progress)
@@ -45,7 +43,10 @@ def prepare(backend,folder,stop,lock,update):
         from .storage import ProjectLock
         with ProjectLock(target):
             for entry in backends.catalog(backend)['files']: models.local(backend,entry['name'])
-            process(backend,folder,{'action':'prepare','model_root':str(model_paths.root()),'output':str(folder/'engine.json')},stop,lock,update)
+            # 이미 검증 가능한 모델에는 재로그인·재다운로드를 요구하지 않는다.
+            try: models.verify(backend,stop)
+            except (OSError, ValueError):
+                process(backend,folder,{'action':'prepare','model_root':str(model_paths.root()),'output':str(folder/'engine.json')},stop,lock,update)
             models.verify(backend,stop)
             save_json(target/'verified.json',{'signature':backends.signature(backend),'files':models.fingerprints(backend)})
     else: models.download(backend,stop,update)

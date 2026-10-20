@@ -87,7 +87,9 @@ class Server:
             raise ValueError(f'로컬 추론 응답 오류 {error.code}: '+error.read().decode('utf-8','replace')[-400:]) from error
 
     def body(self,text):
-        return {'messages':messages(text),'chat_template_kwargs':{'enable_thinking':self.profile['thinking']},'reasoning_format':'deepseek'}
+        from .context_background import contextual_messages
+        background=getattr(self.job,'input',{}).get('source',{}).get('broadcast_background','')
+        return {'messages':contextual_messages(messages(text),background),'chat_template_kwargs':{'enable_thinking':self.profile['thinking']},'reasoning_format':'deepseek'}
 
     def count(self,text):
         check_cancel(self.job.stop)

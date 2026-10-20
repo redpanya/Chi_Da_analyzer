@@ -79,7 +79,9 @@ export function createVoiceReview({listen, save, search, jump, suggest}) {
         const assign=document.createElement('button');assign.className='primary';assign.textContent='화자 배정';assign.setAttribute('aria-label',time+' 화자 배정');
         assign.onclick=()=>{if(!disabled&&select.value)return save({segment_id:row.id},select.value,{run:result.run,revision:result.revision});};
         select.onchange=()=>{drafts.set(row.id,select.value);assign.disabled=disabled||!select.value;};
-        label.append(select);actions.append(audio,video,label,assign);card.append(title,reason,text,actions);$('voice-failed-rows').append(card);
+        const editor=document.createElement('details'),summary=document.createElement('summary');
+        summary.textContent='화자 배정';editor.open=drafts.has(row.id);editor.append(summary,label,assign);
+        label.append(select);actions.append(audio,video);card.append(title,reason,text,actions,editor);$('voice-failed-rows').append(card);
         if(suggest){const review=document.createElement('button');review.className='secondary';review.textContent='음향·문맥 검토 범위 선택';review.onclick=()=>suggest(row);actions.append(review);}
         controls.push({select,save:assign,listen:audio});
       }

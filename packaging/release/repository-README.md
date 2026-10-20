@@ -4,7 +4,7 @@
 
 여러 VOD의 순차 다운로드·자동 분석과 VOD 번호를 포함한 성능 리포트를 제공합니다. 리포트는 JSON으로 저장해 이메일로 직접 제공할 수 있으며 앱이 자동 전송하지 않습니다.
 
-현재 **공개 사전 검증판**입니다. 모델·VOD·인증정보는 저장소에 포함하지 않습니다.
+현재 **공개 사전 검증판**입니다. 최신 수정 소스는 0.19.0이며 OS별 빌드 진행 상태와 파일은 [Actions](https://github.com/redpanya/Chi_Da_analyzer/actions/workflows/build.yml)에서 확인합니다. 모델·VOD·인증정보는 저장소에 포함하지 않습니다.
 
 ## 사용
 
@@ -23,4 +23,4 @@ Actions → **앱 빌드** → Run workflow에서 macOS Apple Silicon 앱 ZIP과
 
 Python 3.11 환경에서 `packaging/release/requirements.txt`를 설치합니다. 기본 앱은 `python app.py`로 실행합니다. 소스 실행의 sherpa 작업을 사용하려면 가상환경 이름을 `.voice-venv`로 만듭니다. FFmpeg·ffprobe·whisper-cli·llama-server·llama-tokenize·llama-completion은 PATH에서 찾을 수 있어야 합니다. 재현 가능한 네이티브 도구 빌드 방법은 빌드 문서를 참고하세요.
 
-이 저장소의 자체 코드에 대한 공개 라이선스는 아직 정하지 않았습니다. 공개 전 소유자가 선택해야 하며, 제3자 구성요소와 모델은 각 배포처의 라이선스를 따릅니다. 배포 ZIP에는 구성요소 고지를, Release에는 빌드한 네이티브 도구의 대응 소스를 함께 제공합니다.
+이 저장소의 자체 코드에 대한 공개 라이선스는 아직 정하지 않았습니다. 이용·재배포 조건은 소유자에게 확인해야 하며, 제3자 구성요소와 모델은 각 배포처의 라이선스를 따릅니다. 배포 ZIP에는 구성요소 고지를, Release에는 빌드한 네이티브 도구의 대응 소스를 함께 제공합니다.

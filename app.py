@@ -14,6 +14,9 @@ from archive import runtime
 
 def main():
     runtime.configure()
+    if sys.argv[1:] == ['--speaker-tool-check']:
+        from workers.sherpa_tool import check
+        check();return
     if len(sys.argv)==3 and sys.argv[1]=='--voice-candidate-worker':
         from workers.voice_candidates import main as candidate_main
         candidate_main(sys.argv[2]);return

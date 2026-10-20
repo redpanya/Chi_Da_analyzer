@@ -28,13 +28,8 @@ def validate(backend, speakers=-1):
 
 def executable(backend):
     checked(backend)
-    if backend != 'sherpa' and getattr(sys,'frozen',False):
-        bundle = (Path(sys.executable).parent if sys.platform == 'win32' else Path(sys._MEIPASS).parent.parent) / 'diarization'
-        return bundle / {'pyannote':'pyannote/pyannote-worker.exe' if sys.platform == 'win32' else 'pyannote/pyannote-worker',
-                         'fluid':'fluid/archive-fluid-diarizer'}[backend]
-    return {'sherpa':voice_models.PYTHON,
-            'pyannote':TOOLS/('pyannote/venv/Scripts/python.exe' if sys.platform == 'win32' else 'pyannote/venv/bin/python'),
-            'fluid':TOOLS/'fluid/Runner/.build/release/archive-fluid-diarizer'}[backend]
+    from . import speaker_tools
+    return speaker_tools.resolve(backend)[0]
 
 
 def catalog(backend):
@@ -57,6 +52,7 @@ def signature(backend):
 
 def status(backend):
     from .diarization_models import fingerprints
+    from . import speaker_tools
     checked(backend)
     if backend == 'sherpa': info = voice_models.status()
     else:
@@ -66,15 +62,11 @@ def status(backend):
         except (OSError, ValueError, KeyError, TypeError): ready = False
         info = {'ready':ready,'engine':executable(backend).is_file(),
                 'bytes':sum(f['size'] for f in catalog(backend)['files']), 'free_bytes':model_paths.free_bytes()}
-    supported = backend == 'sherpa' or (platform.system() == 'Darwin' and platform.machine() == 'arm64')
-    if backend == 'pyannote' and sys.platform == 'win32': supported = True
-    hint = ('앱에 포함된 실행기가 없으면 앱 패키지를 다시 복사하세요.' if getattr(sys,'frozen',False)
-            else '소스 폴더의 ‘화자 엔진 도구 설치.command’에서 선택해 설치하세요.')
-    if getattr(sys,'frozen',False) and (Path(sys._MEIPASS)/'basic-release.json').exists():
-        hint = '기본 배포본에는 sherpa 실행기가 포함됩니다. 다른 엔진은 개발용 별도 설치가 필요합니다.'
-    if sys.platform == 'win32':
-        hint = '기본 포터블에는 sherpa 실행기가 포함됩니다. pyannote는 별도 엔진 설치가 필요합니다.'
+    tool = speaker_tools.status(backend)
+    supported = tool['supported']
+    hint = '‘실행 도구 다운로드·설치’ 후 ‘선택 모델 준비·검사’를 실행하세요.'
     details = dict(BACKENDS[backend])
     if backend == 'pyannote' and sys.platform == 'win32': details['hint'] = 'PyTorch CPU · 별도 엔진 설치 · 중단하면 처음부터 재실행'
     return info | details | {'id':backend,'supported':supported,'path':str(home(backend)),
-        'install_hint':hint if supported else 'FluidAudio는 Apple Silicon macOS에서 지원합니다.'}
+        'engine':tool['ready'], 'tool':tool,
+        'install_hint':hint if supported else '현재 장치에서 지원하지 않는 실행 도구입니다. FluidAudio는 Apple Silicon macOS 전용입니다.'}

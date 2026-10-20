@@ -414,31 +414,27 @@ class Manager:
                 elif action == 'select':
                     speech_store.select(path, run)
                 elif action == 'export':
-                    try:
-                        r = voice_store.result(path)
-                    except (ValueError, KeyError, OSError, TypeError):
-                        r = None
-                    if r and voice_store.current(path, r):
-                        voice_store.export(path)
-                    else:
-                        speech_store.export(path)
+                    speech_store.export(path)
                 else:
                     raise ValueError('전사 편집 요청이 올바르지 않습니다')
         return self.view(root, vod)
 
     def voices_start(self, root, vod, action, options):
-        if action not in ('prepare', 'diarize', 'suggest', 'retranscribe-original') or not isinstance(options, dict):
+        if action not in ('prepare', 'diarize', 'install-engine', 'check-engine', 'suggest', 'retranscribe-original') or not isinstance(options, dict):
             raise ValueError('M4 작업이 올바르지 않습니다')
         speakers = options.get('speakers', -1)
         if type(speakers) is not int or speakers not in [-1, *range(1,21)]:
             raise ValueError('화자 수는 자동 또는 1~20명을 선택하세요')
         path = project_path(root, vod)
-        if action in ('prepare','diarize'):
+        if action in ('prepare','diarize','install-engine','check-engine'):
             from . import diarization_backends
             backend=options.get('backend',voice_store.state(path).get('backend','sherpa'))
             diarization_backends.validate(backend,speakers)
-            if not diarization_backends.status(backend)['supported']:
-                raise ValueError(diarization_backends.status(backend)['install_hint'])
+            backend_status=diarization_backends.status(backend)
+            if not backend_status['supported']:
+                raise ValueError(backend_status['install_hint'])
+            if action in ('prepare','diarize','check-engine') and not backend_status['engine']:
+                raise ValueError('선택 실행 도구를 먼저 다운로드·설치하세요. 기존 모델과 결과는 유지됩니다')
             options=options|{'backend':backend}
         with self.guard:
             self.speech_idle()
@@ -449,7 +445,7 @@ class Manager:
                     from .voice_suggestions import prepare
                     prepare(path,options)
                 settings = {}
-                if action in ('prepare','diarize'): settings['backend']=backend
+                if action in ('prepare','diarize','install-engine','check-engine'): settings['backend']=backend
                 voice_store.update(path, **settings, state='running', action=action, message='M4 작업을 준비합니다', progress={},
                                    timing=task_timing.start(voice_store.state(path)))
                 self.voice_job = voices.VoiceJob(path, data, lock, action, options)
@@ -523,6 +519,17 @@ class Manager:
             self.speech_idle()
             load_project(path, vod)
             with ProjectLock(path): return deletion.trash(path, vod, token, confirmation)
+
+    def context_background(self, root, vod, text=None):
+        from . import context_background
+        path = project_path(root, vod)
+        with self.guard:
+            load_project(path, vod)
+            if text is None:
+                return {'text': context_background.read(path)}
+            self.speech_idle()
+            with ProjectLock(path):
+                return {'text': context_background.save(path, text)}
 
     def context_start(self, root, vod, action, options=None):
         if action not in ('model','summarize','whole','resume'): raise ValueError('알 수 없는 문맥 작업입니다')

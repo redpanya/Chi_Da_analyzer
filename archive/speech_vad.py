@@ -28,7 +28,8 @@ def coverage(spans, duration, offset=0, digital_silence=False):
 
 
 def prepare(stop, update):
-    if not voice_models.PYTHON.is_file(): raise ValueError('발화 검출용 음성 실행 도구를 먼저 설치하세요')
+    from . import speaker_tools
+    if not speaker_tools.status('sherpa')['ready']: raise ValueError('화자 도구에서 sherpa 실행 도구를 먼저 설치하세요')
     folder = model_paths.available()
     target = folder/'silero-vad.onnx'
     with ProjectLock(folder):
@@ -69,8 +70,8 @@ def detect(audio, model, folder, index, duration, stop, lock, mode='standard'):
     request = folder/f'{index:05d}-vad-request.json'
     output = folder/f'{index:05d}-vad.json'
     save_json(request, {'action':'vad','audio':str(audio),'model':str(model),'output':str(output),'vad_mode':mode})
-    entry = '--voice-worker' if getattr(sys,'frozen',False) else str(Path(__file__).resolve().parents[1]/'workers/voices.py')
-    speech_media.process([str(voice_models.PYTHON),entry,str(request)],folder/f'{index:05d}-vad.log',stop,lock)
+    from . import speaker_tools
+    speech_media.process(speaker_tools.command('sherpa',request),folder/f'{index:05d}-vad.log',stop,lock)
     spans=windows(read_json(output)['segments'], duration)
     save_json(folder/f'{index:05d}-vad-coverage.json',coverage(spans,duration))
     return spans

@@ -1,8 +1,10 @@
+import {createVoiceTabs} from './voice-tabs.js';
 import {timecode} from './player.js';
 import {createAudioPreview} from './audio-preview.js';
 import {createVoiceReview} from './voice-review.js';
 import {createVoiceSuggestions} from './voice-suggestions.js';
 import {voiceModelHelp} from './voice-model-help.js';
+import {voiceToolStatus} from './voice-tool-status.js';
 
 export function createVoices({api, player, showVideo, showExplore, onProject}) {
   const $ = id => document.getElementById(id);
@@ -18,7 +20,8 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
   const failedReview=createVoiceReview({listen,search:()=>load(),jump,suggest:row=>suggestions.choose(row),
     save:(selection,target,snapshot)=>edit(target==='__new__'?'split':'assign',
       {...snapshot,...selection,...(target==='__new__'?{}:{speaker:target})})});
-  let previewKey='';
+  const tabs=createVoiceTabs();
+  let previewKey='',setupKey='';
   function stopPreview(text='미리듣기를 멈췄습니다.'){preview.stop();previewStatus.textContent=text;}
   function listen(speaker,status=$('voice-preview-status')){
     if(project.voices.stale||project.speech.stale||!project.speech.audio)return notice('현재 전사와 연결된 추출 음성이 필요합니다.');
@@ -35,7 +38,7 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
     for(const [id,chosen] of [['voice-tab',!stem],['stem-tab',stem]]){$(id).className=chosen?'primary':'secondary';$(id).setAttribute('aria-pressed',String(chosen));}
   }
   function chooseRange(row, stem=false) {
-    tab(stem);
+    tab(stem);tabs.select('assigned');
     for(const prefix of ['voice']) {$(prefix+'-start').value=row.start_ms/1000;$(prefix+'-end').value=row.end_ms/1000;}
     $('voice-target').value=row.speaker||'';
   }
@@ -54,7 +57,12 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
     if((s.owned||(project.locked&&s.state==='running'))&&!p.total_bytes&&!p.duration_ms)progress.removeAttribute('value');else progress.value=p.total_bytes?100*p.bytes/p.total_bytes:p.duration_ms?100*p.processed_ms/p.duration_ms:s.state==='complete'?100:0;
     $('voices-stop').disabled=busy||!s.owned||s.state==='stopping';
     const d=diarizationInfo();
-    $('voices-prepare').disabled=disabled||d?.supported===false;
+    const tool=voiceToolStatus(d,s);
+    $('voices-tool-install').disabled=disabled||!d||!tool.canInstall;
+    $('voices-tool-check').disabled=disabled||!tool.canCheck;
+    $('voices-tool-install').textContent=tool.install;
+    $('voices-tool-status').textContent=tool.status;
+    $('voices-prepare').disabled=disabled||!d?.engine||d?.supported===false;
     $('voices-run').disabled=disabled||!ready||!d?.ready||!d?.engine||d?.supported===false;
     $('voices-select').disabled=disabled||!s.runs?.length;
     $('stem-select').disabled=disabled||!s.stems?.length;
@@ -74,7 +82,8 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
     $('voices-model').textContent=`${voiceModelHelp(backend(),m).status} · 여유 ${(m.free_bytes/1e9).toFixed(1)}GB`;
     Object.assign($('voices-model').dataset,{ready:String(!!m.ready),engine:String(!!m.engine),supported:String(m.supported!==false)});
     $('voices-backend-hint').textContent=m.hint||'기존 CPU 화자 구분';
-    $('voices-install-hint').textContent=m.engine?'모델 경로: '+(m.path||project.model_root):(m.install_hint||'M4 음성 도구 설치.command를 실행하세요.');
+    $('voices-install-hint').textContent='모델 경로: '+(m.path||project.model_root);
+    $('voices-tool-hint').textContent=voiceToolStatus(m,s).hint;
     $('voices-resume-hint').textContent=m.resume===false?'중단 시 처음부터 재실행 · 완료 결과 보존':'30분 조각 처리 · 완료 조각부터 이어받기';
     $('voices-run').textContent=m.resume===false?'전체 화자 분석':'화자 분석·이어받기';
     options('voices-version',(s.runs||[]).map((id,i)=>[id,`분석 ${i+1} · ${id.slice(0,8)}`]),s.run);
@@ -83,18 +92,22 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
     const target=$('voice-target').value, merge=$('voice-merge-source').value;
     const speakers=result.speakers.map(s=>[s.id,`${s.name} · ${s.default}`]);
     options('voice-target',[['','화자인식 실패'],...speakers],target);options('voice-merge-source',speakers,merge||speakers[0]?.[0]);
+    const drafts=new Map([...$('voice-cards').children].filter(card=>card.querySelector('input')?.dataset.dirty==='true').map(card=>[card.dataset.speaker,card.querySelector('input').value]));
     $('voice-cards').replaceChildren();
     for(const speaker of [...result.speakers].sort((a,b)=>b.count-a.count)){
-      const card=document.createElement('article');card.className='voice-card';
+      const card=document.createElement('article');card.className='voice-card';card.dataset.speaker=speaker.id;
       const title=document.createElement('h4');title.textContent=`${speaker.name} · 배정된 전사 ${speaker.count}개`;
       const hint=document.createElement('p');hint.className='hint';hint.textContent=`${speaker.default} · 감지된 음성 ${speaker.turn_count}구간${speaker.count?'':' · 전사 배정 없음'} · ID ${speaker.id.slice(-8)}`;
-      const input=document.createElement('input');input.value=speaker.name===speaker.default?'':speaker.name;input.placeholder=speaker.default;input.maxLength=80;input.className='voice-edit';input.setAttribute('aria-label',speaker.default+' 이름');
+      const input=document.createElement('input');input.value=drafts.get(speaker.id)??(speaker.name===speaker.default?'':speaker.name);input.placeholder=speaker.default;input.maxLength=80;input.className='voice-edit';input.setAttribute('aria-label',speaker.default+' 이름');
+      input.dataset.dirty=String(drafts.has(speaker.id));input.oninput=()=>{input.dataset.dirty='true';};
       card.append(title,hint,input,button('이름 일괄 저장',()=>edit('rename',{speaker:speaker.id,name:input.value}),'secondary voice-edit'));
       if(speaker.sample){const listenButton=button(speaker.sample_kind==='detected'?'감지된 음성 듣기':'대표 음성 듣기',()=>listen(speaker),'secondary');listenButton.disabled=s.stale||project.speech.stale||!project.speech.audio;listenButton.title=`원음 ${timecode(speaker.sample.start_ms)} ~ ${timecode(speaker.sample.end_ms)} · 배경음과 다른 목소리가 포함될 수 있습니다`;card.append(listenButton);}
       $('voice-cards').append(card);
     }
     $('voice-rows').replaceChildren();
-    failedReview.render(result);
+    failedReview.render(result);tabs.counts(result);
+    const setupNext=project.path+':'+backend()+':'+m.ready+':'+m.engine;
+    if(setupNext!==setupKey){$('voices-setup').open=!result.run||!m.ready||!m.engine;setupKey=setupNext;}
     suggestions.render(result,s);
     for(const row of result.items){
       const card=document.createElement('article');card.className='transcript-row';
@@ -102,7 +115,7 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
       actions.append(button(`${timecode(row.start_ms)} → ${timecode(row.end_ms)} · 영상`,()=>jump(row.start_ms),'candidate-jump'),button('이 발언 범위 선택',()=>{chooseRange(row,false);$('voice-start').closest('details').open=true;$('voice-start').focus();}));
       const status=document.createElement('p');status.className='voice-status'+(row.status==='failed'?' failed':'');status.textContent=`${row.speaker_name} · ${row.status==='confirmed'?'사용자 확인':row.status==='failed'?result.reasons[row.reason]:'자동 추정 · 미확정'}`;
       const text=document.createElement('p');text.textContent=row.text;
-      actions.append(button('같은 순간 함께 보기',()=>showExplore(row)));
+      actions.append(button('음성 듣기',()=>listen({sample:row,name:row.speaker_name}),'secondary'));
       if(row.status!=='confirmed')actions.append(button('음향·문맥 검토 범위 선택',()=>suggestions.choose(row)));
       card.append(actions,status,text);$('voice-rows').append(card);
     }
@@ -139,7 +152,10 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
   async function request(action,values){
     if(!project||busy)return;
     const token=generation;busy=true;notice('');controls();
-    try{const fresh=await api(action,{...selected(),...values});if(token===generation){onProject(fresh);await load();}}
+    try{const fresh=await api(action,{...selected(),...values});if(token===generation){
+      if(action==='voices-edit'&&values.action==='rename')for(const card of $('voice-cards').children)if(card.dataset.speaker===values.options.speaker)card.querySelector('input').dataset.dirty='false';
+      onProject(fresh);await load();
+    }}
     catch(error){if(token===generation){notice(error.message);await load();}}
     finally{busy=false;controls();}
   }
@@ -147,6 +163,8 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
   const start=(action,options={})=>request('voices-start',{action,options});
   $('voice-tab').onclick=()=>tab(false); $('stem-tab').onclick=()=>tab(true);
   $('voices-backend').onchange=()=>{render();controls();};
+  $('voices-tool-install').onclick=()=>start('install-engine',{backend:backend()});
+  $('voices-tool-check').onclick=()=>start('check-engine',{backend:backend()});
   $('voices-prepare').onclick=()=>start('prepare',{backend:backend()});
   $('voices-run').onclick=()=>start('diarize',{backend:backend(),speakers:diarizationInfo()?.manual_speakers===false?-1:Number($('voices-number').value)||-1});
   $('voices-stop').onclick=()=>request('voices-stop',{});
@@ -175,12 +193,12 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
   $('voice-preview-stop').onclick=$('voice-failed-stop').onclick=()=>stopPreview();
   return {chooseRange,stopPreview,setProject(value){
     const changed=value?.path!==project?.path;
-    if(value?.voices.run!==project?.voices.run){failedReview.reset();suggestions.reset();cursor=0;generation++;key='';result=null;}
+    if(value?.voices.run!==project?.voices.run){failedReview.reset();suggestions.reset();$('voice-cards').replaceChildren();cursor=0;generation++;key='';result=null;}
     if(changed){suggestions.reset();$('voices-backend').value=['sherpa','pyannote','fluid'].includes(value?.voices.backend)?value.voices.backend:'sherpa';}
     project=value;
     const nextPreviewKey=value?`${value.path}:${value.voices.run}:${value.voices.revision}:${value.voices.stale}:${value.speech.audio?.file}:${value.speech.stale}`:'';
     if(nextPreviewKey!==previewKey){stopPreview();previewAudio.removeAttribute('src');previewAudio.load();previewKey=nextPreviewKey;$('voice-preview-status').textContent='이름 카드의 듣기 버튼으로 목소리를 확인하세요.';}
-    if(changed){failedReview.reset();tab(false);generation++;key='';result=null;cursor=0;notice('');$('voices-query').value='';$('voice-rows').replaceChildren();$('voice-cards').replaceChildren();playingStem=null;
+    if(changed){tabs.reset();failedReview.reset();tab(false);generation++;key='';result=null;cursor=0;notice('');$('voices-query').value='';$('voice-rows').replaceChildren();$('voice-cards').replaceChildren();playingStem=null;
       for(const name of ['original','vocals','background']){const audio=$('stem-'+name);audio.pause();audio.removeAttribute('src');audio.load();audio.dataset.file='';}
       for(const prefix of ['voice']){$(prefix+'-start').value=0;$(prefix+'-end').value=10;}
     }

@@ -61,7 +61,8 @@ class VoiceTests(unittest.TestCase):
         ids=list(self.prepare()); original={str(p):p.read_bytes() for p in (self.path/'speech').rglob('*') if p.is_file()}
         self.change('rename',speaker=ids[0],name='=김모모')
         self.assertEqual(store.browse(self.path,'김모모')['total'],1)
-        self.assertEqual(speech_store.result(self.path,'김모모')['total'],1)
+        self.assertEqual(speech_store.result(self.path,'김모모')['total'],0)
+        self.assertTrue(all('speaker_name' not in row for row in speech_store.result(self.path)['items']))
         store.export(self.path); exported=store.state(self.path)['exports']
         self.assertIn("'=김모모",store.local(self.path,exported['csv']).read_text(encoding='utf-8-sig'))
         self.assertIn('=김모모',store.local(self.path,exported['txt']).read_text())
@@ -142,10 +143,17 @@ class VoiceTests(unittest.TestCase):
         try:
             post('voices-edit',{'action':'rename','options':{'run':'test','revision':0,'speaker':ids[0],'name':'김모모'}})
             self.assertEqual(post('voices-result',{'query':'김모모'})['total'],1)
-            speech_before=speech_store.local(self.path,'state.json').read_bytes()
             post('speech-edit',{'action':'export'})
+            self.assertTrue(m.view(str(self.root),'1')['speech']['exports'])
+            speech_export=speech_store.state(self.path)['exports']['json']
+            self.assertNotIn('speaker_name',read_json(speech_store.local(self.path,speech_export))['segments'][0])
+            speech_before=speech_store.local(self.path,'state.json').read_bytes()
+            post('voices-edit',{'action':'export'})
             self.assertTrue(m.view(str(self.root),'1')['voices']['exports'])
             self.assertEqual(speech_store.local(self.path,'state.json').read_bytes(),speech_before)
+            voice_exports=dict(m.view(str(self.root),'1')['voices']['exports'])
+            post('speech-edit',{'action':'export'})
+            self.assertEqual(m.view(str(self.root),'1')['voices']['exports'],voice_exports)
             stem=store.local(self.path,'stems/fixture/original.wav');stem.parent.mkdir(parents=True);stem.write_bytes(b'RIFF'+b'0'*100)
             save_json(stem.parent/'result.json',{'files':{'original':'stems/fixture/original.wav'}})
             store.update(self.path,stem='fixture')

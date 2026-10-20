@@ -8,7 +8,7 @@ from .storage import library, project_path, ProjectLock, Conflict, load_project,
 
 
 def options(value):
-    if not isinstance(value, dict) or set(value) - {'mode', 'height', 'language', 'asr_options', 'speakers_enabled', 'backend', 'thinking', 'allow_partial_chat', 'continue_voice_error'}:
+    if not isinstance(value, dict) or set(value) - {'mode', 'height', 'language', 'asr_options', 'speakers_enabled', 'backend', 'thinking', 'allow_partial_chat', 'continue_voice_error', 'background'}:
         raise ValueError('자동화 설정을 확인하세요')
     result = dict(mode='download', height=0, language='ko', asr_options=speech_options.validate(),
                   speakers_enabled=False, backend='sherpa', thinking=True, allow_partial_chat=False, continue_voice_error=True) | value
@@ -19,6 +19,9 @@ def options(value):
     for key in ('speakers_enabled', 'thinking', 'allow_partial_chat', 'continue_voice_error'):
         if type(result[key]) is not bool:
             raise ValueError('자동화 선택 값을 확인하세요')
+    if 'background' in result:
+        from .context_background import validate
+        result['background'] = validate(result['background'])
     result['asr_options'] = speech_options.validate(result['asr_options'])
     return result
 
@@ -43,6 +46,10 @@ class Automation:
             return self.status(root)
         if action == 'add':
             return self.add(root, data['url'], data.get('options', {}))
+        if action == 'add-saved':
+            return self.add_saved(root, data['vod_ids'], data.get('options', {}))
+        if action == 'settings':
+            return self.update_settings(root, data['ids'], data.get('options', {}))
         if action == 'start':
             return self.start(root)
         if action in ('remove', 'retry'):
@@ -108,26 +115,88 @@ class Automation:
         meta = self.manager.inspect(url)
         vod = meta['id']
         def append(data):
-            if len(data['items']) >= 100:
-                raise ValueError('작업 목록은 최대 100개입니다. 완료 항목을 목록에서 제거하세요')
-            if any(item['vod'] == vod for item in data['items']):
-                raise Conflict('이미 목록에 있는 VOD입니다. 짧은 주소와 원래 주소도 같은 VOD로 처리합니다')
+            self.check_add(data, vod)
             path = project_path(root, vod)
             with ProjectLock(path):
                 if (path / 'project.json').exists():
                     project = load_project(path, vod)
-                    if project.get('input'):
-                        raise ValueError('이미 내 비디오로 등록된 VOD입니다. 기존 영상은 유지하며 개별 메뉴에서 작업하세요')
-                    format_id = project['format_id']
                 else:
                     candidates = [f for f in meta['formats'] if not settings['height'] or (f.get('height') or 0) <= settings['height']]
                     if not candidates:
                         raise ValueError('선택한 최대 해상도에 맞는 영상이 없습니다')
                     format_id = candidates[0]['id']
-                    create_or_load(path, meta, format_id)
-            data['items'].append(dict(id=uuid.uuid4().hex, vod=vod, title=meta['title'], format=format_id,
-                options=settings, state='queued', stage='', message='입력 순서대로 대기 중', stages={}, report=None))
+                    project = create_or_load(path, meta, format_id)
+                data['items'].append(self.entry(project, settings, 'url'))
+                self.waiting(data)
         self.change(root, append)
+        return self.status(root)
+
+    @staticmethod
+    def waiting(data):
+        if data['state'] not in ('running', 'stopping'):
+            data.update(state='idle', message='대기 항목이 있습니다. 순차 작업 시작·이어가기를 누르세요')
+
+    @staticmethod
+    def check_add(data, vod):
+        if len(data['items']) >= 100:
+            raise ValueError('작업 목록은 최대 100개입니다. 완료 항목을 목록에서 제거하세요')
+        if any(item['vod'] == vod and item['state'] != 'complete' for item in data['items']):
+            raise Conflict('이미 미완료 목록에 있는 VOD입니다. 기존 항목의 설정 적용·이어가기 또는 목록 제거 후 다시 등록하세요')
+
+    @staticmethod
+    def entry(project, settings, source):
+        tasks = project['tasks']
+        video_done = tasks['video']['state'] == 'complete'
+        chat_done = tasks['chat']['state'] in ('complete', 'empty', 'unavailable')
+        preview = ('영상·채팅 확인 후 원음부터 필요한 단계 처리' if settings['mode'] == 'analysis' else '영상·채팅 확인 후 기존 자료 사용') if video_done and chat_done else '미완료 영상·채팅부터 준비'
+        if project.get('input') and not video_done:
+            preview = '내 비디오 미완료 · 같은 파일을 먼저 다시 첨부하세요'
+        selected = next((f for f in project['metadata'].get('formats', []) if f['id'] == project['format_id']), {})
+        quality = '내 비디오' if project.get('input') else selected.get('label') or (str(selected['height'])+'p' if selected.get('height') else '기존 등록 화질')
+        return dict(id=uuid.uuid4().hex, vod=project['vod_id'], title=project['metadata']['title'],
+                    format=project['format_id'], quality=quality, options=copy.deepcopy(settings), source=source,
+                    preview=preview, state='queued', stage='', message='등록 순서대로 대기 중 · 실행 직전 자료 재확인', stages={}, report=None)
+
+    def add_saved(self, root, vods, settings):
+        settings = options(settings)
+        if not isinstance(vods, list) or not 1 <= len(vods) <= 100:
+            raise ValueError('등록할 저장 VOD를 1~100개 선택하세요')
+        added, errors = [], []
+        # 각 성공을 저장해 뒤 항목의 실패로 앞 등록이 사라지지 않게 한다.
+        for vod in vods:
+            def append(data):
+                path = project_path(root, vod)
+                self.check_add(data, vod)
+                if not (path / 'project.json').is_file():
+                    raise ValueError('이 보관함에 등록된 VOD가 없습니다')
+                with ProjectLock(path):
+                    data['items'].append(self.entry(load_project(path, vod), settings, 'saved'))
+                    self.waiting(data)
+            try:
+                self.change(root, append)
+                added.append(vod)
+            except ValueError as error:
+                errors.append({'vod': vod, 'message': str(error)})
+        return self.status(root) | {'added': added, 'errors': errors}
+
+    def update_settings(self, root, ids, settings):
+        settings = options(settings)
+        if not isinstance(ids, list) or not ids or len(ids) > 100 or any(not isinstance(i, str) for i in ids):
+            raise ValueError('설정을 적용할 대기 항목을 선택하세요')
+        def change(data):
+            selected = [i for i in data['items'] if i['id'] in ids]
+            if self.running or data['state'] in ('running', 'stopping') or len(selected) != len(set(ids)) or any(
+                    i['state'] != 'queued' or i.get('report') or i.get('stages') or i.get('stage') for i in selected):
+                raise Conflict('실행 이력이 없는 대기 항목만 설정을 바꿀 수 있습니다. 순차 작업을 먼저 일시정지하세요')
+            for item in selected:
+                project = load_project(project_path(root, item['vod']), item['vod'])
+                updated = copy.deepcopy(settings)
+                if 'background' not in settings and 'background' in item['options']:
+                    updated['background'] = item['options']['background']
+                item.update(options=updated, preview=self.entry(project, updated, 'saved')['preview'],
+                            message='선택한 설정 적용 완료 · 기존 영상·이어받기 화질 유지')
+            self.waiting(data)
+        self.change(root, change)
         return self.status(root)
 
     def remove_or_retry(self, root, item_id, retry=False):
@@ -138,7 +207,10 @@ class Automation:
             if item['state'] == 'running':
                 raise Conflict('실행 중인 항목은 일시정지 완료 후 변경하세요')
             if retry:
+                if item['state'] not in ('error', 'partial', 'paused'):
+                    raise Conflict('중단·오류 항목만 다시 대기에 넣을 수 있습니다. 완료한 VOD는 새 작업으로 등록하세요')
                 item.update(state='queued', message='완료 자료 확인 후 다시 진행합니다')
+                self.waiting(data)
             else:
                 data['items'].remove(item)
         self.change(root, change)

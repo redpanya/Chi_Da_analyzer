@@ -11,5 +11,5 @@ a=Analysis([str(root/'workers/diarization_pyannote.py')],pathex=[str(root)],data
     excludes=['IPython','pytest','tkinter','tensorboard','torchvision'],
     hooksconfig={'matplotlib':{'backends':['Agg']}},noarchive=False)
 pyz=PYZ(a.pure)
-exe=EXE(pyz,a.scripts,[],exclude_binaries=True,name='pyannote-worker',console=True,target_arch='arm64')
+exe=EXE(pyz,a.scripts,[],exclude_binaries=True,name='pyannote-worker',console=True)
 coll=COLLECT(exe,a.binaries,a.datas,name='pyannote')

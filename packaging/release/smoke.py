@@ -55,7 +55,9 @@ def main():
                 if not ready.exists():raise RuntimeError((work/'run.log').read_text(encoding='utf-8',errors='replace'))
                 url=json.loads(ready.read_text(encoding='utf-8'))['url']
                 http=build_opener(ProxyHandler({}))
-                for relative in ('','app.js','voice-model-help.js','compute.js','queue.js','reports.js'):
+                for relative in ('','app.js','voice-model-help.js','voice-tool-status.js','voice-tabs.js',
+                                 'compute.js','queue.js','queue-saved.js','reports.js',
+                                 'context-background.js','context-fallback.js','timeline.js'):
                     with http.open(url+relative,timeout=15) as response:assert response.status==200
                 with http.open(url+'api/config', timeout=30) as response: config=json.load(response)
                 assert config['folders']['compute']['visible'] == (sys.platform == 'win32')

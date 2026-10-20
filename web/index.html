@@ -5,30 +5,24 @@
 <aside>
   <a class="brand" href="./" aria-label="치(지직) 다(시보기) 분석기"><span class="mark" aria-hidden="true">↙</span><span class="brand-name" aria-hidden="true"><span class="brand-term">치<small>(지직)</small></span><span class="brand-term">다<small>(시보기)</small></span><span>분석기</span></span></a>
   <p class="tagline">다시보기를 AI로 요약</p>
-  <button id="new" class="primary wide">＋ 새 VOD 가져오기</button>
+  <button id="new" class="primary wide">＋ VOD 리스트 등록</button>
   <div class="library-head"><h2>저장한 VOD</h2><button id="refresh" class="subtle" aria-label="프로젝트 목록 새로고침">↻</button></div>
   <div id="projects"><p class="muted">저장한 프로젝트가 여기에 표시됩니다.</p></div>
-  <footer><span class="dot"></span> 이 컴퓨터에 저장<br><small>공개 VOD · 0.18.1</small></footer>
+  <footer><span class="dot"></span> 이 컴퓨터에 저장<br><small>공개 VOD · 0.19.0</small></footer>
 </aside>
 <main>
-  <header><div><span class="eyebrow">내 컴퓨터의 방송 기록</span><h1 id="heading" tabindex="-1" data-help="import">VOD 가져오기</h1></div><div class="play-actions"><span class="local-badge">로컬 보관함</span><button id="delete-project" class="danger" hidden>VOD 삭제</button></div></header>
+  <header><div><span class="eyebrow">내 컴퓨터의 방송 기록</span><h1 id="heading" tabindex="-1" data-help="import">VOD 리스트 등록</h1></div><div class="play-actions"><span class="local-badge">로컬 보관함</span><button id="delete-project" class="danger" hidden>VOD 삭제</button></div></header>
   <nav aria-label="작업 단계"><button id="step1" class="step current">1 <span>가져오기</span></button><button id="step2" class="step" disabled>2 <span>가져오기 진행</span></button><button id="step3" class="step" disabled>3 <span>음성 전사</span></button><button id="step4" class="step" disabled>4 <span>화자 구분 (선택)</span></button><button id="step5" class="step" disabled>5 <span>통합 분석·재생</span></button><button id="step6" class="step" disabled>6 <span>AI 문맥 정리</span></button><button id="step7" class="step">7 <span>리포트</span></button></nav>
   <div id="notice" role="status" aria-live="polite" hidden></div>
   <section id="import-panel" class="panel">
-    <div class="section-heading"><h2 data-help="import">보관할 방송을 알려주세요</h2></div>
-    <fieldset class="input-method"><legend>영상 가져오기 방식</legend><label class="inline-check"><input id="import-online" type="radio" name="import-mode" checked>치지직에서 다운로드</label><label class="inline-check"><input id="import-local" type="radio" name="import-mode">내 비디오 사용</label></fieldset>
-    <div id="local-file-fields" hidden><label for="local-file">비디오 파일</label><input id="local-file" type="file" accept=".mp4,.mov,.mkv"><p id="local-file-info" class="hint"></p><label for="local-start">내 영상 시작의 VOD 시각 (초 · 전체 영상은 0)</label><input id="local-start" type="number" min="0" max="604800" step="0.001" value="0"><label class="inline-check"><input id="local-confirm" type="checkbox">같은 VOD의 연속 영상이며 중간 편집·배속 변경이 없음을 확인했습니다.</label><button id="local-upload-stop" class="secondary" type="button" hidden>파일 전송 중단</button></div>
-    <form id="inspect-form"><label for="url">치지직 VOD 주소</label><div class="input-row"><input id="url" type="url" required placeholder="https://chzzk.naver.com/video/…" autocomplete="off"><button id="inspect" class="primary">정보 확인</button></div></form>
-    <div id="metadata" hidden><div class="vod-summary"><span class="cover">▶</span><div><p id="channel" class="eyebrow"></p><h3 id="title"></h3><p id="duration" class="muted"></p></div></div>
-      <label id="quality-label" for="quality">저장 화질</label><select id="quality"></select><p id="estimate" class="hint"></p>
-    </div>
-
     <section class="queue-section" aria-labelledby="queue-heading">
-      <h2 id="queue-heading" data-help="automation">여러 VOD 순차 작업</h2>
-      <div id="queue-inputs"></div><button id="queue-more" class="secondary" type="button">＋ 주소 입력칸 추가</button>
+      <h2 id="queue-heading" data-help="automation">VOD 리스트 등록</h2>
+      <h3>등록할 자료</h3>
+      <div id="queue-inputs"></div><div class="play-actions"><button id="queue-more" class="secondary" type="button">＋ 주소 입력칸 추가</button><button id="queue-saved" class="secondary" type="button">저장한 VOD 선택</button></div>
+      <h3 data-help="automation">작업 설정 · 새로 등록할 항목에 적용</h3>
       <div class="settings-grid queue-settings">
         <label>진행 범위<select id="queue-mode"><option value="download">영상·채팅 다운로드만</option><option value="analysis">다운로드부터 AI 요약까지</option></select></label>
-        <label>최대 화질<select id="queue-height"><option value="0">제공 최고 화질</option><option value="1080">1080p 이하</option><option value="720">720p 이하</option><option value="480">480p 이하</option></select></label>
+        <label>신규 다운로드 최대 화질<select id="queue-height"><option value="0">제공 최고 화질</option><option value="1080">1080p 이하</option><option value="720">720p 이하</option><option value="480">480p 이하</option></select></label>
       </div>
       <div id="queue-analysis-options" hidden>
         <div class="settings-grid queue-settings"><label>전사 언어<select id="queue-language"><option value="ko">한국어</option><option value="auto">자동 감지</option><option value="ja">일본어</option><option value="en">영어</option></select></label><label>발화 검출<select id="queue-vad"><option value="standard">표준</option><option value="sensitive">민감</option><option value="off">끄기</option></select></label></div>
@@ -38,12 +32,14 @@
         <label class="inline-check"><input id="queue-partial-chat" type="checkbox">채팅 경계 검증이 필요한 일부 자료도 분석에 사용</label>
         <label class="inline-check"><input id="queue-continue-voice" type="checkbox" checked>화자 구분 실패 시 화자 불명 상태로 요약 계속</label>
       </div>
-      <div class="play-actions"><button id="queue-add" class="secondary">입력 순서대로 목록 등록</button><button id="queue-start" class="primary" disabled>순차 작업 시작·이어가기</button><button id="queue-pause" class="secondary" disabled>일시정지</button></div>
-      <p id="queue-status" role="status"></p><p id="queue-notice" role="status" class="queue-error"></p><div id="queue-list"></div>
+      <div class="play-actions"><button id="queue-add" class="primary">목록에 등록</button><button id="queue-apply" class="secondary" disabled>선택한 대기 항목에 설정 적용</button></div>
+      <p id="queue-notice" role="status" class="queue-error"></p>
+      <h3>등록된 VOD 목록</h3><p id="queue-status" role="status"></p><div id="queue-list"></div>
+      <div class="play-actions"><button id="queue-start" class="primary" disabled>순차 작업 시작·이어가기</button><button id="queue-pause" class="secondary" disabled>일시정지</button></div>
     </section>
     <div class="folder-settings" aria-labelledby="folder-heading">
       <h3 id="folder-heading" data-help="folders">저장 폴더</h3>
-      <div class="folder"><label for="root">VOD 보관함 폴더</label><div class="input-row"><input id="root" type="text" spellcheck="false" placeholder="VOD를 저장할 폴더의 전체 경로"><button id="load-library" class="secondary" type="button">폴더 확인</button></div><p id="destination" class="path"></p></div>
+      <div class="folder"><label for="root">VOD 보관함 폴더</label><div class="input-row"><input id="root" type="text" spellcheck="false" placeholder="VOD를 저장할 폴더의 전체 경로"><button id="load-library" class="secondary" type="button">폴더 확인</button></div></div>
       <form id="model-folder-form" class="folder"><label for="model-root">공용 AI 모델 폴더</label><div class="input-row"><input id="model-root" type="text" required spellcheck="false" aria-describedby="model-folder-current"><button id="apply-model-folder" class="secondary" type="submit">경로 적용</button></div><p id="model-folder-current" class="path"></p><p id="model-folder-state" class="hint"></p><p id="model-folder-notice" role="status" aria-live="polite"></p></form>
     </div>
     <div id="compute-settings" class="folder-settings" hidden>
@@ -51,7 +47,6 @@
       <form id="compute-form"><label for="compute-mode">전사·문맥 요약 처리 방식</label><div class="input-row"><select id="compute-mode"><option value="cpu">CPU만 사용</option><option value="hybrid">CPU + GPU 가속 (Vulkan)</option></select><button id="compute-apply" class="secondary" type="submit">적용</button><button id="compute-refresh" class="secondary" type="button">GPU 다시 확인</button></div></form>
       <p id="compute-status" class="hint" role="status"></p><p id="compute-notice" role="status" aria-live="polite"></p>
     </div>
-    <div class="action-row"><button id="start" class="primary" disabled>영상·채팅 다운로드 시작 →</button></div>
   </section>
   <section id="download-panel" hidden>
     <div class="project-heading"><h2 id="project-title"></h2><p id="project-meta" class="muted"></p><p id="project-path" class="path"></p></div>
@@ -62,6 +57,7 @@
     </div>
 
     <div class="action-row"><button id="stop-all" class="secondary">모두 중단</button><button id="resume-all" class="primary">미완료 작업 이어받기</button><button id="show-speech" class="primary">음성 전사 →</button><button id="show-results" class="secondary">음성 건너뛰고 통합 분석 →</button></div>
+    <div class="exports"><h3>저장한 자료</h3><a id="original" class="text-link">원본 영상 저장</a><p id="export-state" class="hint"></p><div id="export-links" class="play-actions"></div></div>
   </section>
   <section id="speech-panel" class="panel" hidden>
     <div class="section-heading"><h2 data-help="speech">방송의 목소리를 글로 남기세요</h2></div>
@@ -85,16 +81,26 @@
   <section id="voices-panel" class="panel" hidden>
     <div class="section-heading"><h2 data-help="voices">누가 말했는지 확인하세요</h2></div>
     <h3 id="voices-title"></h3>
+    <details id="voices-setup" open><summary>도구·모델 준비와 분석 설정</summary>
     <div class="speech-steps">
-      <article><h3 data-help="voice-model">1. 도구·모델 준비</h3><label for="voices-backend">화자 구분 엔진</label><select id="voices-backend"><option value="sherpa">sherpa-onnx · 기존</option><option value="pyannote">pyannote.audio + Community-1</option><option value="fluid">FluidAudio 오프라인 · Community-1 계열</option></select><p id="voices-model" class="hint" aria-live="polite"></p><p id="voices-backend-hint" class="hint"></p><button id="voices-prepare" class="secondary">선택 모델 준비·검사</button><p id="voices-install-hint" class="hint"></p></article>
+      <article><h3 data-help="voice-model">1. 도구·모델 준비</h3><label for="voices-backend">화자 구분 엔진</label><select id="voices-backend"><option value="sherpa">sherpa-onnx · 기존</option><option value="pyannote">pyannote.audio + Community-1</option><option value="fluid">FluidAudio 오프라인 · Community-1 계열</option></select><p id="voices-tool-status" class="hint" role="status" aria-live="polite"></p><div class="play-actions"><button id="voices-tool-install" class="secondary">실행 도구 다운로드·설치</button><button id="voices-tool-check" class="subtle">실행 도구 검사</button></div><p id="voices-tool-hint" class="hint"></p><p id="voices-model" class="hint" aria-live="polite"></p><p id="voices-backend-hint" class="hint"></p><button id="voices-prepare" class="secondary">선택 모델 준비·검사</button><p id="voices-install-hint" class="hint"></p></article>
       <article><h3 data-help="voice-run">2. 전체 화자 구분</h3><label for="voices-number">알고 있는 화자 수 (0 = 자동)</label><input id="voices-number" type="number" min="0" max="20" value="0"><button id="voices-run" class="primary">화자 분석·이어받기</button><p id="voices-resume-hint" class="hint"></p></article>
       <article><h3 data-help="voice-names">3. 검토·이름 변경</h3><label for="voices-version">화자 분석 버전</label><select id="voices-version"></select><button id="voices-select" class="secondary">선택 버전 열기</button></article>
     </div>
-    <p id="voices-notice" role="status" aria-live="polite"></p><p id="voices-status" role="status" aria-live="polite"></p><progress id="voices-progress" max="100" value="0" aria-label="화자·음원 작업 진행"></progress><p id="voices-elapsed" class="hint task-elapsed">작업을 시작하면 소요 시간을 기록합니다.</p><button id="voices-stop" class="secondary">M4 작업 중단</button>
+    </details>
+    <p id="voices-notice" role="status" aria-live="polite"></p><p id="voices-status" role="status" aria-live="polite"></p><progress id="voices-progress" max="100" value="0" aria-label="화자·음원 작업 진행"></progress><p id="voices-elapsed" class="hint task-elapsed">작업을 시작하면 소요 시간을 기록합니다.</p><button id="voices-stop" class="secondary">화자 작업 중단</button>
     <button id="voices-next-step" class="primary">통합 분석·재생 →</button>
-    <div class="play-actions" aria-label="M4 작업 선택"><button id="voice-tab" class="primary" aria-pressed="true">화자 검토</button><button id="stem-tab" class="secondary" aria-pressed="false">이전 분리본 열람</button></div>
+    <div class="play-actions" aria-label="화자 결과 선택"><button id="voice-tab" class="primary" aria-pressed="true">화자 검토</button><button id="stem-tab" class="secondary" aria-pressed="false">이전 분리본 열람</button></div>
     <div id="voice-review">
-    <h3 data-help="voice-names">화자 이름과 대표 음성</h3><audio id="voice-preview" preload="none" hidden></audio><div class="play-actions"><p id="voice-preview-status" class="hint" role="status">이름 카드의 듣기 버튼으로 목소리를 확인하세요.</p><button id="voice-preview-stop" class="subtle">미리듣기 정지</button></div><p id="voices-summary" class="hint"></p><div id="voice-cards" class="voice-cards"></div>
+    <div class="review-tabs" role="tablist" aria-label="화자 결과 보기">
+      <button id="voice-view-speakers" role="tab" aria-selected="true" aria-controls="voice-pane-speakers">화자 목록</button>
+      <button id="voice-view-assigned" role="tab" aria-selected="false" aria-controls="voice-pane-assigned" tabindex="-1">배정된 전사</button>
+      <button id="voice-view-failed" role="tab" aria-selected="false" aria-controls="voice-pane-failed" tabindex="-1">인식 실패</button>
+    </div>
+    <audio id="voice-preview" preload="none" hidden></audio><div class="play-actions"><p id="voice-preview-status" class="hint" role="status">듣기 버튼으로 목소리를 확인하세요.</p><button id="voice-preview-stop" class="subtle">미리듣기 정지</button></div>
+    <div id="voice-pane-speakers" role="tabpanel" aria-labelledby="voice-view-speakers">
+    <h3 data-help="voice-names">화자 이름과 대표 음성</h3><p id="voices-summary" class="hint"></p><div id="voice-cards" class="voice-cards"></div>
+    </div>
     <details id="voice-suggestions" class="voice-editor" data-help="voice-suggestions">
       <summary>필요한 구간만 · 음향·문맥 후보 검토</summary>
 
@@ -105,7 +111,7 @@
       <p id="suggest-notice" class="hint" role="status"></p><div id="suggest-results"></div>
       <div class="input-row"><label>보존된 원음 재전사<select id="retranscription-version"></select></label><button id="retranscription-open" class="subtle">재전사 열기</button></div><div id="retranscription-results"></div>
     </details>
-    <section class="voice-failed-section" aria-labelledby="voice-failed-title">
+    <section id="voice-pane-failed" role="tabpanel" aria-labelledby="voice-view-failed" hidden class="voice-failed-section">
       <h3 id="voice-failed-title" data-help="voice-failed">화자인식 실패 · 듣고 배정하기</h3>
 
       <label for="voice-failed-group">자동 화자 후보 묶음</label><select id="voice-failed-group"><option value="">실패 발언 전체</option></select><p id="voice-failed-group-note" class="hint"></p>
@@ -115,6 +121,7 @@
       <p id="voice-failed-empty" class="hint"></p><div id="voice-failed-rows" tabindex="0" aria-label="화자인식 실패 발언 목록"></div>
       <div class="play-actions"><button id="voice-failed-prev" class="subtle">이전 100개</button><span id="voice-failed-count" class="hint" role="status"></span><button id="voice-failed-next" class="subtle">다음 100개</button></div>
     </section>
+    <div id="voice-pane-assigned" role="tabpanel" aria-labelledby="voice-view-assigned" hidden>
     <details class="voice-editor" data-help="voice-assignment"><summary>발언 배정 수정 · 나누기 · 합치기</summary>
       <p class="hint">아래 시작·끝과 겹치는 전사 행 전체를 수정합니다. 듣고 판단한 변경만 사용자 확인으로 기록합니다. 본문과 원음은 유지합니다.</p>
       <div class="settings-grid"><label>시작 (초)<input id="voice-start" type="number" min="0" step="0.001" value="0"></label><label>끝 (초)<input id="voice-end" type="number" min="0" step="0.001" value="10"></label><label>대상 화자<select id="voice-target"></select></label><label>실패 이유<select id="voice-reason"><option value="ambiguous">비슷한 목소리·배정 불확실</option><option value="mixed">여러 화자 또는 동시발화</option><option value="short">음성 근거 부족</option><option value="manual">사용자 검토에서 실패 지정</option></select></label></div>
@@ -125,6 +132,7 @@
     <form id="voices-search" class="input-row"><input id="voices-query" placeholder="배정된 발언·화자 이름 검색" aria-label="배정된 화자와 발언 검색" maxlength="200"><button class="secondary">화자 검색</button></form>
     <p id="voices-empty" class="hint"></p><div id="voice-rows"></div><div class="play-actions"><button id="voices-prev" class="subtle">이전 100개</button><span id="voices-count" class="hint"></span><button id="voices-next" class="subtle">다음 100개</button></div>
     <div class="exports"><button id="voices-export" class="secondary">현재 이름·교정 포함 내보내기</button><div id="voices-exports" class="play-actions"></div></div>
+    </div>
     </div>
     <div id="voice-separation" hidden><div class="stem-section"><h2 data-help="legacy-audio">이전 분리본 열람</h2>
       <div class="input-row"><label>보존된 분리본<select id="stem-version"></select></label><button id="stem-select" class="secondary">분리본 열기</button></div>
@@ -154,34 +162,33 @@
     <div class="unified-top"><div id="explore-video"><div id="video-result" hidden>
           <video id="player" controls preload="metadata"></video>
           <div class="play-actions"><button id="play-toggle" class="primary">재생</button><output id="player-clock">00:00:00</output><label class="inline-control">배속<select id="playback-speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
-          <div class="play-actions"><button id="seek-start" class="secondary">시작</button><button id="seek-middle" class="secondary">중간</button><button id="seek-end" class="secondary">끝 3초 전</button><a id="original" class="text-link">원본 영상 저장</a></div>
-          <form id="seek-form" class="input-row"><label class="sr-only" for="seek-time">이동 시각</label><input id="seek-time" value="00:00:00" placeholder="시:분:초" aria-label="이동 시각"><button class="secondary">시각 이동</button></form>
           <p id="player-status" class="hint" aria-live="polite"></p>
         </div>
-        <p id="video-unready" class="empty">영상 수신·검사를 완료하면 후보 시각으로 이동할 수 있습니다. 준비된 채팅은 먼저 분석할 수 있습니다.</p></div><div class="unified-search">
-      <form id="explore-search"><div class="input-row"><input id="explore-query" aria-label="통합 검색어" placeholder="내용·ㅋㅋ·화자 이름·실패 이유" maxlength="200"><button class="primary">통합 검색</button></div>
-        <div class="candidate-filters"><label>검색 범위<select id="explore-source"><option value="all">전체 자료</option><option value="reaction">반응 후보</option><option value="chat">채팅</option><option value="speech">전사·화자</option></select></label><label>발언 화자<select id="explore-speaker"><option value="">모든 화자</option></select></label></div>
-      </form><div class="play-actions"><button id="explore-candidates" class="subtle">반응 후보 보기</button><button id="explore-refresh" class="subtle">자료 새로고침</button></div>
-      <div id="explore-results" class="unified-list" tabindex="0" aria-label="통합 검색 결과"></div>
-      <div class="play-actions"><button id="explore-prev" class="subtle" disabled>이전 100건</button><span id="explore-count" class="hint"></span><button id="explore-next" class="subtle" disabled>다음 100건</button></div>
-    </div></div>
-    <div class="unified-timeline"><h3 data-help="timeline">공통 시간축</h3><canvas id="unified-graph" role="img" aria-label="채팅량, 반응 후보, 발언과 화자, 인식 실패 시간축. 클릭으로 이동, 드래그로 구간 선택. 아래 슬라이더와 시작·끝 입력으로도 조작할 수 있습니다."></canvas>
-      <label for="explore-position" class="sr-only">통합 탐색 시각</label><input id="explore-position" type="range" min="0" max="1" step="1000" value="0"><output id="explore-clock" class="hint"></output><p class="hint">초록 채팅량 · 금색 반응 · 발언 색 화자 · 주황 인식 실패 · 줄무늬 미처리</p>
-
-      <div class="play-actions"><label class="inline-check"><input id="explore-follow" type="checkbox">재생 위치 따라가기</label><label class="inline-control">앞뒤 문맥<select id="explore-context"><option value="10">10초</option><option value="30" selected>30초</option><option value="60">60초</option></select></label></div>
-      <details data-help="explore-offset"><summary>채팅 시각 보정 · 이 탭/VOD에만 적용</summary><form id="explore-offset-form" class="input-row"><label>보정값 (초)<input id="explore-offset" type="number" min="-600" max="600" step="0.001" value="0"></label><button class="secondary">보정 적용</button></form></details>
+        <p id="video-unready" class="empty">영상 수신·검사를 완료하면 후보 시각으로 이동할 수 있습니다. 준비된 채팅은 먼저 분석할 수 있습니다.</p></div></div>
+    <div class="unified-timeline">
+      <div class="timeline-toolbar"><h3 data-help="timeline">공통 시간축</h3>
+        <button id="timeline-out" class="secondary" aria-label="시간축 축소">−</button>
+        <select id="timeline-span" aria-label="시간축 표시 범위"><option value="0">전체</option><option value="1800000">30분</option><option value="600000" selected>10분</option><option value="120000">2분</option></select>
+        <button id="timeline-in" class="secondary" aria-label="시간축 확대">＋</button>
+        <button id="timeline-fit" class="subtle">전체</button><button id="timeline-current" class="subtle">현재 위치</button>
+        <label class="inline-check"><input id="explore-follow" type="checkbox">재생 위치 따라가기</label>
+      </div>
+      <label for="explore-position" class="sr-only">전체 영상에서 표시할 범위의 중심</label><input id="explore-position" type="range" min="0" max="1" step="1000" value="0">
+      <output id="explore-window" class="hint"></output>
+      <canvas id="unified-graph" tabindex="0" role="slider" aria-label="공통 시간축. 좌우 키로 5초 이동, 위아래 키로 확대·축소"></canvas>
+      <div class="play-actions"><button id="timeline-prev" class="subtle">이전 범위</button><output id="explore-clock"></output><button id="timeline-next" class="subtle">다음 범위</button></div>
+      <p id="timeline-detail" class="hint" role="status"></p>
+      <details data-help="explore-offset"><summary>채팅 시각 보정</summary><form id="explore-offset-form" class="input-row"><label>보정값 (초)<input id="explore-offset" type="number" min="-600" max="600" step="0.001" value="0"></label><button class="secondary">보정 적용</button></form></details>
     </div>
-    <h3>선택 시각의 앞뒤 문맥</h3><p id="explore-window" class="hint"></p><p id="explore-filter-note" class="hint"></p>
-    <div class="unified-context">
-      <article><h3>채팅 원문</h3><div id="unified-chat" class="unified-list" tabindex="0" aria-label="같은 시각의 채팅"></div><div class="play-actions"><button id="unified-chat-prev" class="subtle" disabled>이전 채팅</button><span id="unified-chat-count" class="hint"></span><button id="unified-chat-next" class="subtle" disabled>다음 채팅</button></div></article>
-      <article><h3>발언·화자</h3><div id="unified-speech" class="unified-list" tabindex="0" aria-label="같은 시각의 발언"></div><div class="play-actions"><button id="unified-speech-prev" class="subtle" disabled>이전 발언</button><span id="unified-speech-count" class="hint"></span><button id="unified-speech-next" class="subtle" disabled>다음 발언</button></div></article>
-    </div>
-    <details class="unified-range" open><summary>영상 저장 구간 선택</summary><form id="explore-range-form"><div class="settings-grid"><label>선택 시작 (초)<input id="explore-start" type="number" min="0" step="0.001" value="0" required></label><label>선택 끝 (초)<input id="explore-end" type="number" min="0" step="0.001" value="10" required></label></div><div class="play-actions"><button id="explore-set-start" type="button" class="secondary">현재 시각을 시작으로</button><button id="explore-set-end" type="button" class="secondary">현재 시각을 끝으로</button><button class="primary">선택 범위 적용</button></div></form><p id="explore-range-note" class="hint"></p><div class="play-actions"></div></details>
-    <div class="exports"><h3>채팅 내보내기</h3><p id="export-state" class="hint"></p><div id="export-links" class="play-actions"></div></div>
   </section>
   <section id="context-panel" class="panel context-section" hidden>
     <h2 data-help="context">전체 영상의 대화 흐름을 살펴보세요</h2><p id="context-title"></p>
 
+    <form id="context-background-form" class="background-form">
+      <label for="context-background" data-help="context-background">방송 배경 설명 (선택)</label>
+      <textarea id="context-background" maxlength="500" rows="2" placeholder="예: 앞부분은 저스트 채팅, 이후 게임 합동 방송. 실제 발언을 이해하는 참고 자료로만 사용합니다."></textarea>
+      <div class="play-actions"><button id="context-background-save" class="secondary">설명 저장</button><span id="context-background-status" class="hint" role="status"></span></div>
+    </form>
     <p class="hint">처리 방식 <strong>대사 중심 · 기본</strong> · 추론 모델 <strong>Gemma 4 E4B</strong></p>
 
     <label class="inline-check"><input id="context-thinking" type="checkbox" checked>사고 켜기 <span class="hint">새 정리에 적용</span></label>
@@ -228,6 +235,11 @@
     </div>
   </section>
 </main>
+<dialog id="queue-saved-dialog" class="saved-vod-dialog" aria-labelledby="queue-saved-title">
+  <div class="task-heading"><h2 id="queue-saved-title">저장한 VOD 선택</h2><button id="queue-saved-close" class="secondary" type="button">닫기</button></div>
+  <p id="queue-saved-status" role="status"></p><div id="queue-saved-list"></div>
+  <div class="play-actions"><button id="queue-saved-confirm" class="primary" type="button">선택 순서대로 가져오기</button></div>
+</dialog>
 <dialog id="delete-dialog" aria-labelledby="delete-title"><h2 id="delete-title">저장한 VOD 삭제</h2><p id="delete-description"></p><p id="delete-path" class="path"></p><p>이 VOD 폴더의 영상·채팅·전사·분석·화자·분리 음원·구간 영상·요약·진단을 모두 휴지통으로 이동합니다. 공용 모델과 폴더 밖 복사본은 유지합니다. 휴지통을 비우기 전에는 복원할 수 있습니다.</p><form id="delete-form"><label>확인할 VOD 번호<input id="delete-confirmation" required autocomplete="off"></label><p id="delete-error" role="status"></p><div class="play-actions"><button id="delete-cancel" type="button" class="secondary">취소</button><button id="delete-confirm" class="danger">관련 자료 모두 휴지통으로 이동</button></div></form></dialog>
 <dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title">
   <div class="help-dialog-heading"><h2 id="help-title"></h2><button id="help-close" type="button" class="subtle" aria-label="도움말 닫기" autofocus>닫기 ×</button></div>

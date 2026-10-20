@@ -1,7 +1,6 @@
 import {createQueue} from './queue.js';
 import {createReports} from './reports.js';
 import {connectHelp} from './help.js';
-import {createLocalImport} from './local-import.js';
 import {createPlayer} from './player.js';
 import {createReactions} from './reactions.js';
 import {createSpeech} from './speech.js';
@@ -15,10 +14,9 @@ const $=id=>document.getElementById(id);
 const active=new Set(['queued','running','downloading','verifying','exporting','stopping']);
 const finished=new Set(['complete','empty','unavailable']);
 const labels={idle:'준비 전',queued:'준비 중',running:'수집 중',downloading:'수신 중',verifying:'검사 중',exporting:'정리·검사 중',stopping:'중단 중',paused:'중단됨',error:'조치 필요',review:'검증 필요',complete:'완료',empty:'제공 없음',unavailable:'미제공'};
-let meta=null,current=null,page=1,busy=false,polling=false;
+let current=null,page=1,busy=false,polling=false;
 const help=connectHelp();
 const player=createPlayer();
-const localImport=createLocalImport({api,onProject:value=>{current=value;render();},onComplete:()=>go(2)});
 const context=createContext({api,player,onProject:value=>{current=value;render();}});
 const explorer=createExplorer({api,player});
 function showExplore(row){go(5);explorer.focus(row);}
@@ -27,7 +25,7 @@ const voices=createVoices({api,player,showExplore,showVideo:()=>go(5),onProject:
 const speech=createSpeech({api,player,showExplore,showVoices:range=>{voices.chooseRange(range);go(4);},showVideo:()=>go(5),onProject:value=>{current=value;render();}});
 const folders=createFolders({api,onApplied:async()=>{if(current){current=await api('state',{root:current.root,vod_id:current.vod_id});render();}}});
 const reports=createReports({api,getProject:()=>current});
-const queue=createQueue({api,getRoot:()=>$('root').value,onOpen:(root,vod)=>perform(async()=>{current=await api('state',{root,vod_id:vod});render();go(2);}),onChanged:()=>list().catch(()=>{})});
+const queue=createQueue({api,getRoot:()=>$('root').value,onOpen:(root,vod)=>perform(async()=>{current=await api('state',{root,vod_id:vod});render();go(2);}),onChanged:()=>list().catch(()=>{}),onLock:locked=>{for(const id of ['root','load-library'])$(id).disabled=locked;}});
 function notice(text=''){$('notice').textContent=text;$('notice').hidden=!text;}
 async function api(action,data){
  const response=await fetch(`api/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
@@ -36,14 +34,12 @@ async function api(action,data){
 }
 function bytes(value){if(!Number.isFinite(value))return '크기 미확인';return value>=1e9?`${(value/1e9).toFixed(2)} GB`:`${(value/1e6).toFixed(1)} MB`;}
 function duration(seconds){if(!Number.isFinite(seconds))return '길이 미확인';const h=Math.floor(seconds/3600),m=Math.floor(seconds%3600/60),s=Math.floor(seconds%60);return `${h?`${h}시간 `:''}${m}분 ${s}초`;}
-function go(step){step=Math.min(7,Math.max(1,step));if(page!==step){player.clearRange();voices.stopPreview();}page=step;['import-panel','download-panel','speech-panel','voices-panel','explore-panel','context-panel','report-panel'].forEach((id,i)=>$(id).hidden=i+1!==step);[1,2,3,4,5,6,7].forEach(n=>$(`step${n}`).classList.toggle('current',step===n));$('heading').textContent=['VOD 가져오기','가져오기 진행','음성 추출·전사','화자 구분 (선택)','통합 분석·재생','AI 문맥 정리','리포트'][step-1];
+function go(step){step=Math.min(7,Math.max(1,step));if(page!==step){player.clearRange();voices.stopPreview();}page=step;['import-panel','download-panel','speech-panel','voices-panel','explore-panel','context-panel','report-panel'].forEach((id,i)=>$(id).hidden=i+1!==step);[1,2,3,4,5,6,7].forEach(n=>$(`step${n}`).classList.toggle('current',step===n));$('heading').textContent=['VOD 리스트 등록','가져오기 진행','음성 추출·전사','화자 구분 (선택)','통합 분석·재생','AI 문맥 정리','리포트'][step-1];
  help.setPage(step);if(step!==7)reports.clear();
  if(step===5||step===6){const target=$({5:'explore-video',6:'context-video'}[step]);for(const id of ['video-result','video-unready'])if($(id).parentElement!==target)target.append($(id));}
  explorer.open(step===5);if(step===6)context.refresh();if(step===7)reports.refresh();}
-function locationPreview(){const root=$('root').value.replace(/\/$/,'');$('destination').textContent=meta?`${root}/vod-${meta.id}`:'';}
-function qualityPreview(){if(!meta)return;if(localImport.isLocal()){$('estimate').textContent=meta.metadata_warning||'전체 제공 채팅 · 내 영상 범위에서 탐색';return;}const f=meta.formats.find(f=>f.id===$('quality').value);$('estimate').textContent=f?.estimated_bytes?`원본 예상 ${bytes(f.estimated_bytes)} · 변환 필요 시 추가 공간 확인`:'예상 용량 미확인 · 저장 공간을 확인하세요.';}
-async function list(){const projects=await api('projects',{root:$('root').value});$('projects').replaceChildren();if(!projects.length){const p=document.createElement('p');p.className='muted';p.textContent='이 폴더에 저장한 VOD가 없습니다.';$('projects').append(p);}for(const project of projects){const button=document.createElement('button');button.dataset.path=project.path;button.className='project-item'+(current?.path===project.path?' selected':'');const title=document.createElement('strong'),summary=document.createElement('small');title.textContent=project.metadata.title;summary.textContent=`영상 ${labels[project.tasks.video.state]} · 채팅 ${labels[project.tasks.chat.state]}`;button.append(title,summary);button.onclick=()=>perform(async()=>{current=await api('state',{root:project.root,vod_id:project.vod_id});render();go(2);});$('projects').append(button);}}
-async function perform(fn){if(busy)return;busy=true;notice();$('inspect').disabled=true;$('start').disabled=true;try{await fn();}catch(error){notice(error.message);}finally{busy=false;$('inspect').disabled=false;$('start').disabled=!meta;}}
+async function list(){const requested=$('root').value,projects=await api('projects',{root:requested});if(requested!==$('root').value)return;$('projects').replaceChildren();if(!projects.length){const p=document.createElement('p');p.className='muted';p.textContent='이 폴더에 저장한 VOD가 없습니다.';$('projects').append(p);}for(const project of projects){const button=document.createElement('button');button.dataset.path=project.path;button.className='project-item'+(current?.path===project.path?' selected':'');const title=document.createElement('strong'),summary=document.createElement('small');title.textContent=project.metadata.title;summary.textContent=`영상 ${labels[project.tasks.video.state]} · 채팅 ${labels[project.tasks.chat.state]}`;button.append(title,summary);button.onclick=()=>perform(async()=>{current=await api('state',{root:project.root,vod_id:project.vod_id});render();go(2);});const row=document.createElement('div');row.className='project-row';const add=document.createElement('button');add.className='subtle project-queue-add';add.textContent='목록 등록';add.setAttribute('aria-label',project.metadata.title+' 목록 등록');add.onclick=()=>{if(requested!==$('root').value){notice('보관함이 바뀌었습니다. 폴더 확인 후 다시 선택하세요.');return;}go(1);queue.selectSaved(project);};row.append(button,add);$('projects').append(row);}}
+async function perform(fn){if(busy)return;busy=true;notice();try{await fn();}catch(error){notice(error.message);}finally{busy=false;}}
 function fileURL(kind,key){return `file?${new URLSearchParams({root:current.root,vod_id:current.vod_id,kind,key})}`;}
 function render(){
  help.setProject(current?.path);
@@ -61,12 +57,10 @@ function render(){
  if(ready){const url=new URL(fileURL('video','playback'),location.href).href;if($('player').src!==url){player.reset();$('player').src=url;}$('original').href=fileURL('video','original');}else if($('player').getAttribute('src')){$('player').removeAttribute('src');$('player').load();}
  const task=current.tasks.chat;$('export-state').textContent=task.message+(task.state==='paused'||task.state==='error'?' · 내보내기가 있으면 마지막으로 보존한 일부 결과입니다.':'');$('export-links').replaceChildren();for(const key of ['json','csv','txt','jsonl'])if(task.assets?.[key]){const a=document.createElement('a');a.href=fileURL('chat',key);a.className='text-link';a.textContent=key.toUpperCase()+' 저장';$('export-links').append(a);}
 }
-async function start(kind){if(!current)throw Error('프로젝트를 먼저 열어주세요');if(current.input&&current.tasks.video.state!=='complete'&&kind!=='chat'){go(1);notice('같은 비디오 파일을 다시 첨부하면 완료된 조각부터 이어받습니다.');return;}current=await api('start',{root:current.root,vod_id:current.vod_id,format_id:current.format_id,kind});render();go(2);await list();}
-$('inspect-form').onsubmit=event=>{event.preventDefault();perform(async()=>{meta=null;$('metadata').hidden=true;$('inspect').textContent='정보 확인 중…';try{const requested=$('url').value;const result=await api('inspect',{url:requested,local:localImport.isLocal()});if($('url').value!==requested)return;meta=result;$('channel').textContent=meta.channel;$('title').textContent=meta.title;$('duration').textContent=`${duration(meta.duration)} · VOD ${meta.id}${meta.chat_enabled===false?' · 채팅 미제공':''}`;$('quality').replaceChildren();for(const format of meta.formats){const option=document.createElement('option');option.value=format.id;option.textContent=format.label;$('quality').append(option);}$('metadata').hidden=false;locationPreview();qualityPreview();localImport.isLocal();}finally{$('inspect').textContent='정보 확인';}});};
-$('url').oninput=()=>{meta=null;$('metadata').hidden=true;$('start').disabled=true;locationPreview();};$('root').oninput=locationPreview;$('quality').onchange=qualityPreview;
-$('start').onclick=()=>perform(async()=>{if(!meta)return;if(localImport.isLocal()){await localImport.start(meta,$('root').value);await list();return;}current=await api('start',{root:$('root').value,vod_id:meta.id,format_id:$('quality').value,kind:'all'});render();go(2);await list();});
-$('load-library').onclick=$('refresh').onclick=()=>perform(list);
-function clearProject(){reports.clear();help.setProject(null);notice();meta=null;current=null;sessionStorage.removeItem('project');$('metadata').hidden=true;$('url').value='';$('start').disabled=true;for(let i=2;i<=6;i++)$(`step${i}`).disabled=true;player.reset();$('player').removeAttribute('src');$('player').load();reactions.setProject(null);speech.setProject(null);voices.setProject(null);explorer.setProject(null);context.setProject(null);$('delete-project').hidden=true;go(1);$('url').focus();}
+async function start(kind){if(!current)throw Error('프로젝트를 먼저 열어주세요');if(current.input&&current.tasks.video.state!=='complete'&&kind!=='chat'){go(1);notice('이전 로컬 영상의 가져오기가 미완료입니다. 기존 파일은 보존됩니다. 완료된 로컬 영상은 계속 분석할 수 있습니다.');return;}current=await api('start',{root:current.root,vod_id:current.vod_id,format_id:current.format_id,kind});render();go(2);await list();}
+$('root').oninput=()=>queue.rootChanged();
+$('load-library').onclick=$('refresh').onclick=()=>perform(async()=>{await list();await queue.refresh();});
+function clearProject(){reports.clear();help.setProject(null);notice();current=null;sessionStorage.removeItem('project');for(let i=2;i<=6;i++)$(`step${i}`).disabled=true;player.reset();$('player').removeAttribute('src');$('player').load();reactions.setProject(null);speech.setProject(null);voices.setProject(null);explorer.setProject(null);context.setProject(null);$('delete-project').hidden=true;go(1);$('queue-inputs').querySelector('input')?.focus();}
 $('new').onclick=clearProject;
 connectDeletion({api,beforeOpen:help.close,getProject:()=>current,onDeleted:async removed=>{sessionStorage.removeItem('explore:'+removed.path);clearProject();await list();notice('VOD 관련 자료를 모두 휴지통으로 이동했습니다. 공용 모델과 다른 VOD는 유지됩니다.');}});
 for(const kind of ['video','chat']){$(`${kind}-resume`).onclick=()=>perform(()=>start(kind));$(`${kind}-stop`).onclick=()=>perform(async()=>{current=await api('stop',{root:current.root,vod_id:current.vod_id,kind});render();});}

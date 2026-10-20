@@ -11,8 +11,9 @@ const row={id:'failed-1',start_ms:12000,end_ms:14500,reason:'short',text:'확인
 const result={run:'run-a',revision:3,failed:2,reasons:{short:'음성 근거 부족'},speakers:[{id:'speaker-a',default:'A화자',name:'김모모'}],
   failed_review:{items:[row],total:2,cursor:0,next_cursor:100,group:'speaker-a',query:'확인',samples:[row],groups:[{id:'speaker-a',name:'김모모',count:2}]}};
 view.reset();view.render(result);view.setDisabled(false,true);
-const controls=()=>$('voice-failed-rows').children[0].children.at(-1);
-const target=()=>controls().children[2].children[1],save=()=>controls().children[3];
+const controls=()=>$('voice-failed-rows').children[0].children.at(-2);
+const editor=()=>$('voice-failed-rows').children[0].children.at(-1);
+const target=()=>editor().children[1].children[1],save=()=>editor().children[2];
 assert.equal(save().disabled,true);
 controls().children[0].onclick();assert.deepEqual(heard.at(-1)[0].sample,row);
 controls().children[1].onclick();assert.equal(jumps.at(-1),12000);

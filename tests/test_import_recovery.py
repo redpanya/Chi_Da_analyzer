@@ -1,12 +1,14 @@
 """자료별 예외 없이 시간 이동·잘림·경계 반복·응답 변경·오프라인 복구를 검사한다."""
 import json
+import os
 from pathlib import Path
+import sqlite3
 import tempfile
 import threading
 import unittest
 from unittest.mock import patch
 
-from archive import chat, media_timeline, video
+from archive import chat, chat_workdb, media_timeline, video
 from archive.storage import Project, ProjectLock, create_or_load, save_json, read_json
 from test_archive import metadata, message, page
 
@@ -100,6 +102,63 @@ class ChatRecoveryTests(unittest.TestCase):
         (self.path/'diagnostics/chat-audit/999.json').write_text('{', encoding='utf-8')
         with self.assertRaises(ValueError): chat.collect(self.project, threading.Event())
         self.assertEqual(self.project.snapshot()['tasks']['chat']['assets'], {'jsonl': 'exports/old/chat.jsonl'})
+
+    def test_index_stays_outside_library_and_is_closed_and_removed(self):
+        item = self.msg(1000); self.saved([item], [item, item])
+        scratch = Path(self.temp.name)/'내장 임시'; opened = []
+        connect = sqlite3.connect
+        def tracked(file):
+            self.assertTrue(Path(file).is_relative_to(scratch))
+            self.assertFalse(Path(file).is_relative_to(self.path))
+            db = connect(file); opened.append(db); return db
+        old_db = self.path/'exports/old/counts.sqlite'; old_db.write_bytes('기존 DB 보존'.encode())
+        with patch.object(chat_workdb, 'temporary_root', return_value=scratch), \
+                patch.object(chat_workdb.sqlite3, 'connect', side_effect=tracked):
+            task, rows = self.collect()
+        self.assertEqual(task['state'], 'complete'); self.assertEqual(len(rows), 4)
+        self.assertEqual(len(opened), 1)
+        with self.assertRaises(sqlite3.ProgrammingError): opened[0].execute('SELECT 1')
+        self.assertEqual(list(scratch.iterdir()), [])
+        self.assertEqual(list((self.path/'exports').rglob('*.sqlite')), [old_db])
+        self.assertEqual(old_db.read_bytes(), '기존 DB 보존'.encode())
+
+    def test_full_scratch_preserves_selected_exports_and_retry_uses_pages(self):
+        item = self.msg(1000); self.saved([item], [item, item])
+        selected = {'jsonl': 'exports/old/chat.jsonl'}
+        self.project.update('chat', state='review', assets=selected)
+        scratch = Path(self.temp.name)/'내장 임시'
+        error = sqlite3.OperationalError('database or disk is full')
+        error.sqlite_errorcode = sqlite3.SQLITE_FULL
+        with patch.object(chat_workdb, 'temporary_root', return_value=scratch):
+            with patch.object(chat.chat_boundary, 'reconcile', side_effect=error):
+                with self.assertRaisesRegex(ValueError, '내장 임시 공간'):
+                    self.collect()
+            self.assertEqual(self.project.snapshot()['tasks']['chat']['assets'], selected)
+            self.assertEqual(list(scratch.iterdir()), [])
+            task, rows = self.collect()
+        self.assertEqual(task['state'], 'complete'); self.assertEqual(len(rows), 4)
+        self.assertEqual(list(scratch.iterdir()), [])
+
+    def test_cancel_during_audit_removes_scratch_and_preserves_results(self):
+        item = self.msg(1000); self.saved([item], [item, item])
+        selected = {'jsonl': 'exports/old/chat.jsonl'}
+        self.project.update('chat', state='review', assets=selected)
+        scratch = Path(self.temp.name)/'내장 임시'; stop = threading.Event()
+        reconcile = chat.chat_boundary.reconcile
+        def cancel(*args):
+            result = reconcile(*args); stop.set(); return result
+        with patch.object(chat_workdb, 'temporary_root', return_value=scratch), \
+                patch.object(chat.chat_boundary, 'reconcile', side_effect=cancel), \
+                patch.object(chat, 'fetch', side_effect=AssertionError('네트워크 요청 금지')):
+            with self.assertRaises(chat.Cancelled): chat.collect(self.project, stop)
+        self.assertEqual(list(scratch.iterdir()), [])
+        self.assertEqual(self.project.snapshot()['tasks']['chat']['assets'], selected)
+        task, _ = self.collect(); self.assertEqual(task['state'], 'complete')
+
+    def test_macos_uses_system_temp_instead_of_external_tmpdir(self):
+        with patch.object(chat_workdb.sys, 'platform', 'darwin'), \
+                patch.dict(os.environ, {'TMPDIR': '/Volumes/external'}):
+            self.assertEqual(chat_workdb.temporary_root(), Path('/private/tmp'))
 
 
 if __name__ == '__main__': unittest.main()

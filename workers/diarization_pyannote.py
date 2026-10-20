@@ -55,6 +55,12 @@ def run(request):
 
 
 def main():
+    if sys.argv[1:] == ['--speaker-tool-check']:
+        import torch
+        import soundfile
+        from pyannote.audio import Pipeline
+        print('CHIDA_SPEAKER_TOOL:1:pyannote',flush=True)
+        return
     request=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
     parent=os.getppid()
     def watch():

@@ -16,7 +16,7 @@ python packaging/release/fetch_sources.py
 python packaging/release/build_native.py
 bash packaging/release/build_ffmpeg.sh
 python -m PyInstaller --noconfirm --clean --distpath build/frozen --workpath build/pyinstaller packaging/release/backend.spec
-python packaging/release/assemble.py --version 0.18.1
+python packaging/release/assemble.py --version 0.19.0
 python packaging/release/smoke.py
 python packaging/release/archive_release.py
 ```
@@ -47,6 +47,6 @@ Windows의 FFmpeg 빌드 명령만 MSYS2 UCRT64 셸에서 실행합니다. 나�
 
 자동: 두 OS Python 검사, 잠금 중복 거부와 자식 잠금 유지, 앱 강제 종료 시 Windows 자식 종료, 한글·공백 경로, 패키지 독립 실행, 포함 도구 버전, H.264/AAC 영상 생성·probe·디코딩, 서버 페이지·정적 모듈, 준비 파일 생성·종료, 체크섬. macOS 최종 ZIP은 ditto·unzip 두 방식으로 해제한 뒤 서명과 ASCII 번들 경로를 확인하고 LaunchServices로 실제 앱을 시작해 HTTP 응답을 확인합니다. Gatekeeper 허용 결과는 별도로 기록하며 임시 서명 초안의 거부를 공증 통과로 표시하지 않습니다.
 
-수동: 깨끗한 실제 Mac과 Windows PC에서 다운로드 또는 로컬 가져오기→전사→선택 화자 구분→Gemma 요약→반응 이동→댓글 편집/복사. 중단·재실행, 외장 보관함, 모델 최초 다운로드·오프라인 재사용, 휴지통 복원. 기존 원본·수동 교정·화자 배정·분석 보존. CPU 속도와 메모리 측정.
+수동: 깨끗한 실제 Mac과 Windows PC에서 VOD 리스트 등록→다운로드→전사→선택 화자 구분→Gemma 요약→반응 이동→댓글 편집/복사. 중단·재실행, 외장 보관함, 모델 최초 다운로드·오프라인 재사용, 휴지통 복원. 기존 원본·수동 교정·화자 배정·분석 보존. CPU 속도와 메모리 측정.
 
 검증 JSON의 Release 파일명은 GitHub 업로드 정규화를 피하기 위해 `macOS-arm64-smoke.json`, `Windows-x64-smoke.json`을 사용합니다. 초안 Release URL은 공개 전환 시 바뀔 수 있으므로 외부 안내는 저장소의 Releases 페이지를 사용하세요.

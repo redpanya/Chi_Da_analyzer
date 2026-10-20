@@ -1,3 +1,5 @@
+import {createBackground} from './context-background.js';
+import {fallbackEvidence,fallbackChats} from './context-fallback.js';
 import {timecode} from './player.js';
 import {contextReactions} from './context-reactions.js';
 import {createContextCopy,canCopyContext} from './context-copy.js';
@@ -10,8 +12,10 @@ export function createContext({api,player,onProject}) {
   let project=null,key='',serial=0,currentRun=null,currentResult=null,latestRun=null,listItems=[];
   const identity=()=>({root:project.root,vod_id:project.vod_id});
   const message=text=>$('context-notice').textContent=text;
+  const background=createBackground({api,message,onChange:controls});
   function controls(){
     $('context-resume').disabled=!project||project.locked||currentResult?.scope!=='full'||currentResult.complete||currentResult.stale;
+    $('context-generate').disabled=!project||project.locked||!project.speech?.transcript?.complete||project.speech.stale||!background.ready();
   }
   function article(item,index){
     const box=node('article','','context-item'),input=item.input,summary=item.summary;
@@ -57,15 +61,25 @@ export function createContext({api,player,onProject}) {
       const refs=new Map(input.evidence.map(r=>[r.id,r]));
       for(const [name,label] of [['context','대화 문맥'],['chat','채팅 반응'],['relation','발언과 반응 비교']]){
         if(name==='relation'&&currentResult?.version===6)continue;
-        const target=name==='context'||(name==='chat'&&!summary.context.length)?box:extra;
-        if(name!=='context')target.append(node('h4',label));
-        if(!summary[name].length)target.append(node('p',name==='relation'?'함께 설명할 직접적인 근거가 부족합니다.':'사용할 근거가 없습니다.','hint'));
+        const target=name==='relation'?extra:box;
+        target.append(node('h4',label));
+        if(!summary[name].length)target.append(node('p',name==='relation'?'함께 설명할 직접적인 근거가 부족합니다.':name==='chat'?(item.chat_state==='pending'?'채팅 반응 정리 대기':item.chat_state==='failed'?'채팅 반응 정리 실패 · 원문을 확인하세요':'이 구간에서 요약할 채팅 반응 근거가 없습니다.'):'사용할 근거가 없습니다.','hint'));
         for(const item of summary[name]){
           target.append(node('p',item.text));const bar=node('div','','play-actions');
           for(const id of item.evidence){const r=refs.get(id);if(!r)continue;const button=node('button',`${id} · ${timecode(r.start_ms)}${r.kind==='speech'?' 발언':' 채팅'}`,'subtle');button.title=r.text;button.onclick=()=>{player.seek(r.start_ms);$('context-playing').textContent='원문 시각으로 이동했습니다.';};bar.append(button);}extra.append(bar);
         }
       }
       for(const text of summary.uncertainties)extra.append(node('p',text,'hint'));
+    }
+    if(contextSummaryFailed(item)){
+      const refs=fallbackEvidence(item),chats=fallbackChats(item),reference=node('section','','context-reference');
+      reference.append(node('h4','원문 기반 참고 · 요약 성공 결과가 아닙니다'));
+      for(const row of refs){const b=node('button',timecode(row.start_ms),'subtle');b.disabled=play.disabled;b.onclick=()=>player.seek(row.start_ms,true);reference.append(b,node('p',row.text));}
+      if(!refs.length)reference.append(node('p','읽을 수 있는 전사 근거가 없습니다. 원음을 확인하세요.','hint'));
+      reference.append(node('h4','채팅 원문 참고'));
+      for(const row of chats)reference.append(node('p',`${row.text}${row.count?' × '+row.count:''}`));
+      if(!chats.length)reference.append(node('p','이 결과에 보존된 채팅 근거 없음 · 반응 미발생을 의미하지 않습니다.','hint'));
+      box.append(reference);
     }
     const details=node('details','');details.append(node('summary','입력 범위·제한·원문'));
     details.append(node('p',input.stats.speech_total!=null?`${input.label} 입력 범위 · 발언 ${input.stats.speech_used}/${input.stats.speech_total}개 · 채팅 ${input.stats.chat_used}/${input.stats.chat_total}건 사용`:`${input.label} · 앞뒤 문맥을 연결한 요약과 선별 원문 근거`,'hint'));
@@ -118,6 +132,7 @@ export function createContext({api,player,onProject}) {
       let items;
       if(value.scope==='full'){
         overview.append(node('h3',`전체 영상 00:00:00 ~ ${timecode(value.duration_ms)} · ${value.phase==='done'?'전체 범위 처리 종료':value.complete?'처리 완료':[7,8,9,10].includes(value.version)&&value.phase==='chat'?'채팅 설명 정리':value.phase==='grounding'?'요약 원문 대조':value.version>=6&&value.done===value.total?'처리 종료 · 확인 필요':'일부 처리'} · ${value.version>=6?'입력 처리':'요약'} ${value.done}/${value.total}`));
+        if(value.broadcast_background)overview.append(node('p','분석에 사용한 방송 배경: '+value.broadcast_background,'hint'));
         overview.append(node('p',(value.version===5?`상위 주제 ${value.topics.length}개 · 완료 이야기·장면 ${value.items.filter(r=>r.kind!=='topic').length}개`:`완료 문맥 ${value.items.filter(r=>!r.gap&&!r.failed&&r.grounding_state!=='pending'&&r.grounding_state!=='review').length}개`)+` · 채팅 보정 ${value.chat_offset_ms/1000}초 · ${value.model}${value.inference?' · 사고 '+(value.inference.thinking?'켜기':'끄기')+(value.version===10?' · 원본 보존 · 문맥 보완·발언 선별':' · 전사 자동 보정 없음'):''}`,'hint'));
         if(value.stats.speech_total!=null)overview.append(node('p',`발언 ${value.stats.speech_used}/${value.stats.speech_total}개 · `+(value.version===5?`제공 채팅 ${value.stats.chat_total}건`:`채팅 ${value.stats.chat_used}/${value.stats.chat_total}건 사용`),'hint'));
         if(value.version<6)overview.append(node('p',value.version===5?'이전 상위·하위 방식의 결과':'이전 문맥 처리 방식의 결과','hint'));
@@ -161,7 +176,7 @@ export function createContext({api,player,onProject}) {
     }catch(error){if(project?.path===selected)message(error.message);}
   }
   $('context-prepare').onclick=()=>start('model',{});
-  $('context-generate').onclick=()=>{const offset=$('context-offset').valueAsNumber;if(!Number.isFinite(offset)||Math.abs(offset)>600)return message('채팅 보정은 -600~600초로 입력하세요.');start('whole',{chat_offset_ms:Math.round(offset*1000),thinking:$('context-thinking').checked});};
+  $('context-generate').onclick=async()=>{const offset=$('context-offset').valueAsNumber;if(!Number.isFinite(offset)||Math.abs(offset)>600)return message('채팅 보정은 -600~600초로 입력하세요.');if(!await background.save())return;start('whole',{chat_offset_ms:Math.round(offset*1000),thinking:$('context-thinking').checked});};
   $('context-resume').onclick=()=>start('resume',{run:currentRun});
   $('context-stop').onclick=async()=>{if(!project)return;const selected=project.path;try{const value=await api('context-stop',identity());if(project?.path===selected)onProject(value);}catch(error){message(error.message);}};
   $('context-open').onclick=()=>load($('context-version').value);
@@ -170,7 +185,7 @@ export function createContext({api,player,onProject}) {
   return {
     refresh(){if(project&&currentRun)load(currentRun);},
     setProject(value){
-      const changed=project?.path!==value?.path;project=value;
+      const changed=project?.path!==value?.path;project=value;background.setProject(value);
       if(changed){serial++;key='';currentRun=null;currentResult=null;latestRun=null;listItems=[];copy.setItems([],'');$('context-min-reaction').value='0';renderList(true);$('context-log').open=false;$('context-overview').replaceChildren(node('p','문맥 결과를 열면 처리 내역이 표시됩니다.','hint'));$('context-offset').value='0';$('context-playing').textContent='목록의 ‘이 구간 재생’을 눌러 영상을 확인하세요.';message('');}
       const state=value?.context,p=state?.progress||{},model=state?.model;
       if(changed)$('context-thinking').checked=true;

@@ -170,12 +170,7 @@ def result(path, query='', cursor=0):
     edits = corrections(path, run)
     rows = [row | {'original_text': row['text'], 'text': edits.get(row['id'], row['text']), 'corrected': row['id'] in edits}
             for row in segments(path, run)]
-    from .voice_store import decorate
-    try:
-        rows = decorate(path, run['id'], rows)
-    except (ValueError, KeyError, OSError, TypeError):
-        pass  # M4 상태 손상이 원 전사 열기를 막지 않도록 한다.
-    rows = [row for row in rows if query.casefold() in (row['text']+' '+row.get('speaker_name', '')).casefold()]
+    rows = [row for row in rows if query.casefold() in row['text'].casefold()]
     return {'items': rows[cursor:cursor + 100], 'next_cursor': cursor + 100 if len(rows) > cursor + 100 else None,
             'total': len(rows), 'run': run['id'], 'complete': run['complete'], 'processed_ms': run['processed_ms']}
 
@@ -223,7 +218,8 @@ def export(path):
     (folder / 'transcript.txt').write_text(label + '\n' + '\n'.join(
         f"[{timecode(row['start_ms'])} → {timecode(row['end_ms'])}] {row['text']}" for row in rows), encoding='utf-8')
     files = {key: f'{relative}/transcript.{key}' for key in ('json', 'csv', 'txt')}
-    update(path, exports=files)
+    # 내보내기는 전사 입력 변경이 아니므로 화자 내보내기의 유효성 시각을 바꾸지 않는다.
+    save_json(local(path, 'state.json'), state(path) | {'exports': files, 'exported_at': stamp()})
     return files
 
 

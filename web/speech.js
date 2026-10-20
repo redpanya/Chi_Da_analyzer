@@ -6,7 +6,7 @@ export function createSpeech({api, player, showVideo, showVoices, showExplore, o
   let project = null, generation = 0, infoGeneration = 0, rowGeneration = 0, details = null, fingerprint = '', rowsKey = '', next = null, cursor = 0, requesting = false;
   const selected = () => ({root: project.root, vod_id: project.vod_id});
   const message = text => { $('speech-notice').textContent = text; };
-  const fileURL = key => `file?${new URLSearchParams({...selected(), kind: !['audio','audio-save','sam'].includes(key) && project.voices?.run && !project.voices.stale ? 'voices' : 'speech', key, revision: project.voices?.updated_at || project.speech.updated_at || ''})}`;
+  const fileURL = key => `file?${new URLSearchParams({...selected(), kind:'speech', key, revision:project.speech.updated_at||''})}`;
   function button(text, action, className = 'subtle') {
     const b = document.createElement('button'); b.textContent = text; b.className = className; b.onclick = action; return b;
   }
@@ -84,7 +84,7 @@ export function createSpeech({api, player, showVideo, showVoices, showExplore, o
       const p = document.createElement('p'); p.className = 'hint'; p.textContent = `${timecode(chunk.start_ms)}~${timecode(chunk.end_ms)} · ${chunk.status === 'silence' ? '디지털 무음' : chunk.status === 'no_speech' ? '발화 검출 없음 · 작은 목소리 누락 여부 확인' : '소리는 있으나 텍스트 인식 실패 · 원음 확인 필요'}`; $('speech-gaps').append(p);
     }
     $('speech-exports').replaceChildren();
-    for (const key of Object.keys(project.voices?.run && !project.voices.stale ? project.voices.exports || {} : s.exports || {})) {
+    for (const key of Object.keys(s.exports || {})) {
       const a = document.createElement('a'); a.href = fileURL(key); a.textContent = key.toUpperCase()+' 저장'; a.className = 'text-link'; $('speech-exports').append(a);
     }
   }
@@ -113,8 +113,8 @@ export function createSpeech({api, player, showVideo, showVoices, showExplore, o
           try { await audio.play(); } catch { message('음성 재생을 시작하지 못했습니다.'); }
         }));
         actions.append(button('화자 검토 (선택)', () => showVoices(row)), button('같은 순간 함께 보기', () => showExplore(row)));
-        const text = document.createElement('p'); text.textContent = (row.speaker_name ? row.speaker_name+' · ' : '') + row.text || '(교정 후 빈 텍스트)';
-        const hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = `${row.corrected ? '사용자 교정 · 원문 별도 보존' : '자동 전사 · 원음 확인 필요'}${row.boundary_review ? ' · 조각 경계 검토' : ''}${row.timing_adjusted ? ' · 종료 시각 범위 제한 · 시각 검토 필요' : ''}${row.repeat_review ? ' · 같은 문장 반복 · 인식 내용 검토' : ''}${row.repeat_candidate ? ' · 유사 반복 발화 · 원문·요약 입력 유지' : ''}${row.quality_review ? ' · '+row.quality_notes.join(' · ')+(row.corrected?' · 사용자 교정 반영':' · 요약에서 제외, 원음 확인 후 교정 가능') : ''}${row.encoding_review ? (row.corrected ? ' · 원출력 문자 오류 · 교정 반영' : ' · 문자 인식 오류 · 원음 확인 후 교정 필요') : ''}${row.speaker_name ? ' · '+(row.status==='confirmed'?'화자 사용자 확인':row.status==='failed'?'화자인식 실패 · '+row.speaker_reason:'화자 자동 추정 · 미확정') : ''}`;
+        const text = document.createElement('p'); text.textContent = row.text || '(교정 후 빈 텍스트)';
+        const hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = `${row.corrected ? '사용자 교정 · 원문 별도 보존' : '자동 전사 · 원음 확인 필요'}${row.boundary_review ? ' · 조각 경계 검토' : ''}${row.timing_adjusted ? ' · 종료 시각 범위 제한 · 시각 검토 필요' : ''}${row.repeat_review ? ' · 같은 문장 반복 · 인식 내용 검토' : ''}${row.repeat_candidate ? ' · 유사 반복 발화 · 원문·요약 입력 유지' : ''}${row.quality_review ? ' · '+row.quality_notes.join(' · ')+(row.corrected?' · 사용자 교정 반영':' · 요약에서 제외, 원음 확인 후 교정 가능') : ''}${row.encoding_review ? (row.corrected ? ' · 원출력 문자 오류 · 교정 반영' : ' · 문자 인식 오류 · 원음 확인 후 교정 필요') : ''}`;
         const edit = document.createElement('details'), summary = document.createElement('summary'); summary.textContent = '텍스트 교정';
         const original = document.createElement('p'); original.className='hint'; original.textContent = '원문: '+row.original_text;
         const input = document.createElement('textarea'); input.value = row.text; input.maxLength=5000; input.className='speech-edit-control'; input.disabled=project.locked; input.setAttribute('aria-label',timecode(row.start_ms)+' 전사 교정');
@@ -172,9 +172,9 @@ export function createSpeech({api, player, showVideo, showVoices, showExplore, o
       $('speech-prompt').value = options.prompt || '';
     }
     if (changed || modelChanged || videoChanged || (previous?.owned && !value.speech.owned) || (value.speech.action === 'model' && value.speech.state === 'complete' && previous?.updated_at !== value.speech.updated_at)) info();
-    const nextFingerprint=JSON.stringify(value.speech)+JSON.stringify(value.voices)+value.locked;
+    const nextFingerprint=JSON.stringify(value.speech)+value.locked;
     if (nextFingerprint !== fingerprint) {fingerprint=nextFingerprint;render();}
-    const key=`${value.speech.run}:${value.speech.transcript?.processed_ms}:${value.voices?.updated_at}:${value.voices?.revision}`;
+    const key=`${value.speech.run}:${value.speech.transcript?.processed_ms}:${value.speech.updated_at}`;
     if(key !== rowsKey){rowsKey=key;loadRows(true);}
   }};
 }

@@ -16,6 +16,7 @@ def export(target):
                   and p.suffix in ('.py','.json','.js','.mjs','.html','.css','.svg','.md','.yml','.swift')]
     files += [p for p in (ROOT/'packaging').glob('*') if p.is_file() and p.suffix in ('.py','.swift','.spec','.txt','.md')]
     files += [p for p in (ROOT/'packaging/release').iterdir() if p.is_file()]
+    files += [p for p in (ROOT/'packaging/speaker_tools').iterdir() if p.is_file() and p.suffix in ('.py','.spec','.txt','.md')]
     files += [ROOT/'tools/install_diarization.py',ROOT/'requirements-diarization.txt']
     for file in files:
         if file.stat().st_size>2*1024*1024:raise ValueError(f'예상보다 큰 소스 파일: {file.name}')

@@ -1,17 +1,15 @@
 """원본 페이지 기반 재개와 메모리 사용을 제한한 채팅 내보내기·경계 검사."""
 
-from contextlib import closing
 import csv
 from datetime import datetime, timezone
 import json
 import heapq
 from pathlib import Path
-import sqlite3
 import uuid
 
 from .source import Cancelled, check_cancel, request_json
 from .storage import save_json, read_json
-from . import chat_boundary
+from . import chat_boundary, chat_workdb
 
 
 def validate(payload, cursor):
@@ -67,11 +65,11 @@ def safe_csv(value):
     return "'" + value if isinstance(value, str) and value.startswith(('=', '+', '-', '@', '\t', '\r')) else value
 
 
-def export(project, paths, label, stop, extras=None):
+def export(project, paths, label, stop, extras=None, index=None):
     generation = project.path / 'exports' / uuid.uuid4().hex
     generation.mkdir(parents=True)
-    db = sqlite3.connect(generation / 'counts.sqlite')
-    db.execute('CREATE TABLE counts (fingerprint TEXT PRIMARY KEY, amount INTEGER NOT NULL)')
+    if index is not None:
+        index.execute('CREATE TABLE counts (fingerprint TEXT PRIMARY KEY, amount INTEGER NOT NULL)')
     vod = project.data['vod_id']
     count, failed = 0, 0
     extra_iterator = chat_boundary.extra_messages(extras) if extras else None
@@ -98,14 +96,14 @@ def export(project, paths, label, stop, extras=None):
                 jl.write(encoded + '\n')
                 writer.writerow({key: safe_csv(value) for key, value in item.items()})
                 tx.write(f"[{item['timecode']}] {json.dumps(item['nickname'], ensure_ascii=False)}: {json.dumps(item['text'], ensure_ascii=False)}\n")
-                db.execute('INSERT INTO counts VALUES (?, 1) ON CONFLICT(fingerprint) DO UPDATE SET amount=amount+1', (fingerprint(message),))
+                if index is not None:
+                    index.execute('INSERT INTO counts VALUES (?, 1) ON CONFLICT(fingerprint) DO UPDATE SET amount=amount+1', (fingerprint(message),))
                 count += 1
                 failed += item['profile_parse_failed']
             js.write(']}\n')
-        db.commit()
+        if index is not None: index.commit()
     finally:
         if extra_iterator is not None: extra_iterator.close()
-        db.close()
     save_json(generation / 'summary.json', {'status': label, 'messages': count, 'profile_parse_failed': failed})
     return generation, count
 
@@ -173,10 +171,9 @@ def collect(project, stop):
                        assets=export_assets(project, generation))
         return
     project.update('chat', state='exporting', message='채팅 결과를 정리하고 경계를 검사하고 있습니다')
-    generation, count = export(project, paths, '제공 범위 순회 완료 · 경계 검증 전', stop)
-    checks, fetched, reused = [], 0, 0
-    database = generation/'counts.sqlite'
-    with closing(sqlite3.connect(database)) as db:
+    with chat_workdb.database() as db:
+        generation, count = export(project, paths, '제공 범위 순회 완료 · 경계 검증 전', stop, index=db)
+        checks, fetched, reused = [], 0, 0
         chat_boundary.prepare(db)
         for cursor in sorted(cursors):
             check_cancel(stop)
@@ -194,18 +191,18 @@ def collect(project, stop):
             messages, _ = validate(payload, cursor)
             checks.append(chat_boundary.reconcile(db, messages, cursor, boundaries.get(cursor)))
             if stop.wait(.15): raise Cancelled()
-    valid = not overlap and all(not c['missing'] and not c['single_timestamp_full_page'] for c in checks)
-    audit = {'checks': checks, 'overlap': overlap, 'match': valid, 'revision': 2,
-             'cached_requests': reused, 'network_requests': fetched,
-             'recovered': sum(c['recovered'] for c in checks)}
-    save_json(generation/'boundary-recovery.json', audit)
-    if not (project.path/'diagnostics/chat-audit.json').exists():
-        save_json(project.path/'diagnostics/chat-audit.json', audit)
-    recovered = audit['recovered']
-    label = ('제공 범위 순회·경계 대조 완료' if count or recovered else '현재 제공된 채팅 없음') if valid else '제공 범위 순회 · 경계 검증 필요'
-    # 원본 페이지와 이전 내보내기는 유지하고, 보완분을 시간순으로 합친 새 묶음만 연결한다.
-    final, count = export(project, paths, label, stop, extras=database)
-    save_json(final/'boundary-recovery.json', audit | {'source_generation': str(generation.relative_to(project.path))})
+        valid = not overlap and all(not c['missing'] and not c['single_timestamp_full_page'] for c in checks)
+        audit = {'checks': checks, 'overlap': overlap, 'match': valid, 'revision': 2,
+                 'cached_requests': reused, 'network_requests': fetched,
+                 'recovered': sum(c['recovered'] for c in checks)}
+        save_json(generation/'boundary-recovery.json', audit)
+        if not (project.path/'diagnostics/chat-audit.json').exists():
+            save_json(project.path/'diagnostics/chat-audit.json', audit)
+        recovered = audit['recovered']
+        label = ('제공 범위 순회·경계 대조 완료' if count or recovered else '현재 제공된 채팅 없음') if valid else '제공 범위 순회 · 경계 검증 필요'
+        # 원본 페이지와 이전 내보내기는 유지하고, 보완분을 시간순으로 합친 새 묶음만 연결한다.
+        final, count = export(project, paths, label, stop, extras=db)
+        save_json(final/'boundary-recovery.json', audit | {'source_generation': str(generation.relative_to(project.path))})
     progress = project.snapshot()['tasks']['chat'].get('progress', {}) | {'messages': count}
     message = label+(f' · 경계 누락 {recovered}건 보완' if recovered else '')
     missing = sum(c['missing'] for c in checks)

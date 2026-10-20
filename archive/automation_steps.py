@@ -3,8 +3,9 @@ import shutil
 import threading
 
 from . import speech_store, speech_media, speech_model, context_model, context_job, context_full, voice_store
-from . import diarization_backends, analysis_store
+from . import diarization_backends, analysis_store, automation_media
 from .storage import project_path, load_project, read_json
+from .source import Cancelled
 
 
 class Prerequisite(ValueError):
@@ -41,13 +42,16 @@ def execute(queue, entry, stage):
     if shutil.disk_usage(path).free < 256 * 1024**2:
         raise Prerequisite('저장 공간이 부족합니다. 공간 확보 후 이어가세요')
     if stage == 'download':
-        # 이미 받은 자료는 다운로드기의 기존 검증·이어받기 규칙을 따른다.
-        before = load_project(path, vod)
-        reused = all(t['state'] in ('complete', 'empty', 'unavailable') for t in before['tasks'].values())
-        manager.start(root, vod, entry['format'], 'all')
-        if reused:
+        try:
+            prepared = automation_media.prepare(path, vod, settings['allow_partial_chat'], queue.stop)
+        except Cancelled as error:
+            raise Paused() from error
+        needed = [kind for kind, valid in prepared.items() if not valid]
+        if needed:
+            manager.start(root, vod, entry['format'], 'all' if len(needed) == 2 else needed[0])
+            wait(queue, manager.job if manager.job and manager.job.project.path == path else None)
+        else:
             manager.reports.skipped(path, stage)
-        wait(queue, manager.job if manager.job and manager.job.project.path == path else None)
         data = load_project(path, vod)
         if data['tasks']['video']['state'] != 'complete':
             raise ValueError('영상 다운로드·검증을 완료하지 못했습니다. 가져오기 진행에서 상세 오류를 확인하세요')
@@ -56,7 +60,7 @@ def execute(queue, entry, stage):
             if settings['allow_partial_chat'] and chat['state'] == 'review' and chat.get('assets', {}).get('jsonl'):
                 return 'partial'
             raise ValueError('채팅 제공 범위 검증이 끝나지 않았습니다. 해당 VOD를 확인한 뒤 재시도하세요')
-        return 'complete'
+        return 'complete' if needed else 'reused'
     data = load_project(path, vod)
     if stage == 'audio':
         raw = speech_store.state(path).get('raw_audio')
@@ -106,12 +110,14 @@ def execute(queue, entry, stage):
         manager.analyze(root, vod, {}, settings['allow_partial_chat'])
         return 'complete'
     elif stage == 'summary':
+        from . import context_background
+        background = settings['background'] if 'background' in settings else context_background.read(path)
         state = context_job.state(path)
         run = state.get('full_run')
         action = 'whole'
         if run:
             saved = read_json(context_job.local(path, f'runs/{run}/result.json'))
-            matching = saved.get('version') == context_full.VERSION and saved.get('model') == context_model.DEFAULT_NAME and saved.get('fingerprint') == context_full.fingerprint(context_full.current_source(path, vod, saved.get('chat_offset_ms', 0)))
+            matching = saved.get('version') == context_full.VERSION and saved.get('model') == context_model.DEFAULT_NAME and saved.get('fingerprint') == context_full.fingerprint(context_full.current_source(path, vod, saved.get('chat_offset_ms', 0), background))
             thinking = (saved.get('inference') or {}).get('thinking', True)
             if matching and thinking == settings['thinking']:
                 if saved.get('complete'):
@@ -119,7 +125,7 @@ def execute(queue, entry, stage):
                     return 'reused'
                 action = 'resume'
         ready(context_model)
-        manager.context_start(root, vod, action, {'thinking': settings['thinking']})
+        manager.context_start(root, vod, action, {'thinking': settings['thinking'], 'background': background})
         wait(queue, manager.context_job)
         status = context_job.state(path)
     else:

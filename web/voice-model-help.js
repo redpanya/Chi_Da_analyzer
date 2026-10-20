@@ -1,6 +1,8 @@
 // 모델 파일·실행 도구 상태만 사용하며 HF 로그인 상태를 추정하지 않는다.
 export function voiceModelHelp(backend, model) {
-  const paragraphs=['모델은 앱 밖의 지정한 AI 폴더에 저장합니다. 무료 모델에도 이용 조건이 있습니다.'];
+  const paragraphs=['실행 도구와 모델은 별도로 준비합니다. 실행 도구는 이 컴퓨터의 앱 지원 폴더, 모델은 지정한 AI 폴더에 저장합니다. 무료 모델에도 이용 조건이 있습니다.',
+    '1. 실행 도구가 없으면 ‘실행 도구 다운로드·설치’를 누르세요. 설치된 도구는 ‘실행 도구 검사’로 확인할 수 있습니다. 다운로드·압축 검사·실행 확인을 모두 통과해야 새 도구를 적용하며 실패·중단 시 기존 도구와 모델·결과는 보존합니다.',
+    '2. 실행 도구가 준비되면 ‘선택 모델 준비·검사’를 누르세요. 이미 준비된 모델은 재사용합니다. 도구 설치만으로 모델이나 분석 결과가 바뀌지는 않습니다.'];
   const links=[];
   let status=model.ready?'모델 준비 완료':'모델 준비·검사 필요';
   if(model.supported===false)status+=' · 현재 환경은 실행 지원 안 됨';
@@ -9,7 +11,7 @@ export function voiceModelHelp(backend, model) {
   else if(backend==='pyannote')status+=' · 최초 다운로드 시 HF 로그인·이용 동의 필요 · 💡에서 방법 확인';
   else status+=' · 선택 모델 준비·검사를 실행하세요';
 
-  if(model.ready)paragraphs.push('현재 폴더의 모델 준비가 완료됐습니다. 분석할 때 HF 로그인이나 재다운로드가 필요하지 않습니다. 전사 준비 후 전체 화자 분석을 실행하세요.');
+  if(model.ready)paragraphs.push('현재 폴더의 모델 준비가 완료됐습니다. 분석할 때 HF 로그인이나 재다운로드가 필요하지 않습니다. 실행 도구와 전사 준비 후 전체 화자 분석을 실행하세요.');
   else paragraphs.push('현재 폴더에서 준비 완료를 확인하지 못했습니다. 처음 사용하거나 모델 경로·파일이 바뀐 경우 ‘선택 모델 준비·검사’를 실행하세요. 기존 결과는 유지합니다.');
   if(model.supported===false)paragraphs.push('이 엔진은 현재 운영체제·장치에서 실행을 지원하지 않습니다. 지원하는 엔진을 선택하세요.');
   else if(!model.engine)paragraphs.push('모델과 별도로 실행 도구가 필요합니다. 화면의 도구 설치 안내를 먼저 확인하세요. 모델이 있어도 실행 도구 설치 전에는 분석할 수 없습니다.');

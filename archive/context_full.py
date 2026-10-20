@@ -11,8 +11,11 @@ from .storage import read_json, save_json, stamp
 VERSION=10
 WINDOW_MS=120000
 
-def current_source(path,vod,offset):
-    value=inputs.source(path,vod,offset)
+def current_source(path,vod,offset,background=''):
+    from .context_background import validate
+    background=validate(background)
+    value=dict(inputs.source(path,vod,offset))
+    if background:value['broadcast_background']=background
     return value|{'notes':[note for note in value['notes'] if not note.startswith('반응')]}
 
 def fingerprint(source):
@@ -37,7 +40,7 @@ def plan(source):
     return chunks
 
 def prepare(path,vod,action,options):
-    if not isinstance(options,dict) or set(options)-{'chat_offset_ms','run','model','method','thinking'}:raise ValueError('전체 문맥 작업 설정이 올바르지 않습니다')
+    if not isinstance(options,dict) or set(options)-{'chat_offset_ms','run','model','method','thinking','background'}:raise ValueError('전체 문맥 작업 설정이 올바르지 않습니다')
     if options.get('method','dialogue') not in ('dialogue','legacy'):raise ValueError('문맥 처리 방식을 선택하세요')
     selected=model.spec(options.get('model') or (model.NAME if options.get('method')=='legacy' or VERSION<7 else None))
     offset=options.get('chat_offset_ms',0)
@@ -69,7 +72,9 @@ def prepare(path,vod,action,options):
             if saved.get('pipeline_revision')!=REVISION:raise ValueError('문맥 보완 정책이 변경됐습니다. 기존 결과를 보존하고 새 정리를 시작하세요')
         offset=saved['chat_offset_ms']
     else:saved=None
-    source=current_source(path,vod,offset);digest=fingerprint(source)
+    from . import context_background
+    background=saved.get('broadcast_background','') if saved else context_background.validate(options['background']) if 'background' in options else context_background.read(path)
+    source=current_source(path,vod,offset,background);digest=fingerprint(source)
     if saved and saved['fingerprint']!=digest:raise ValueError('전사·화자·채팅 입력이 바뀌어 이어갈 수 없습니다. 새 전체 정리를 시작하세요')
     if saved:
         for chunk in saved['chunks']:
@@ -132,6 +137,7 @@ def run(job):
         saved={'id':id,'scope':'full','version':version,'created_at':stamp(),'model':job.model_info['name'],'model_sha256':job.model_info['sha256'],
                'duration_ms':source['duration_ms'],'chat_offset_ms':source['chat_offset_ms'],'fingerprint':prepared['fingerprint'],
                'notes':source['notes'],'chunks':prepared['chunks'],'complete':False}
+        if source.get('broadcast_background'):saved['broadcast_background']=source['broadcast_background']
         if job.inference:saved['inference']=job.inference
         if prepared.get('speaker_policy'):saved['speaker_policy']=prepared['speaker_policy']
         if version in (5,6,7,8,9,10):
@@ -179,7 +185,7 @@ def run(job):
             try:failures=context_dialogue.process(job,saved,source,context_boundary)
             finally:context_metrics.collect(local(job.path,f'runs/{id}'),getattr(job,'tokenizer',None),started,job)
         else:failures=context_dialogue.process(job,saved,source)
-        if fingerprint(current_source(job.path,job.vod,source['chat_offset_ms']))!=saved['fingerprint']:
+        if fingerprint(current_source(job.path,job.vod,source['chat_offset_ms'],saved.get('broadcast_background','')))!=saved['fingerprint']:
             saved['complete']=False;save_json(local(job.path,f'runs/{id}/result.json'),saved)
             raise ValueError('처리 중 입력이 바뀌었습니다. 완료 부분은 보존합니다. 새 정리를 시작하세요')
         return failures
@@ -218,7 +224,7 @@ def run(job):
         context_merge.consolidate(job,saved)
         job.update(progress={'done':index+1,'total':len(saved['chunks']),'processed_ms':chunk['range']['end_ms'],'duration_ms':saved['duration_ms'],'seconds':seconds})
     check_cancel(job.stop)
-    if fingerprint(current_source(job.path,job.vod,source['chat_offset_ms']))!=saved['fingerprint']:raise ValueError('처리 중 입력이 바뀌었습니다. 완료 부분은 보존합니다. 새 정리를 시작하세요')
+    if fingerprint(current_source(job.path,job.vod,source['chat_offset_ms'],saved.get('broadcast_background','')))!=saved['fingerprint']:raise ValueError('처리 중 입력이 바뀌었습니다. 완료 부분은 보존합니다. 새 정리를 시작하세요')
     saved['complete']=True;save_json(local(job.path,f'runs/{id}/result.json'),saved)
 
 def result(path,vod,id):
@@ -226,7 +232,7 @@ def result(path,vod,id):
     if saved['version'] in (7,8,9,10):
         from .context_dialogue import result as dialogue_result
         value=dialogue_result(local(path,f'runs/{id}'),saved)
-        try:value['stale']=fingerprint(current_source(path,vod,saved['chat_offset_ms']))!=saved['fingerprint']
+        try:value['stale']=fingerprint(current_source(path,vod,saved['chat_offset_ms'],saved.get('broadcast_background','')))!=saved['fingerprint']
         except (ValueError,OSError,KeyError,TypeError):value['stale']=True
         from .reaction_index import with_snapshot
         return with_snapshot(value, local(path,f'runs/{id}'))
@@ -238,7 +244,7 @@ def result(path,vod,id):
     for chunk in saved['chunks'][:timeline['done']]:
         data=read_json(local(path,f"runs/{id}/{chunk['file']}"));seconds+=data['seconds']
         for key,value in data['input']['stats'].items():stats[key]=stats.get(key,0)+value
-    try:stale=fingerprint(current_source(path,vod,saved['chat_offset_ms']))!=saved['fingerprint']
+    try:stale=fingerprint(current_source(path,vod,saved['chat_offset_ms'],saved.get('broadcast_background','')))!=saved['fingerprint']
     except (ValueError,OSError,KeyError,TypeError):stale=True
     value={key:value for key,value in saved.items() if key!='chunks'}|{'stale':stale,'items':timeline['items'],'pending_topic':timeline.get('active'),'done':timeline['done'],'total':len(saved['chunks']),'seconds':round(seconds+timeline['seconds'],1),'stats':stats}
     if saved['version']==6:

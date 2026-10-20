@@ -108,7 +108,8 @@ class Upload:
                 if original.exists():raise Conflict('기존 원본 복사본이 있어 덮어쓰지 않습니다')
                 self.part.replace(original)
             self.project.update('video',state='complete',message='내 비디오 복사·검사 완료 · 첨부 원본은 그대로입니다',
-                verification={'duration':duration,'sha256':digest.hexdigest(),'source':'local'},
+                verification={'duration':duration,'sha256':digest.hexdigest(),'source':'local',
+                              'files':{'original':video.media_timeline.identity(original),'playback':video.media_timeline.identity(playback)}},
                 assets={'original':str(original.relative_to(self.path)),'playback':str(playback.relative_to(self.path))})
             phase='chat'
             if self.project.snapshot()['tasks']['chat']['state'] not in ('complete','empty','unavailable'):

@@ -231,6 +231,7 @@ def download(project, stop):
     if media_timeline.identity(original) != original_identity or media_timeline.identity(playback) != playback_identity:
         raise ValueError('검사 중 영상 파일이 변경됐습니다. 기존 결과를 보존하고 다시 확인하세요')
     verification = {'decode_exit_code': 0, 'original_sha256': digest.hexdigest(),
+                    'files': {'original': original_identity, 'playback': playback_identity},
                     'bytes': original.stat().st_size, 'duration': float(playback_info['format']['duration']),
                     'original_start': original_info['format'].get('start_time'), 'playback_mode': mode,
                     'timeline': timeline, 'received_file_reused': offline, 'playback_file_reused': reused}

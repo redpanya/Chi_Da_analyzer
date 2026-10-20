@@ -75,13 +75,10 @@ def make_server(manager, port=0):
                 return
             try:
                 length = int(self.headers.get('Content-Length', 0))
-                if urlsplit(self.path).path[len(prefix):]=='/api/import-chunk':
-                    from .local_import import CHUNK
-                    self.connection.settimeout(30)
-                    if not 0<length<=CHUNK or self.headers.get('Content-Type')!='application/octet-stream':raise ValueError('파일 조각 크기를 확인하세요')
-                    query=parse_qs(urlsplit(self.path).query)
-                    result=manager.import_action(query['upload'][0],'chunk',index=int(query['index'][0]),sha=query['sha'][0],body=self.rfile.read(length))
-                    self.reply(200,result);return
+                if urlsplit(self.path).path[len(prefix):].startswith('/api/import-'):
+                    self.close_connection = True
+                    self.reply(410, {'error': '새 로컬 영상 가져오기는 제거되었습니다. 기존 완료 자료는 계속 사용할 수 있습니다'})
+                    return
                 if length <= 0 or length > (1048576 if self.path.endswith('/api/context-comment-save') else 65536) or self.headers.get('Content-Type') != 'application/json':
                     raise ValueError('요청 형식이 올바르지 않습니다')
                 data = json.loads(self.rfile.read(length))
@@ -89,7 +86,7 @@ def make_server(manager, port=0):
                     raise ValueError('요청 값이 올바르지 않습니다')
                 action = urlsplit(self.path).path[len(prefix):]
                 if action.startswith('/api/queue-'):
-                    result = manager.automation.dispatch(action.rsplit('-', 1)[1], data)
+                    result = manager.automation.dispatch(action[len('/api/queue-'):], data)
                 elif action == '/api/report-config':
                     from .report_hardware import collect
                     result = {'hardware': collect()}
@@ -102,12 +99,6 @@ def make_server(manager, port=0):
                 elif action == '/api/report-submit':
                     self.reply(410, {'error': '자동 제출 기능은 제거되었습니다. JSON을 저장해 이메일에 직접 첨부하세요'})
                     return
-                elif action == '/api/import-start':
-                    result=manager.import_start(data['root'],data['vod_id'],data['file'])
-                elif action in ('/api/import-finish','/api/import-cancel'):
-                    result=manager.import_action(data['upload'],action.rsplit('-',1)[1])
-                elif action == '/api/import-check':
-                    result=manager.import_action(data['upload'],'chunk',index=data['index'],sha=data['sha'])
                 elif action == '/api/folders':
                     result = manager.folders()
                 elif action == '/api/model-folder':
@@ -122,6 +113,8 @@ def make_server(manager, port=0):
                     from . import context_comments
                     path = project_path(data['root'], data['vod_id'])
                     result = context_comments.save(path, data['run'], data['draft']) if action.endswith('-save') else context_comments.read(path, data['run'])
+                elif action in ('/api/context-background', '/api/context-background-save'):
+                    result = manager.context_background(data['root'], data['vod_id'], data.get('text') if action.endswith('-save') else None)
                 elif action == '/api/context-start':
                     result = manager.context_start(data['root'], data['vod_id'], data['action'], data.get('options'))
                 elif action == '/api/context-stop':
@@ -206,7 +199,7 @@ def make_server(manager, port=0):
                      '/app.js': ('app.js', 'text/javascript; charset=utf-8')}
             files['/sam-options.js'] = ('sam-options.js', 'text/javascript; charset=utf-8')
             files.update({f'/{name}.js': (f'{name}.js', 'text/javascript; charset=utf-8')
-                          for name in ('queue', 'reports', 'help', 'help-content', 'voice-model-help', 'local-import', 'reactions', 'player', 'speech', 'voices', 'voice-review', 'voice-suggestions', 'explore', 'timeline', 'context', 'project-delete', 'folders', 'compute', 'task-timing', 'audio-preview', 'context-reactions', 'context-copy', 'context-tree', 'context-interpretations')})
+                          for name in ('queue', 'queue-saved', 'reports', 'help', 'help-content', 'voice-model-help', 'voice-tool-status', 'voice-tabs', 'context-background', 'context-fallback', 'reactions', 'player', 'speech', 'voices', 'voice-review', 'voice-suggestions', 'explore', 'timeline', 'context', 'project-delete', 'folders', 'compute', 'task-timing', 'audio-preview', 'context-reactions', 'context-copy', 'context-tree', 'context-interpretations')})
             if path in files:
                 filename, mime = files[path]
                 content = (WEB / filename).read_bytes()

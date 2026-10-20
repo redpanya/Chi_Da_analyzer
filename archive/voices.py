@@ -6,7 +6,7 @@ import sys
 
 from . import speech_media as media, speech_model, speech_store as speech, voice_models as models, voice_store as store
 from . import audio_limits
-from . import diarization_backends as backends, diarization_run
+from . import diarization_backends as backends, diarization_run, speaker_tools
 from .source import Cancelled, check_cancel, safe_error
 from .storage import read_json, save_json, stamp
 
@@ -59,13 +59,11 @@ class VoiceJob:
         backend=self.options.get('backend','sherpa')
         if backend!='sherpa':
             return diarization_run.run(backend,folder,audio,options['speakers'],self.stop,self.lock,self.update)
-        if not models.PYTHON.is_file():
-            raise ValueError('M4 음성 도구 설치.command를 먼저 실행하세요')
+        args = speaker_tools.command('sherpa', folder/'request.json')
         models.verify()
         request = folder/'request.json'
         save_json(request, {'action': action, 'cache': str(models.home()), 'audio': str(audio),
                             'output': str(folder/'engine.json')} | options)
-        entry = '--voice-worker' if getattr(sys,'frozen',False) else str(WORKER)
         previous=None
         def progress():
             nonlocal previous
@@ -73,7 +71,7 @@ class VoiceJob:
             if file.exists():
                 value=read_json(file)
                 if value!=previous:self.update(progress=value,message='화자 구분 · 완료 조각 보존 중');previous=value
-        media.process([str(models.PYTHON), entry, str(request)], folder/'engine.log', self.stop, self.lock,on_poll=progress)
+        media.process(args, folder/'engine.log', self.stop, self.lock,on_poll=progress)
         return read_json(folder/'engine.json')
 
     def diarize(self):
@@ -103,7 +101,15 @@ class VoiceJob:
 
     def run(self):
         try:
-            if self.action == 'prepare':
+            if self.action == 'install-engine':
+                from .speaker_tools_install import install
+                install(self.options['backend'],self.stop,self.lock,self.update)
+            elif self.action == 'check-engine':
+                backend=self.options['backend']
+                folder=store.local(self.path,'preparations/'+uuid.uuid4().hex)
+                self.update(message='선택 실행 도구 검사 중 · 모델·음성 로드 없음')
+                speaker_tools.check(speaker_tools.command(backend,check=True),folder/'tool-check.log',self.stop,self.lock,backend)
+            elif self.action == 'prepare':
                 folder=store.local(self.path,'preparations/'+uuid.uuid4().hex)
                 diarization_run.prepare(self.options.get('backend','sherpa'),folder,self.stop,self.lock,self.update)
             elif self.action == 'diarize': self.diarize()
@@ -115,6 +121,8 @@ class VoiceJob:
                 voice_retranscription.run(self)
             else: raise ValueError('지원하지 않는 화자 작업입니다. 기존 분리 결과는 보존됩니다')
             message='후보 검토 완료 · 배정 보류 항목은 그대로 남기며, 제안은 듣고 확인한 뒤 적용하세요' if self.action=='suggest' else '원음 재전사 비교본 저장 완료 · 기존 전사는 유지됩니다' if self.action=='retranscribe-original' else 'M4 작업 완료 · 자동 결과는 듣고 확인하세요'
+            if self.action in ('install-engine','check-engine'):
+                message='실행 도구 '+('설치' if self.action=='install-engine' else '검사')+' 완료 · 모델이 준비되어 있으면 바로 분석할 수 있습니다'
             self.update(state='complete', message=message, progress={})
         except Exception as error:
             paused = isinstance(error, Cancelled) or self.stop.is_set()

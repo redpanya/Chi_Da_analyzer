@@ -73,7 +73,7 @@ class Reports:
 
     def new(self, root, vod, settings=None):
         path = project_path(root, vod)
-        report = dict(schema=2, policy=report_schema.POLICY, report_id=uuid.uuid4().hex, vod_id=vod, app_version='0.18.1',
+        report = dict(schema=2, policy=report_schema.POLICY, report_id=uuid.uuid4().hex, vod_id=vod, app_version='0.19.0',
                       hardware=report_hardware.collect(), options=options(settings), stages=[], counts={})
         local = dict(payload=report, created_at=stamp(), updated_at=stamp(), events=[], details=[], revision=0)
         with self.guard:

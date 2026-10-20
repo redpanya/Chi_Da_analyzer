@@ -1,7 +1,7 @@
 """저장된 경계 응답의 발생 횟수로 같은 밀리초에서 잘린 메시지만 보완한다."""
 from collections import Counter
+from contextlib import closing
 import json
-import sqlite3
 
 
 def fingerprint(message):
@@ -51,11 +51,8 @@ def reconcile(db, messages, cursor, boundary_sequence):
             'response_changed': changed, 'single_timestamp_full_page': dense}
 
 
-def extra_messages(file):
-    db = sqlite3.connect(file)
-    try:
-        for raw, count, sequence in db.execute('SELECT fingerprint, amount, sequence FROM extras ORDER BY offset, rowid'):
+def extra_messages(db):
+    with closing(db.execute('SELECT fingerprint, amount, sequence FROM extras ORDER BY offset, rowid')) as rows:
+        for raw, count, sequence in rows:
             for _ in range(count):
                 yield json.loads(raw), sequence
-    finally:
-        db.close()

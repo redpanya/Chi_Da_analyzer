@@ -56,11 +56,20 @@ jobs:
           python -m unittest discover -s tests -p test_import_recovery.py -v
           python -m unittest discover -s tests -p test_automation_reports.py -v
           python -m unittest discover -s tests -p test_server_assets.py -v
+          python -m unittest discover -s tests -p test_queue_registration.py -v
+          python -m unittest discover -s tests -p test_context_background.py -v
+          python -m unittest discover -s tests -p test_voices.py -v
       - name: 순차 작업·리포트·전사 화면 검사
         run: |
           node tests/test_reports_ui.mjs
           node tests/test_speech_readiness.mjs
           node tests/test_speech_ui.mjs
+          node tests/test_timeline.mjs
+          node tests/test_context_review_ui.mjs
+          node tests/test_voice_review.mjs
+          node tests/test_voices_ui.mjs
+          node tests/test_local_import_ui.mjs
+          node tests/test_voice_tools_ui.mjs
       - name: macOS 빌드 도구
         if: runner.os == 'macOS'
         run: |
@@ -124,7 +133,7 @@ jobs:
       - name: Python 실행기 패키징
         run: python -m PyInstaller --noconfirm --clean --distpath build/frozen --workpath build/pyinstaller packaging/release/backend.spec
       - name: 앱 구성
-        run: python packaging/release/assemble.py --version 0.18.1
+        run: python packaging/release/assemble.py --version 0.19.0
       - name: 패키지 독립 실행 검사
         run: python packaging/release/smoke.py
       - name: ZIP·대응 소스·체크섬 생성
@@ -158,4 +167,4 @@ jobs:
           if [[ ! "$DRAFT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
             echo '태그 형식이 올바르지 않습니다'; exit 1
           fi
-          gh release create "$DRAFT_TAG" release/* --draft --target "$GITHUB_SHA" --title "치 다 분석기 $DRAFT_TAG 사전 검증판" --notes-file docs/배포-사용안내.md
+          gh release create "$DRAFT_TAG" release/* --draft --prerelease --target "$GITHUB_SHA" --title "치 다 분석기 $DRAFT_TAG 사전 검증판" --notes-file docs/배포-사용안내.md

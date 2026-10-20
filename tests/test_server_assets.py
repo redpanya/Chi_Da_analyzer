@@ -49,3 +49,13 @@ class ServerAssetTests(unittest.TestCase):
             client.request('POST',p.path+'api/report-submit',body='{}',headers={'Origin':f'http://{p.netloc}','Content-Type':'application/json'})
             r=client.getresponse();self.assertEqual(r.status,410);self.assertIn('이메일',r.read().decode())
         finally:client.close();server.shutdown();server.server_close();thread.join()
+
+    def test_removed_import_endpoints_never_accept_an_upload(self):
+        server,url=make_server(None);thread=threading.Thread(target=server.serve_forever);thread.start()
+        p=urlsplit(url)
+        try:
+            for name in ('start','chunk','check','finish','cancel'):
+                client=HTTPConnection(p.hostname,p.port,timeout=5)
+                client.request('POST',p.path+'api/import-'+name,body='{}',headers={'Origin':f'http://{p.netloc}','Content-Type':'application/json'})
+                r=client.getresponse();self.assertEqual(r.status,410);r.read();client.close()
+        finally:server.shutdown();server.server_close();thread.join()

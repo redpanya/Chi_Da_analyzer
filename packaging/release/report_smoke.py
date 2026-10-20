@@ -30,7 +30,7 @@ def check(http, url, project):
         time.sleep(.1)
     payload = post('report-preview', selected)['payload']
     assert payload['schema'] == 2 and payload['vod_id'] == project['vod_id']
-    assert payload['app_version'] == '0.18.1'
+    assert payload['app_version'] == '0.19.0'
     assert 'events' not in payload and 'details' not in payload
     assert payload['hardware']['os'] and 'video_seconds' in payload['counts']
     # 구형 파일을 직접 열어도 내보내기 사본만 보완하고 파일은 바꾸지 않는다.

@@ -9,6 +9,10 @@ struct Progress: Encodable { let phase: String; let completed: Int; let total: I
 
 @main struct Runner {
     static func main() async throws {
+        if CommandLine.arguments.dropFirst() == ["--speaker-tool-check"] {
+            print("CHIDA_SPEAKER_TOOL:1:fluid")
+            return
+        }
         let request = try JSONDecoder().decode(Request.self, from: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1])))
         let parent = getppid()
         Task.detached {

@@ -29,7 +29,8 @@ export function connectHelp() {
   }
   function close() { if (dialog.open) dialog.close(); }
   document.addEventListener('click', event => {
-    const button = event.target.closest('[data-help-open]');
+    const origin = event.target?.nodeType === 3 ? event.target.parentElement : event.target;
+    const button = origin?.closest?.('[data-help-open]');
     if (!button || document.querySelector('dialog[open]')) return;
     const content = getHelpContent(button.dataset.helpOpen, read);
     $('help-title').textContent = content.title + ' 도움말';
