@@ -114,17 +114,23 @@ class VoiceTests(unittest.TestCase):
         self.prepare(); before=store.local(self.path,'runs/test/result.json').read_bytes()
         manager=Manager(self.root); entered=threading.Event()
         def worker(job,*args,**kwargs):
-            entered.set();job.stop.wait(5);raise Cancelled()
+            entered.set();job.stop.wait();raise Cancelled()
         # 취소·잠금 계약은 검사 장치에 별도 엔진이 설치되어 있는지와 무관하다.
         with patch.object(voices.VoiceJob,'worker',worker), \
              patch('archive.diarization_backends.status',return_value={'supported':True,'engine':True}):
-            manager.voices_start(str(self.root),'1','diarize',{})
-            self.assertTrue(entered.wait(2))
-            with self.assertRaises(Conflict):manager.speech_start(str(self.root),'1','model')
-            with self.assertRaises(Conflict):manager.start(str(self.root),'1','360p','video')
-            with self.assertRaises(Conflict):manager.analyze(str(self.root),'1',{})
-            with self.assertRaises(Conflict):ProjectLock(self.path)
-            manager.voices_stop(str(self.root),'1');manager.voice_job.thread.join(3)
+            try:
+                manager.voices_start(str(self.root),'1','diarize',{})
+                self.assertTrue(entered.wait(10))
+                with self.assertRaises(Conflict):manager.speech_start(str(self.root),'1','model')
+                with self.assertRaises(Conflict):manager.start(str(self.root),'1','360p','video')
+                with self.assertRaises(Conflict):manager.analyze(str(self.root),'1',{})
+                with self.assertRaises(Conflict):ProjectLock(self.path)
+                manager.voices_stop(str(self.root),'1')
+            finally:
+                # 사양 수집이 느린 CI에서도 임의 5초 만료로 작업이 먼저 끝나지 않는다.
+                if manager.voice_job:
+                    manager.voice_job.cancel()
+                    manager.voice_job.thread.join(10)
         self.assertTrue(manager.voice_job.closed)
         self.assertEqual(store.state(self.path)['run'],'test')
         self.assertEqual(store.state(self.path)['state'],'paused')
