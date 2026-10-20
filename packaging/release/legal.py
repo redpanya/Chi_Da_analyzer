@@ -45,7 +45,7 @@ def verify_materials(root=ROOT):
     }
     if not required <= {row["file"] for row in manifest["files"]}:
         raise ValueError("필수 구성요소 고지가 없습니다")
-    for name in ("LICENSE", "THIRD-PARTY-NOTICES.md", "docs/외부라이브러리-소스와-교체.md"):
+    for name in ("LICENSE", "THIRD-PARTY-NOTICES.md", "docs/third-party-source-guide.md"):
         if not (root / name).is_file():
             raise ValueError("배포 이용 조건 문서가 없습니다: " + name)
     return manifest
@@ -79,7 +79,7 @@ def copy_static(folder, root=ROOT):
     verify_materials(root)
     folder.mkdir(parents=True, exist_ok=True)
     shutil.copytree(root / "licenses", folder / "licenses", dirs_exist_ok=True)
-    for name in ("LICENSE", "THIRD-PARTY-NOTICES.md", "docs/외부라이브러리-소스와-교체.md"):
+    for name in ("LICENSE", "THIRD-PARTY-NOTICES.md", "docs/third-party-source-guide.md"):
         dest = folder / name
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(root / name, dest)
@@ -130,7 +130,7 @@ def check_folder(folder, root=ROOT):
         file = checked_path(folder / "licenses", row["file"])
         if not file.is_file() or digest(file) != row["sha256"]:
             raise ValueError("패키지 고지 누락 또는 변경: " + row["file"])
-    for name in ("LICENSE", "THIRD-PARTY-NOTICES.md", "docs/외부라이브러리-소스와-교체.md"):
+    for name in ("LICENSE", "THIRD-PARTY-NOTICES.md", "docs/third-party-source-guide.md"):
         if digest(folder / name) != digest(root / name):
             raise ValueError("패키지 이용 조건 불일치: " + name)
 
@@ -159,7 +159,7 @@ def source_archive(target, root=ROOT):
     files = [(cache / row["file"], "sources/" + row["file"]) for row in specs["sources"]]
     for folder in (root / "licenses", root / "packaging/release/legal-recipes"):
         files += [(p, p.relative_to(root).as_posix()) for p in folder.rglob("*") if p.is_file()]
-    for name in ("LICENSE", "THIRD-PARTY-NOTICES.md", "docs/외부라이브러리-소스와-교체.md",
+    for name in ("LICENSE", "THIRD-PARTY-NOTICES.md", "docs/third-party-source-guide.md",
                  "packaging/release/legal.py", "packaging/release/legal_sources.json"):
         files.append((root / name, name))
     # 소스는 이미 압축되어 있다. 재압축하지 않아 OS별 zlib 버전 차이도 배제한다.

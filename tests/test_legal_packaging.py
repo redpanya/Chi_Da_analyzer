@@ -30,7 +30,7 @@ class LegalPackagingTest(unittest.TestCase):
             file.write_text(name)
             rows.append({"file": name, "sha256": legal.digest(file)})
         (self.root / "licenses/manifest.json").write_text(json.dumps({"files": rows}))
-        for name in ("LICENSE", "THIRD-PARTY-NOTICES.md", "docs/외부라이브러리-소스와-교체.md"):
+        for name in ("LICENSE", "THIRD-PARTY-NOTICES.md", "docs/third-party-source-guide.md"):
             file = self.root / name
             file.parent.mkdir(parents=True, exist_ok=True)
             file.write_text("시험용 이용 조건")

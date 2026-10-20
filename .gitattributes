@@ -3,6 +3,6 @@ licenses/** -text
 packaging/release/legal-recipes/** -text
 LICENSE text eol=lf
 THIRD-PARTY-NOTICES.md text eol=lf
-docs/외부라이브러리-소스와-교체.md text eol=lf
+docs/third-party-source-guide.md text eol=lf
 packaging/release/legal.py text eol=lf
 packaging/release/legal_sources.json text eol=lf

@@ -44,7 +44,7 @@ Windows의 Microsoft VC 런타임은 Microsoft의 재배포 조건을 따릅니�
 - [릴리스 다운로드](https://github.com/redpanya/Chi_Da_analyzer/releases)에서 실행 파일과 같은 버전의 네이티브 소스 ZIP, 라이선스 보충 ZIP, LGPL·MPL 대응 소스 ZIP을 함께 받으세요. `license-supplement-20261020` 릴리스에도 기존 배포본의 보충 자료를 제공합니다.
 - FFmpeg·x264에는 `native-corresponding-sources.zip`, 음성 라이브러리·정적 코덱에는 `legal-corresponding-sources.zip`을 사용합니다. 소스·빌드 자료·해시 목록을 포함합니다. 단순 upstream 홈페이지 링크로 대응 소스 제공을 대체하지 않습니다.
 - 프로그램을 재배포할 때 MIT 및 제3자 고지를 제거하지 말고, GPL·LGPL 대상에는 정확한 소스를 함께 전달하거나 해당 라이선스에 맞는 소스 제공 방식을 유지하세요.
-- LGPL 라이브러리 수정·교체와 이를 디버깅하기 위한 역공학을 금지하지 않습니다. [교체·재빌드 안내](docs/외부라이브러리-소스와-교체.md)를 참고하세요.
+- LGPL 라이브러리 수정·교체와 이를 디버깅하기 위한 역공학을 금지하지 않습니다. [교체·재빌드 안내](docs/third-party-source-guide.md)를 참고하세요.
 - `licenses/manifest.json`은 보존한 공식 자료의 출처·해시입니다. `python-packages.json`은 빌드 환경 목록이며 실제 제품에 모두 포함됐다는 뜻은 아닙니다. 알려지지 않은 새 의존성은 배포 전에 별도 확인해야 합니다.
 
 상표 사용·코덱 특허·치지직 서비스 약관·입력 콘텐츠의 권리는 별도입니다. 고지와 소스 제공은 이 권리들에 대한 포괄 허가가 아닙니다.
