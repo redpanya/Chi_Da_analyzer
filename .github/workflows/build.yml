@@ -49,27 +49,7 @@ jobs:
       - name: Python 실행 환경
         run: python -m pip install -r packaging/release/requirements.txt
       - name: OS별 잠금과 실행 검사
-        run: |
-          python -m unittest discover -s tests -p test_portable.py -v
-          python -m unittest discover -s tests -p test_compute.py -v
-          python -m unittest discover -s tests -p test_media_probe.py -v
-          python -m unittest discover -s tests -p test_import_recovery.py -v
-          python -m unittest discover -s tests -p test_automation_reports.py -v
-          python -m unittest discover -s tests -p test_server_assets.py -v
-          python -m unittest discover -s tests -p test_queue_registration.py -v
-          python -m unittest discover -s tests -p test_context_background.py -v
-          python -m unittest discover -s tests -p test_voices.py -v
-      - name: 순차 작업·리포트·전사 화면 검사
-        run: |
-          node tests/test_reports_ui.mjs
-          node tests/test_speech_readiness.mjs
-          node tests/test_speech_ui.mjs
-          node tests/test_timeline.mjs
-          node tests/test_context_review_ui.mjs
-          node tests/test_voice_review.mjs
-          node tests/test_voices_ui.mjs
-          node tests/test_local_import_ui.mjs
-          node tests/test_voice_tools_ui.mjs
+        run: python packaging/release/check_source.py
       - name: macOS 빌드 도구
         if: runner.os == 'macOS'
         run: |
