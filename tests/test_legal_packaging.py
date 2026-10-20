@@ -54,8 +54,9 @@ class LegalPackagingTest(unittest.TestCase):
             legal.check_folder(folder, self.root)
 
     def test_paths_cannot_escape_source_cache(self):
-        for name in ("../secret", "/tmp/secret", "folder\\secret"):
-            with self.assertRaises(ValueError):
+        for name in ("../secret", "/tmp/secret", "folder\\secret", "C:/secret",
+                     "C:secret", "//server/share/secret", "file:stream"):
+            with self.subTest(name=name), self.assertRaises(ValueError):
                 legal.checked_path(self.root, name)
 
     def test_bad_source_download_is_not_published(self):

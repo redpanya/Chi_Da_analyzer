@@ -3,7 +3,7 @@ import argparse
 import hashlib
 from importlib.metadata import distributions
 import json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import shutil
 import sys
 from urllib.request import Request, urlopen
@@ -26,7 +26,7 @@ def is_notice(name):
 
 def checked_path(root, name):
     path = Path(name)
-    if path.is_absolute() or ".." in path.parts or "\\" in name:
+    if path.anchor or PureWindowsPath(name).anchor or ".." in path.parts or "\\" in name or ":" in name:
         raise ValueError("잘못된 고지·소스 경로: " + name)
     return root / path
 
