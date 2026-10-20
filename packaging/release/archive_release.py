@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import zipfile
+import legal
 
 ROOT=Path(__file__).resolve().parents[2]
 out=ROOT/'dist/artifacts';out.mkdir(parents=True,exist_ok=True)
@@ -19,6 +20,11 @@ if sys.platform=='darwin':
     (ROOT/'dist/smoke.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
 else:
     shutil.make_archive(str(out/'ChiDaanalyzer-Windows-x64'),'zip',ROOT/'dist/release','ChiDaanalyzer')
+notice_folder = (app/'Contents/Resources/THIRD-PARTY-NOTICES' if sys.platform=='darwin'
+                 else ROOT/'dist/release/ChiDaanalyzer/THIRD-PARTY-NOTICES')
+label = 'macOS-arm64' if sys.platform=='darwin' else 'Windows-x64'
+legal.notice_archive(notice_folder, out/f'license-notices-{label}.zip')
+legal.source_archive(out/'legal-corresponding-sources.zip')
 with zipfile.ZipFile(out/'native-corresponding-sources.zip','w',compression=zipfile.ZIP_DEFLATED) as archive:
     for folder in (ROOT/'build/release-sources',ROOT/'packaging/release'):
         for file in sorted(folder.iterdir()):

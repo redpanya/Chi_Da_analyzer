@@ -1,0 +1,311 @@
+{
+  "date": "2026-10-20",
+  "scope": "고지 원문과 출처; 가중치 미포함",
+  "files": [
+    {
+      "file": "certifi-2026.7.22/LICENSE",
+      "url": "https://files.pythonhosted.org/packages/a3/c2/24167ea9858356b47a87a50d39908bfdb72ceeefe0041586e704e5376b3a/certifi-2026.7.22.tar.gz#LICENSE",
+      "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7"
+    },
+    {
+      "file": "flac-1.4.3/AUTHORS",
+      "url": "https://downloads.xiph.org/releases/flac/flac-1.4.3.tar.xz#AUTHORS",
+      "sha256": "ac4e8005a9725bcbd532f163250eac193266113c90075e6728370e3d3f5e81e0"
+    },
+    {
+      "file": "flac-1.4.3/COPYING.FDL",
+      "url": "https://downloads.xiph.org/releases/flac/flac-1.4.3.tar.xz#COPYING.FDL",
+      "sha256": "f45cc81b400a048b56c9edbd4c3317f7a8958463dfd55aa96f268ecfd6baa12c"
+    },
+    {
+      "file": "flac-1.4.3/COPYING.GPL",
+      "url": "https://downloads.xiph.org/releases/flac/flac-1.4.3.tar.xz#COPYING.GPL",
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    },
+    {
+      "file": "flac-1.4.3/COPYING.LGPL",
+      "url": "https://downloads.xiph.org/releases/flac/flac-1.4.3.tar.xz#COPYING.LGPL",
+      "sha256": "5df07007198989c622f5d41de8d703e7bef3d0e79d62e24332ee739a452af62a"
+    },
+    {
+      "file": "flac-1.4.3/COPYING.Xiph",
+      "url": "https://downloads.xiph.org/releases/flac/flac-1.4.3.tar.xz#COPYING.Xiph",
+      "sha256": "12600ea1a7affcbf469bd0d8b2cd725e4167114a2ee834b88f5d2857bfd7ddbf"
+    },
+    {
+      "file": "fluidaudio/LICENSE",
+      "url": "https://raw.githubusercontent.com/FluidInference/FluidAudio/224de0fb3c304b41bbae24e85e1801900865ff3e/LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "file": "fluidaudio/ThirdPartyLicenses/JapaneseG2P-LICENSE.md",
+      "url": "https://raw.githubusercontent.com/FluidInference/FluidAudio/224de0fb3c304b41bbae24e85e1801900865ff3e/ThirdPartyLicenses/JapaneseG2P-LICENSE.md",
+      "sha256": "cb82031f608b056ffb378073d15fd840e070a1dd3063f8975556f9536d447103"
+    },
+    {
+      "file": "fluidaudio/ThirdPartyLicenses/KokoroANE-v3/NOTICE",
+      "url": "https://raw.githubusercontent.com/FluidInference/FluidAudio/224de0fb3c304b41bbae24e85e1801900865ff3e/ThirdPartyLicenses/KokoroANE-v3/NOTICE",
+      "sha256": "bd1d8a43ff19e060124063c53f9dcd315e4766a745157d87a51e67d9a0efd8e4"
+    },
+    {
+      "file": "fluidaudio/ThirdPartyLicenses/KokoroANE-v3/conversion-LICENSE",
+      "url": "https://raw.githubusercontent.com/FluidInference/FluidAudio/224de0fb3c304b41bbae24e85e1801900865ff3e/ThirdPartyLicenses/KokoroANE-v3/conversion-LICENSE",
+      "sha256": "f29080b0389b53eb15c81fd882c3c71dcbf92b99c5d94ea51df9d7d877fd9fe4"
+    },
+    {
+      "file": "fluidaudio/ThirdPartyLicenses/KokoroANE-v3/mattmireles-LICENSE",
+      "url": "https://raw.githubusercontent.com/FluidInference/FluidAudio/224de0fb3c304b41bbae24e85e1801900865ff3e/ThirdPartyLicenses/KokoroANE-v3/mattmireles-LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "file": "fluidaudio/ThirdPartyLicenses/KokoroAneSpanishFrenchG2P-LICENSE.md",
+      "url": "https://raw.githubusercontent.com/FluidInference/FluidAudio/224de0fb3c304b41bbae24e85e1801900865ff3e/ThirdPartyLicenses/KokoroAneSpanishFrenchG2P-LICENSE.md",
+      "sha256": "82b80894661fb61209fc39f91bb50b2ed5d0c8628f9d1460ccc853b8bcf12043"
+    },
+    {
+      "file": "fluidaudio/ThirdPartyLicenses/LuxTtsEnglishG2P-LICENSE.md",
+      "url": "https://raw.githubusercontent.com/FluidInference/FluidAudio/224de0fb3c304b41bbae24e85e1801900865ff3e/ThirdPartyLicenses/LuxTtsEnglishG2P-LICENSE.md",
+      "sha256": "fcc64d3ff0d8925bf5afbfd55d188b50db6ecbe2fd908b432638c403c0a9688c"
+    },
+    {
+      "file": "fluidaudio/ThirdPartyLicenses/Nemo-transitive-NOTICES.md",
+      "url": "https://raw.githubusercontent.com/FluidInference/text-processing-rs/v0.3.1/THIRD-PARTY-LICENSES.md",
+      "sha256": "14d21dbb0deb74aa7775f5803c36609aa6ef0c38c94fb03dbc95efb3645f7678"
+    },
+    {
+      "file": "fluidaudio/ThirdPartyLicenses/NemoTextProcessing-LICENSE.md",
+      "url": "https://raw.githubusercontent.com/FluidInference/FluidAudio/224de0fb3c304b41bbae24e85e1801900865ff3e/ThirdPartyLicenses/NemoTextProcessing-LICENSE.md",
+      "sha256": "300a31d86c7c5d809f0adc00ef7d35259226acc7e412b9767cd3029a3395c50e"
+    },
+    {
+      "file": "fluidaudio/ThirdPartyLicenses/fastcluster-LICENSE.md",
+      "url": "https://raw.githubusercontent.com/FluidInference/FluidAudio/224de0fb3c304b41bbae24e85e1801900865ff3e/ThirdPartyLicenses/fastcluster-LICENSE.md",
+      "sha256": "67594dbe4a7477719c8160373e7767c2c319ef966a6042f76846a18af02cde0a"
+    },
+    {
+      "file": "fluidaudio/ThirdPartyLicenses/vbx-LICENSE.md",
+      "url": "https://raw.githubusercontent.com/FluidInference/FluidAudio/224de0fb3c304b41bbae24e85e1801900865ff3e/ThirdPartyLicenses/vbx-LICENSE.md",
+      "sha256": "08e57fdb5187c816e937916f1e176aadb400ca76f4b3b493d69730ec8f10dd80"
+    },
+    {
+      "file": "lame-3.100/COPYING",
+      "url": "https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz#COPYING",
+      "sha256": "bfe4a52dc4645385f356a8e83cc54216a293e3b6f1cb4f79f5fc0277abf937fd"
+    },
+    {
+      "file": "lame-3.100/LICENSE",
+      "url": "https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz#LICENSE",
+      "sha256": "7a40cbd8818c57e5285e83c772a459a996d1662c824a879836b97b473c07cae4"
+    },
+    {
+      "file": "lame-3.100/mpglib/AUTHORS",
+      "url": "https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz#mpglib/AUTHORS",
+      "sha256": "d8ecf9556aafa8c653796d6be3dc43deea374257680e21c30109a5c3c4484263"
+    },
+    {
+      "file": "libogg-1.3.5/AUTHORS",
+      "url": "https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz#AUTHORS",
+      "sha256": "6fcb33d0cdd60b5054e7df820916388b590427514288c2bab01c626bb8ae9506"
+    },
+    {
+      "file": "libogg-1.3.5/COPYING",
+      "url": "https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz#COPYING",
+      "sha256": "d2ab5758336489da61c12cc5bb757da5339c4ae9001f9bb0562b4370249af814"
+    },
+    {
+      "file": "libsndfile-1.2.2/AUTHORS",
+      "url": "https://github.com/libsndfile/libsndfile/releases/download/1.2.2/libsndfile-1.2.2.tar.xz#AUTHORS",
+      "sha256": "373fb9abaa154db5da8ab692853da32ced8977b817a713913953c63e50eb4499"
+    },
+    {
+      "file": "libsndfile-1.2.2/COPYING",
+      "url": "https://github.com/libsndfile/libsndfile/releases/download/1.2.2/libsndfile-1.2.2.tar.xz#COPYING",
+      "sha256": "ad01ea5cd2755f6048383c8d54c88459cd6fcb17757c5c8892f8c5ea060f6140"
+    },
+    {
+      "file": "libvorbis-1.3.7/AUTHORS",
+      "url": "https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.gz#AUTHORS",
+      "sha256": "f5cab9f16035f770f50299f85cf2938c06dc3a9a30425961067788102ec896d3"
+    },
+    {
+      "file": "libvorbis-1.3.7/COPYING",
+      "url": "https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.gz#COPYING",
+      "sha256": "ec1815db59fcd302846df949d7424876cb2e2dc5ed1606c5fb0b36787b1cf43a"
+    },
+    {
+      "file": "llama.cpp/LICENSE",
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/d81235049384534c167caea52b85a694f6103d14/LICENSE",
+      "sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d"
+    },
+    {
+      "file": "llama.cpp/LICENSE-jsonhpp",
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/d81235049384534c167caea52b85a694f6103d14/licenses/LICENSE-jsonhpp",
+      "sha256": "c0d068392ea65358b798b8c165103560f06e9e3b38c4ab4e2d8810a7b931af86"
+    },
+    {
+      "file": "llama.cpp/cpp-httplib-LICENSE",
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/d81235049384534c167caea52b85a694f6103d14/vendor/cpp-httplib/LICENSE",
+      "sha256": "4b45cbe16d7b71b89ae6127e26e0d90a029198ca5e958ad8e3d0b8bbed364d8b"
+    },
+    {
+      "file": "llama.cpp/rotate-bits-LICENSE.md",
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/d81235049384534c167caea52b85a694f6103d14/vendor/hash/rotate-bits/LICENSE.md",
+      "sha256": "ca0b44aec101afb6b46f4c39b23369fa06a64fb9c0add37c2689d702156fee55"
+    },
+    {
+      "file": "llama.cpp/sha256-LICENSE",
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/d81235049384534c167caea52b85a694f6103d14/vendor/hash/sha256/LICENSE",
+      "sha256": "b81d0022ca6367918c67b57e9647d3513ee58809fd4b0ef0b3492f1356bced25"
+    },
+    {
+      "file": "llama.cpp/xxhash-LICENSE",
+      "url": "https://raw.githubusercontent.com/ggml-org/llama.cpp/d81235049384534c167caea52b85a694f6103d14/vendor/hash/xxhash/LICENSE",
+      "sha256": "6ffedbc0f7878612d2b23589f1ff2ab15633e1df7963a5d9fc750ec5500c7e7a"
+    },
+    {
+      "file": "models/3d-speaker-LICENSE",
+      "url": "https://raw.githubusercontent.com/modelscope/3D-Speaker/main/LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "file": "models/Apache-2.0.txt",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "file": "models/CC-BY-4.0.txt",
+      "url": "https://huggingface.co/FluidInference/speaker-diarization-coreml/raw/df2625ac79a7ac6b65ad868fee6d80f320da4232/LICENSE",
+      "sha256": "736763bf08829e36266b8a3bebcc041ac68575424e976490671a7e6b43a525cf"
+    },
+    {
+      "file": "models/ERes2Net-model-card.md",
+      "url": "https://www.modelscope.cn/api/v1/models/iic/speech_eres2net_base_sv_zh-cn_3dspeaker_16k/repo?Revision=master&FilePath=README.md",
+      "sha256": "913468d0b29dae47069de8258c71ca6627d096dbcfafc752a81493e2d18620d5"
+    },
+    {
+      "file": "models/Fluid-NOTICE.md",
+      "url": "https://huggingface.co/FluidInference/speaker-diarization-coreml/raw/df2625ac79a7ac6b65ad868fee6d80f320da4232/NOTICE.md",
+      "sha256": "0964a66893fa5c3a574758257d30d2944669f44eeed5784b30ec3bab902012b3"
+    },
+    {
+      "file": "models/Fluid-PROVENANCE.md",
+      "url": "https://huggingface.co/FluidInference/speaker-diarization-coreml/raw/df2625ac79a7ac6b65ad868fee6d80f320da4232/PROVENANCE.md",
+      "sha256": "0032bc1b7d01b6af2bb6eb8548a39c9a28fe5c1909f74166bc2ea2eb1cc27df6"
+    },
+    {
+      "file": "models/Gemma4-model-card.md",
+      "url": "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/raw/bfc15c382204943c3a8fff0c750b94ae2364d7a3/README.md",
+      "sha256": "d741f0752fcf433cc3960ae20c609dbb159c25ce269da3b004246e8fd34245a3"
+    },
+    {
+      "file": "models/segmentation-3.0-LICENSE",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2#sherpa-onnx-pyannote-segmentation-3-0/LICENSE",
+      "sha256": "14d7016ad68e7394d6e6b78d96cc2ae431c905287b89674cfdf021e79e62b8ba"
+    },
+    {
+      "file": "models/segmentation-3.0-README.md",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2#sherpa-onnx-pyannote-segmentation-3-0/README.md",
+      "sha256": "0380ed76a50efcc421dc62f251ed06e8349688466beac3177bee6e00dc336bfc"
+    },
+    {
+      "file": "models/silero-LICENSE",
+      "url": "https://raw.githubusercontent.com/snakers4/silero-vad/v6.0/LICENSE",
+      "sha256": "2e63e9a38b6e8fc0c7bc37ce174caca1862870856c6daf5697cfb785e925520b"
+    },
+    {
+      "file": "models/whisper-LICENSE",
+      "url": "https://raw.githubusercontent.com/openai/whisper/v20250625/LICENSE",
+      "sha256": "b5d65a59060e68c4ff940e1eddfa6f94b2d68fdf58ed7f4dd57721c997e35e9d"
+    },
+    {
+      "file": "mpg123-1.32.3/AUTHORS",
+      "url": "https://downloads.sourceforge.net/project/mpg123/mpg123/1.32.3/mpg123-1.32.3.tar.bz2#AUTHORS",
+      "sha256": "bfa5dab0ed3b3ea7a9c76961fcf76df5a5d8e5107cb05d31cf6c5880919b89e5"
+    },
+    {
+      "file": "mpg123-1.32.3/COPYING",
+      "url": "https://downloads.sourceforge.net/project/mpg123/mpg123/1.32.3/mpg123-1.32.3.tar.bz2#COPYING",
+      "sha256": "c22482728a634a8dfdb4ff72a96d4c1ed64cd8f3e79335c401751ac591609366"
+    },
+    {
+      "file": "mpg123-1.32.3/doc/LICENSE",
+      "url": "https://downloads.sourceforge.net/project/mpg123/mpg123/1.32.3/mpg123-1.32.3.tar.bz2#doc/LICENSE",
+      "sha256": "cca79ea6fc0a7715e52450df2d86311f990e85067dd13f4d7f5a88d4fd23a07c"
+    },
+    {
+      "file": "mpg123-1.32.3/doc/PATENTS",
+      "url": "https://downloads.sourceforge.net/project/mpg123/mpg123/1.32.3/mpg123-1.32.3.tar.bz2#doc/PATENTS",
+      "sha256": "a16db5483cc2ab07a81b152fe9147f0ef196d38d26477c7b8c803aff6522e8bc"
+    },
+    {
+      "file": "mpg123-1.32.9/AUTHORS",
+      "url": "https://downloads.sourceforge.net/project/mpg123/mpg123/1.32.9/mpg123-1.32.9.tar.bz2#AUTHORS",
+      "sha256": "aef659cff59b308dcec513e3b2519a4bb3095878bfd1821c006c08ba91914a1b"
+    },
+    {
+      "file": "mpg123-1.32.9/COPYING",
+      "url": "https://downloads.sourceforge.net/project/mpg123/mpg123/1.32.9/mpg123-1.32.9.tar.bz2#COPYING",
+      "sha256": "c22482728a634a8dfdb4ff72a96d4c1ed64cd8f3e79335c401751ac591609366"
+    },
+    {
+      "file": "mpg123-1.32.9/doc/LICENSE",
+      "url": "https://downloads.sourceforge.net/project/mpg123/mpg123/1.32.9/mpg123-1.32.9.tar.bz2#doc/LICENSE",
+      "sha256": "cca79ea6fc0a7715e52450df2d86311f990e85067dd13f4d7f5a88d4fd23a07c"
+    },
+    {
+      "file": "mpg123-1.32.9/doc/PATENTS",
+      "url": "https://downloads.sourceforge.net/project/mpg123/mpg123/1.32.9/mpg123-1.32.9.tar.bz2#doc/PATENTS",
+      "sha256": "a16db5483cc2ab07a81b152fe9147f0ef196d38d26477c7b8c803aff6522e8bc"
+    },
+    {
+      "file": "onnxruntime/LICENSE",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.28.2/LICENSE",
+      "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+    },
+    {
+      "file": "onnxruntime/ThirdPartyNotices.txt",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.28.2/ThirdPartyNotices.txt",
+      "sha256": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2"
+    },
+    {
+      "file": "openssl-3.0.13/LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/openssl/openssl/openssl-3.0.13/LICENSE.txt",
+      "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
+    },
+    {
+      "file": "openssl-3.6.5/LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/openssl/openssl/openssl-3.6.5/LICENSE.txt",
+      "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
+    },
+    {
+      "file": "opus-1.4/AUTHORS",
+      "url": "https://downloads.xiph.org/releases/opus/opus-1.4.tar.gz#AUTHORS",
+      "sha256": "f9fd849e652219ce98e008303370b352d37663d0ffb27b8dc514ad93c9c7438b"
+    },
+    {
+      "file": "opus-1.4/COPYING",
+      "url": "https://downloads.xiph.org/releases/opus/opus-1.4.tar.gz#COPYING",
+      "sha256": "8338ce8d922bb4416ce3dd1e5680173332435e3f0755007ac7801ccd674fe682"
+    },
+    {
+      "file": "opus-1.5.2/AUTHORS",
+      "url": "https://downloads.xiph.org/releases/opus/opus-1.5.2.tar.gz#AUTHORS",
+      "sha256": "f9fd849e652219ce98e008303370b352d37663d0ffb27b8dc514ad93c9c7438b"
+    },
+    {
+      "file": "opus-1.5.2/COPYING",
+      "url": "https://downloads.xiph.org/releases/opus/opus-1.5.2.tar.gz#COPYING",
+      "sha256": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551"
+    },
+    {
+      "file": "python-3.11.9/LICENSE",
+      "url": "https://raw.githubusercontent.com/python/cpython/v3.11.9/LICENSE",
+      "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+    },
+    {
+      "file": "vulkan/Vulkan-Headers-LICENSE.md",
+      "url": "https://raw.githubusercontent.com/KhronosGroup/Vulkan-Headers/v1.4.328/LICENSE.md",
+      "sha256": "ac24e5ea920e4318e4d02c4086ae51f53cfb03feed06c18df1019e7ada1ec7bc"
+    }
+  ]
+}

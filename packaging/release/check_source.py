@@ -11,7 +11,7 @@ def main():
     modules = (
         'test_portable', 'test_compute', 'test_media_probe', 'test_import_recovery',
         'test_automation_reports', 'test_server_assets', 'test_queue_registration',
-        'test_context_background', 'test_voices',
+        'test_context_background', 'test_voices', 'test_legal_packaging',
     )
     env = os.environ | {'PYTHONPATH': os.pathsep.join((str(ROOT/'tests'), str(ROOT)))}
     subprocess.run([sys.executable, '-m', 'unittest', *modules, '-v'],

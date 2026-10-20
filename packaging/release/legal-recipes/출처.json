@@ -1,0 +1,29 @@
+{
+  "libsndfile": "1.2.2",
+  "soundfile": "0.13.1",
+  "original_binary_repository": "bastibe/libsndfile-binaries",
+  "revision": "a3e6f9769d0c7e91d2d036cf0fdbe5b4bbf18b87",
+  "windows_binary_commit": "1ac5f9412cedaac97667bf5f2c7d4d4fea91999e",
+  "vcpkg_reference": "80d54ff62d528339c626a6fbc3489a7f25956ade",
+  "matched_windows_patchset_hashes": {
+    "mpg123-1.32.9": "66150af195",
+    "opus-1.5.2": "81ed242155"
+  },
+  "macOS_codecs": {
+    "ogg": "1.3.5",
+    "vorbis": "1.3.7",
+    "flac": "1.4.3",
+    "opus": "1.4",
+    "mpg123": "1.32.3",
+    "lame": "3.100"
+  },
+  "windows_codecs": {
+    "ogg": "1.3.5",
+    "vorbis": "1.3.7",
+    "flac": "1.4.3",
+    "opus": "1.5.2",
+    "mpg123": "1.32.9",
+    "lame": "3.100"
+  },
+  "note": "원 배포처의 스크립트·버전·바이너리 흔적을 대조한 자료. 정확한 과거 컴파일러와 모든 빌드 환경의 바이트 재현을 보장하지 않음."
+}

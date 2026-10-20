@@ -9,7 +9,9 @@ ROOT=Path(__file__).resolve().parents[2]
 def export(target):
     target=target.resolve()
     if target==ROOT or target in ROOT.parents:raise ValueError('별도 내보내기 폴더를 선택하세요')
-    files=[ROOT/'app.py',ROOT/'requirements.txt',ROOT/'.gitignore']
+    files=[ROOT/'app.py',ROOT/'requirements.txt',ROOT/'.gitignore',ROOT/'.gitattributes',ROOT/'LICENSE',ROOT/'THIRD-PARTY-NOTICES.md']
+    files += [p for p in (ROOT/'licenses').rglob('*') if p.is_file() and not p.is_symlink()]
+    files += [p for p in (ROOT/'packaging/release/legal-recipes').rglob('*') if p.is_file() and not p.is_symlink()]
     for name in ('archive','web','workers','tests','docs','.github','native'):
         files += [p for p in (ROOT/name).rglob('*') if p.is_file() and not p.is_symlink()
                   and '__pycache__' not in p.parts and '.build' not in p.parts

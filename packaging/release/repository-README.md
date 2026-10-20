@@ -1,26 +1,14 @@
 # 치(지직) 다(시보기) 분석기
 
-다시보기를 AI로 요약하는 로컬 프로그램입니다. 치지직 VOD·제공 채팅을 저장하고, 음성을 전사한 뒤 Gemma로 문맥을 정리합니다. 저장 영상과 채팅 반응을 시간순으로 탐색하고 댓글용 타임스탬프를 편집·복사할 수 있습니다.
+치지직 다시보기를 내려받아 음성 전사·채팅 반응·AI 문맥 요약을 확인하는 로컬 프로그램입니다.
 
-여러 VOD의 순차 다운로드·자동 분석과 VOD 번호를 포함한 성능 리포트를 제공합니다. 리포트는 JSON으로 저장해 이메일로 직접 제공할 수 있으며 앱이 자동 전송하지 않습니다.
+- **[현재 공개 릴리스 · macOS / Windows 다운로드](https://github.com/redpanya/Chi_Da_analyzer/releases/tag/v0.18.1-preview.1)**
+- **[HTML 사용설명서](https://redpanya.github.io/Chi_Da_analyzer/)**
 
-현재 **공개 사전 검증판**입니다. 최신 수정 소스는 0.19.0이며 OS별 빌드 진행 상태와 파일은 [Actions](https://github.com/redpanya/Chi_Da_analyzer/actions/workflows/build.yml)에서 확인합니다. 모델·VOD·인증정보는 저장소에 포함하지 않습니다.
+## 라이선스
 
-## 사용
+자체 코드는 [MIT 라이선스](LICENSE)로 공개합니다. 저작권·라이선스 문구를 유지하면 상업적 이용·수정·재배포가 가능합니다.
 
-- [v0.18.1-preview.1 — macOS·Windows 실행 파일 다운로드](https://github.com/redpanya/Chi_Da_analyzer/releases/tag/v0.18.1-preview.1)
-- [HTML 사용설명서 바로 열기](https://redpanya.github.io/Chi_Da_analyzer/)
-- [매뉴얼 웹 게시 설정·확인 결과](docs/HTML-매뉴얼-게시.md)
-- [배포·사용 안내](docs/배포-사용안내.md)
-- [빌드·배포와 검증 기준](docs/GitHub-빌드-배포.md)
-- [진행 결과와 남은 검증](docs/GitHub-구현기록.md)
+외부 도구와 다운로드 모델에는 각각의 라이선스가 적용됩니다. FFmpeg·x264의 GPL, libsndfile 등의 LGPL, 모델별 출처 표시 조건을 함께 지켜야 합니다. [외부 구성요소 고지·대응 소스 안내](THIRD-PARTY-NOTICES.md)를 확인하세요.
 
-Actions → **앱 빌드** → Run workflow에서 macOS Apple Silicon 앱 ZIP과 Windows x64 CPU + GPU 선택형 포터블 ZIP을 만듭니다. `draft_tag`가 비어 있으면 아티팩트만 생성하며, 태그를 넣으면 두 OS 검사 성공 후 초안 Release를 생성합니다. 발행된 릴리스는 누구나 다운로드할 수 있으며, 초안은 게시 전까지 일반 이용자에게 표시되지 않습니다.
-
-모델은 실행 후 다운로드합니다. macOS는 Metal, Windows는 CPU 기본값에 Vulkan GPU 가속 선택을 제공합니다. 가져오기 화면에서 설정합니다. FluidAudio와 pyannote는 기본 ZIP에 포함하지 않습니다. 실제 Windows GPU 모델 추론과 장시간 처리는 후속 장치 검증 대상입니다.
-
-## 개발
-
-Python 3.11 환경에서 `packaging/release/requirements.txt`를 설치합니다. 기본 앱은 `python app.py`로 실행합니다. 소스 실행의 sherpa 작업을 사용하려면 가상환경 이름을 `.voice-venv`로 만듭니다. FFmpeg·ffprobe·whisper-cli·llama-server·llama-tokenize·llama-completion은 PATH에서 찾을 수 있어야 합니다. 재현 가능한 네이티브 도구 빌드 방법은 빌드 문서를 참고하세요.
-
-이 저장소의 자체 코드에 대한 공개 라이선스는 아직 정하지 않았습니다. 이용·재배포 조건은 소유자에게 확인해야 하며, 제3자 구성요소와 모델은 각 배포처의 라이선스를 따릅니다. 배포 ZIP에는 구성요소 고지를, Release에는 빌드한 네이티브 도구의 대응 소스를 함께 제공합니다.
+영상·음악·채팅 등 콘텐츠의 권리는 별도이며, 이 앱은 네이버·치지직의 공식 프로그램이 아닙니다.

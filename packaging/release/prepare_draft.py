@@ -12,7 +12,14 @@ for label in ('macOS-arm64','Windows-x64'):
         with (folder/name).open('rb') as f:assert hashlib.file_digest(f,'sha256').hexdigest()==sha
     shutil.copy2(folder/('ChiDaanalyzer-'+label+'.zip'),out)
     shutil.copy2(folder/'smoke.json',out/(label+'-smoke.json'))
+    shutil.copy2(folder/('license-notices-'+label+'.zip'),out)
 shutil.copy2(root/'package-macOS-arm64/native-corresponding-sources.zip',out)
+source_name='legal-corresponding-sources.zip'
+mac_source=root/'package-macOS-arm64'/source_name
+win_source=root/'package-Windows-x64'/source_name
+if hashlib.sha256(mac_source.read_bytes()).digest()!=hashlib.sha256(win_source.read_bytes()).digest():
+    raise ValueError('OS별 라이선스 대응 소스가 다릅니다')
+shutil.copy2(mac_source,out)
 rows=[]
 for file in sorted(out.iterdir()):
     with file.open('rb') as f:rows.append(hashlib.file_digest(f,'sha256').hexdigest()+'  '+file.name)

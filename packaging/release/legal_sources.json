@@ -1,0 +1,89 @@
+{
+  "date": "2026-10-20",
+  "sources": [
+    {
+      "file": "certifi-2026.7.22.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/a3/c2/24167ea9858356b47a87a50d39908bfdb72ceeefe0041586e704e5376b3a/certifi-2026.7.22.tar.gz",
+      "sha256": "741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55",
+      "bytes": 138112
+    },
+    {
+      "file": "flac-1.4.3.tar.xz",
+      "url": "https://downloads.xiph.org/releases/flac/flac-1.4.3.tar.xz",
+      "sha256": "6c58e69cd22348f441b861092b825e591d0b822e106de6eb0ee4d05d27205b70",
+      "bytes": 1006728
+    },
+    {
+      "file": "lame-3.100.tar.gz",
+      "url": "https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz",
+      "sha256": "ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e",
+      "bytes": 1524133
+    },
+    {
+      "file": "libogg-1.3.5.tar.gz",
+      "url": "https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz",
+      "sha256": "0eb4b4b9420a0f51db142ba3f9c64b333f826532dc0f48c6410ae51f4799b664",
+      "bytes": 593071
+    },
+    {
+      "file": "libsndfile-1.2.2-vcpkg.tar.gz",
+      "url": "https://codeload.github.com/libsndfile/libsndfile/tar.gz/1.2.2",
+      "sha256": "ffe12ef8add3eaca876f04087734e6e8e029350082f3251f565fa9da55b52121",
+      "bytes": 684875
+    },
+    {
+      "file": "libsndfile-1.2.2.tar.xz",
+      "url": "https://github.com/libsndfile/libsndfile/releases/download/1.2.2/libsndfile-1.2.2.tar.xz",
+      "sha256": "3799ca9924d3125038880367bf1468e53a1b7e3686a934f098b7e1d286cdb80e",
+      "bytes": 730760
+    },
+    {
+      "file": "libvorbis-1.3.7.tar.gz",
+      "url": "https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.gz",
+      "sha256": "0e982409a9c3fc82ee06e08205b1355e5c6aa4c36bca58146ef399621b0ce5ab",
+      "bytes": 1658963
+    },
+    {
+      "file": "mpg123-1.32.3.tar.bz2",
+      "url": "https://downloads.sourceforge.net/project/mpg123/mpg123/1.32.3/mpg123-1.32.3.tar.bz2",
+      "sha256": "2d9913a57d4ee8f497a182c6e82582602409782a4fb481e989feebf4435867b4",
+      "bytes": 1111054
+    },
+    {
+      "file": "mpg123-1.32.9.tar.bz2",
+      "url": "https://downloads.sourceforge.net/project/mpg123/mpg123/1.32.9/mpg123-1.32.9.tar.bz2",
+      "sha256": "03b61e4004e960bacf2acdada03ed94d376e6aab27a601447bd4908d8407b291",
+      "bytes": 1118388
+    },
+    {
+      "file": "opus-1.4.tar.gz",
+      "url": "https://downloads.xiph.org/releases/opus/opus-1.4.tar.gz",
+      "sha256": "c9b32b4253be5ae63d1ff16eea06b94b5f0f2951b7a02aceef58e3a3ce49c51f",
+      "bytes": 1063408
+    },
+    {
+      "file": "opus-1.5.2-vcpkg.tar.gz",
+      "url": "https://codeload.github.com/xiph/opus/tar.gz/v1.5.2",
+      "sha256": "9480e329e989f70d69886ded470c7f8cfe6c0667cc4196d4837ac9e668fb7404",
+      "bytes": 4183352
+    },
+    {
+      "file": "opus-1.5.2.tar.gz",
+      "url": "https://downloads.xiph.org/releases/opus/opus-1.5.2.tar.gz",
+      "sha256": "65c1d2f78b9f2fb20082c38cbe47c951ad5839345876e46941612ee87f9a7ce1",
+      "bytes": 7839412
+    },
+    {
+      "file": "tqdm-4.70.1.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/0d/ea/b2a5bd54b28a324dae8211928b2d730b6547500342c7e6c6dea08bd0a485/tqdm-4.70.1.tar.gz",
+      "sha256": "cefd0eca11b2a37a3aee776544d4f4ae913f02688135b5556b8788dfa474afc4",
+      "bytes": 171846
+    },
+    {
+      "file": "vcpkg-20241230.tar.gz",
+      "url": "https://codeload.github.com/microsoft/vcpkg/tar.gz/80d54ff62d528339c626a6fbc3489a7f25956ade",
+      "sha256": "48896b1bf869dcf3b4873cb2ef1e00e467704b247bdefa77836d1ec287ca2583",
+      "bytes": 4480825
+    }
+  ]
+}
