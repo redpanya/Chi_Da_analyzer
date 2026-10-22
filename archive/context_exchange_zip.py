@@ -60,7 +60,8 @@ def unpack(encoded):
             if sum(m.file_size for m in members)>MAX_BYTES:raise ValueError('ZIP 압축을 푼 전체 크기는 10MiB 이내여야 합니다')
             files=[];seen=set()
             for member in members:
-                name=member.filename;parts=name.rstrip('/').split('/')
+                # Windows의 ZipInfo는 역슬래시를 정규화하므로 원래 이름을 먼저 검사한다.
+                name=member.orig_filename;parts=name.rstrip('/').split('/')
                 if not name or '\\' in name or '\x00' in member.orig_filename or any(p in ('','..','.') for p in parts) or re.match(r'^[A-Za-z]:',name):
                     raise ValueError('ZIP 내부 경로가 올바르지 않습니다')
                 if name.casefold() in seen:raise ValueError('ZIP 내부에 같은 이름의 파일이 중복되어 있습니다')

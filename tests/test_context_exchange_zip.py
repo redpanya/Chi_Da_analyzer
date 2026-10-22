@@ -14,7 +14,14 @@ from archive.storage import read_json
 def zipped(files):
     buffer=io.BytesIO()
     with zipfile.ZipFile(buffer,'w',compression=zipfile.ZIP_DEFLATED) as archive:
-        for name,text in files:archive.writestr(name,text)
+        for name,text in files:
+            if isinstance(name,str):
+                info=zipfile.ZipInfo(name)
+                # 모든 OS에서 같은 원시 경로를 기록해 읽기 단계의 정규화도 검사한다.
+                info.filename=info.orig_filename=name
+                info.compress_type=zipfile.ZIP_DEFLATED
+            else:info=name
+            archive.writestr(info,text)
     return base64.b64encode(buffer.getvalue()).decode('ascii')
 
 
@@ -91,6 +98,12 @@ class ZipTests(unittest.TestCase):
         compressed=zipped([('large.json',' '*20000)])
         with patch.object(zipper,'MAX_BYTES',1000),self.assertRaisesRegex(ValueError,'압축을 푼'):zipper.unpack(compressed)
         with patch.object(zipper,'MAX_MEMBERS',1),self.assertRaises(ValueError):zipper.unpack(zipped([('a.json','{}'),('b.json','{}')]))
+
+    def test_windows_normalization_does_not_hide_raw_backslash(self):
+        encoded=zipped([('folder\\file.json','{}')])
+        self.assertIn(b'folder\\file.json',base64.b64decode(encoded))
+        with patch.object(zipfile.os,'sep','\\'):
+            with self.assertRaisesRegex(ValueError,'경로'):zipper.unpack(encoded)
 
     def test_legacy_json_and_utf8_bom_still_accepted(self):
         data={'text':'\ufeff'+json.dumps({'results':self.entries})};p=batch.preview(self.path,'1',data)
