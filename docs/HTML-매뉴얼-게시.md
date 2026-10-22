@@ -4,6 +4,8 @@
 
 ## 현재 상태
 
+2026-10-22 개정: 현재 앱 0.20.0에 맞춰 11개 주제·62개 안내·설명별 화면 31곳으로 갱신했습니다. 상세 내용과 검증 범위는 [0.20.0 매뉴얼 개정 기록](2026-10-22-HTML-매뉴얼-020-개정.md)을 확인하세요. 아래 최초 게시 수치는 당시 기록입니다.
+
 사용자가 저장소를 공개로 변경한 뒤, `codex/manual-site` 브랜치의 HTML 사용설명서와 설명용 스크린샷을 GitHub Pages에 게시했습니다. 현재는 로그인이나 ZIP 다운로드 없이 웹에서 바로 열 수 있습니다.
 
 - [매뉴얼 파일 보기](https://github.com/redpanya/Chi_Da_analyzer/tree/codex/manual-site)
@@ -25,7 +27,7 @@ GitHub Pages 공개와 저장소 공개는 서로 다른 설정입니다. 비공
 
 공식 안내: [GitHub Pages 소개](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages), [브랜치 게시 설정](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
 
-## 포함 파일과 보존 범위
+## 최초 게시(0.18.0)의 포함 파일과 보존 범위
 
 - 게시 브랜치는 매뉴얼 `index.html`, `styles.css`, `manual.js`, `screenshots/`의 실제 앱 화면 8장, 사용안내, README, `.nojekyll`만 포함합니다. 앱 소스의 커밋 내역과 분리한 루트 커밋으로 만들었습니다.
 - `.nojekyll`은 정적 HTML·이미지를 Jekyll 변환 없이 게시하도록 둔 파일입니다.
@@ -33,7 +35,7 @@ GitHub Pages 공개와 저장소 공개는 서로 다른 설정입니다. 비공
 - 앱 코드, 모델, 영상·음성·채팅 원본, 전사·요약 결과, 인증정보, 로컬 경로 설정, 백업 ZIP과 이전 미리보기 파일은 게시 브랜치에 넣지 않았습니다. 매뉴얼에 사용한 설명용 화면 이미지는 포함합니다.
 - 앱의 기본 `main` 브랜치는 게시용으로 사용하지 않습니다. 매뉴얼 업데이트로 앱을 다시 패키징하지 않습니다.
 
-## 확인 결과
+## 최초 게시 확인 결과
 
 - 매뉴얼 구조 검사 통과: 안내 102개·9개 주제, 설명별 화면 33곳, 원본 화면 8장 동일, 모든 설명 기본 펼침, 내부 링크·로컬 자원·이미지 영역 정상.
 - 게시용 폴더의 매뉴얼 12개 파일이 기존 최신 `dist`와 바이트 단위로 일치합니다. README와 `.nojekyll`을 포함해 Git 추적 파일은 14개입니다.
