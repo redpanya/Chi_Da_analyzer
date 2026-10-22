@@ -68,12 +68,21 @@ def apply(value):
 def select(name):
     binary = shutil.which(name)
     if not windows():
-        return {'binary': binary, 'backend': 'default', 'args': [] if name == 'whisper-cli' else ['-ngl', '99']}
+        return {'binary': binary, 'backend': 'default', 'platform': sys.platform,
+                'args': [] if name == 'whisper-cli' else ['-ngl', '99']}
     info = status()
     gpu = info['mode'] == 'hybrid' and info['available']
     args = ([] if gpu else ['--no-gpu']) if name == 'whisper-cli' else ['-ngl', 'auto' if gpu else '0']
     return {'binary': str(gpu_binary(name)) if gpu else binary, 'backend': 'vulkan' if gpu else 'cpu',
-            'requested': info['mode'], 'args': args, 'note': info['note']}
+            'platform': 'win32', 'requested': info['mode'], 'args': args, 'note': info['note']}
+
+
+def visible_execution(value):
+    """다른 OS의 저장 기록을 현재 실행 장치 안내로 표시하지 않는다."""
+    if not isinstance(value, dict):
+        return None
+    platform = value.get('platform', 'win32' if value.get('backend') in ('cpu', 'vulkan') else None)
+    return value if platform == sys.platform else None
 
 
 def failure_hint(plan):

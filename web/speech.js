@@ -53,10 +53,11 @@ export function createSpeech({api, player, showVideo, showVoices, showExplore, o
     $('transcribe').disabled = requesting || project.locked || !(s.raw_audio || s.audio) || !details?.model.ready || !details?.model.engine;
     $('speech-vad').disabled = $('speech-prompt').disabled = requesting || project.locked;
     $('speech-version').disabled = requesting || project.locked;
+    $('speech-delete').disabled = requesting || project.locked || !s.run;
     const versions = s.versions || [];
     const versionKey = JSON.stringify(versions);
     if ($('speech-version').dataset.key !== versionKey) {
-      $('speech-version').replaceChildren(...versions.map(v => {const o=document.createElement('option');o.value=v.id;o.textContent=`${v.created_at} · ${v.complete?'완료':'일부'} · ${v.segment_count}개 발언 · ${v.input_label || '이전 기록'}${v.quality_revision?' · 발화 검출·품질 점검':''}`;return o;}));
+      $('speech-version').replaceChildren(...versions.map(v => {const o=document.createElement('option');o.value=v.id;o.textContent=v.label;return o;}));
       $('speech-version').dataset.key = versionKey;
     }
     $('speech-version').value=s.run || '';
@@ -138,6 +139,11 @@ export function createSpeech({api, player, showVideo, showVoices, showExplore, o
   $('extract-audio').onclick = () => request('speech-start', {action:'audio', track:Number($('speech-track').value)});
   $('prepare-model').onclick = () => request('speech-start', {action:'model'});
   $('speech-version').onchange = () => request('speech-edit', {action:'select',run:$('speech-version').value});
+  $('speech-delete').onclick = () => {
+    const run=$('speech-version').value;
+    if(!run||project?.locked||!confirm('선택한 전사와 그 전사의 수동 교정을 휴지통으로 이동할까요?\n영상·오디오·채팅·다른 전사·내보낸 파일·기존 요약은 유지됩니다.\n이 전사를 사용하는 화자 분석이 있다면 먼저 삭제해야 합니다.'))return;
+    return request('speech-edit',{action:'delete',run});
+  };
   $('sam-audio').onplay = () => {player.reset(); $('speech-audio').pause();};
   $('transcribe').onclick = () => request('speech-start', {action:'transcribe', language:$('speech-language').value,
     input_kind:'original', asr_options:{vad:$('speech-vad').value,prompt:$('speech-prompt').value}});

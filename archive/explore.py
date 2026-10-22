@@ -35,11 +35,14 @@ def timed(kind, row, start, end, at=None, offset=0):
                   'at_ms': max(0, at + offset)}
 
 
-def snapshot(path, data, offset):
-    notes, reaction, speech = [], [], []
+def chat_note(data):
     task = data['tasks']['chat']
     labels = {'complete': '전체 제공 채팅', 'empty': '현재 제공 채팅 없음', 'unavailable': '채팅 미제공'}
-    notes.append(labels.get(task['state'], '일부 수집 또는 채팅 준비 전'))
+    return labels.get(task['state'], '일부 수집 또는 채팅 준비 전')
+
+
+def snapshot(path, data, offset):
+    notes, reaction, speech = [chat_note(data)], [], []
     result, run, processed, complete = None, None, 0, False
     try:
         result = analysis_store.load(path, data)

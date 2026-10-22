@@ -79,7 +79,8 @@ def make_server(manager, port=0):
                     self.close_connection = True
                     self.reply(410, {'error': '새 로컬 영상 가져오기는 제거되었습니다. 기존 완료 자료는 계속 사용할 수 있습니다'})
                     return
-                if length <= 0 or length > (1048576 if self.path.endswith('/api/context-comment-save') else 65536) or self.headers.get('Content-Type') != 'application/json':
+                limit=22*1024**2 if self.path.endswith(('/api/context-exchange-preview','/api/context-exchange-receive','/api/context-exchange-check-files','/api/context-exchange-import-files')) else 1048576 if self.path.endswith('/api/context-comment-save') else 65536
+                if length <= 0 or length > limit or self.headers.get('Content-Type') != 'application/json':
                     raise ValueError('요청 형식이 올바르지 않습니다')
                 data = json.loads(self.rfile.read(length))
                 if not isinstance(data, dict):
@@ -109,6 +110,8 @@ def make_server(manager, port=0):
                     result = manager.deletion_preview(data['root'], data['vod_id'])
                 elif action == '/api/delete-project':
                     result = manager.delete_project(data['root'], data['vod_id'], data.get('token'), data.get('confirmation'))
+                elif action.startswith('/api/context-exchange-'):
+                    result = manager.context_exchange(action.removeprefix('/api/context-exchange-'), data)
                 elif action in ('/api/context-comment', '/api/context-comment-save'):
                     from . import context_comments
                     path = project_path(data['root'], data['vod_id'])
@@ -199,7 +202,7 @@ def make_server(manager, port=0):
                      '/app.js': ('app.js', 'text/javascript; charset=utf-8')}
             files['/sam-options.js'] = ('sam-options.js', 'text/javascript; charset=utf-8')
             files.update({f'/{name}.js': (f'{name}.js', 'text/javascript; charset=utf-8')
-                          for name in ('queue', 'queue-saved', 'reports', 'help', 'help-content', 'voice-model-help', 'voice-tool-status', 'voice-tabs', 'context-background', 'context-fallback', 'reactions', 'player', 'speech', 'voices', 'voice-review', 'voice-suggestions', 'explore', 'timeline', 'context', 'project-delete', 'folders', 'compute', 'task-timing', 'audio-preview', 'context-reactions', 'context-copy', 'context-tree', 'context-interpretations')})
+                          for name in ('queue', 'queue-saved', 'vod-label', 'reports', 'help', 'help-content', 'voice-model-help', 'voice-tool-status', 'voice-tabs', 'context-background', 'context-inputs', 'context-external', 'context-fallback', 'reactions', 'player', 'speech', 'voices', 'voice-review', 'voice-suggestions', 'explore', 'timeline', 'context', 'project-delete', 'folders', 'compute', 'task-timing', 'audio-preview', 'context-reactions', 'context-copy', 'context-tree', 'context-interpretations')})
             if path in files:
                 filename, mime = files[path]
                 content = (WEB / filename).read_bytes()

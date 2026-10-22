@@ -40,6 +40,7 @@ const pending=el('context-copy').onclick();copy.setItems([b],'VOD3/버전1');che
 assert.equal(notice.textContent,'');assert.equal(text.value,'01:01:01 다음 <이야기>');
 assert.equal(JSON.stringify([a,b,gap]),before);
 copy.setItems([],'');assert.equal(text.value,'');assert.equal(el('context-copy').disabled,true);
+assert.match(el('context-copy-count').textContent,/0개/);
 const parent={...a,id:'topic-0',kind:'topic'},child={...a,id:'story-0',kind:'story'};
 copy.setItems([child,parent],'계층');check(parent);
 assert.equal(copy.checkbox(child).children[0].checked,false);
@@ -87,14 +88,18 @@ prevented=false;beforeUnload({preventDefault(){prevented=true;}});assert.equal(p
 await draft.setItems([a,b],'영구 초안',0,draftIdentity);
 assert.equal(text.value,'00:02:00 직접 편집한 <댓글>\n자유 문장');
 tick=draft.checkbox(b).children[0];tick.checked=true;tick.onchange();
-assert.equal(text.value,'00:02:00 직접 편집한 <댓글>\n자유 문장');
-assert.match(el('context-draft-state').textContent,/선택 목록이 변경/);
+const appended='00:02:00 직접 편집한 <댓글>\n자유 문장\n01:01:01 다음 <이야기>';
+assert.equal(text.value,appended);
+assert.match(el('context-copy-count').textContent,/새 선택은 맨 아래 추가/);
+tick.onchange();assert.equal(text.value,appended); // 이미 체크된 항목의 중복 이벤트
+tick.checked=false;tick.onchange();assert.equal(text.value,appended); // 편집된 줄은 자동 삭제하지 않음
+tick.checked=true;tick.onchange();assert.equal(text.value,appended); // 해제 후 재선택도 같은 줄은 중복하지 않음
 text.onblur();await new Promise(resolve=>setTimeout(resolve,5));
 draft=createContextCopy({api});await draft.setItems([a,b],'영구 초안',0,draftIdentity);
-assert.equal(text.value,'00:02:00 직접 편집한 <댓글>\n자유 문장');assert.equal(draft.checkbox(b).children[0].checked,true);
+assert.equal(text.value,appended);assert.equal(draft.checkbox(b).children[0].checked,true);
 await draft.setItems([a],'영구 초안',0,draftIdentity);text.onblur();await new Promise(resolve=>setTimeout(resolve,5));
 assert.equal(savedDrafts.get(draftIdentity.run).selected.length,1);
-assert.equal(text.value,'00:02:00 직접 편집한 <댓글>\n자유 문장');
+assert.equal(text.value,appended);
 await draft.setItems([a,b],'영구 초안',0,draftIdentity);tick=draft.checkbox(b).children[0];tick.checked=true;tick.onchange();
 globalThis.confirm=()=>false;el('context-copy-reset').onclick();assert.match(text.value,/직접 편집/);
 globalThis.confirm=()=>true;el('context-copy-reset').onclick();assert.equal(text.value,'00:01:40 질문 답변\n01:01:01 다음 <이야기>');
@@ -115,3 +120,19 @@ assert.equal(text.value,'직접 편집한 댓글');
 assert.equal(filteredCopy.checkbox(low).children[0].checked,true);
 assert.match(el('context-copy-count').textContent,/1개/);
 console.log('반응 필터 밖 댓글 선택·직접 편집 보존 확인 통과');
+
+// 편집 뒤에는 시각순 재정렬 없이 아래에 덧붙이고 사용자 공백도 보존한다.
+const appendCopy=createContextCopy();
+for(const [prefix,expected] of [['자유 문장','자유 문장\n'],['자유 문장\n','자유 문장\n'],['자유 문장\r\n','자유 문장\r\n'],['','']]){
+  await appendCopy.setItems([a,b],'추가 위치 '+JSON.stringify(prefix),3532419);
+  text.value=prefix;text.oninput();
+  const add=row=>{const input=appendCopy.checkbox(row).children[0];input.checked=true;input.onchange();};
+  add(b);add(a);
+  assert.equal(text.value,expected+'01:59:54 다음 <이야기>\n01:00:32 질문 답변');
+}
+const staleCheckbox=appendCopy.checkbox(b).children[0];
+await appendCopy.setItems([b],'다른 탭');text.value='다른 탭 초안';text.oninput();
+staleCheckbox.checked=true;staleCheckbox.onchange();assert.equal(text.value,'다른 탭 초안');
+const invalid={...b,id:'처리 중',provisional:true},invalidCheck=appendCopy.checkbox(invalid).children[0];
+invalidCheck.checked=true;invalidCheck.onchange();assert.equal(text.value,'다른 탭 초안');
+console.log('편집 후 아래줄 추가·재선택 중복 방지·줄바꿈 보존·원본 시각 보정·다른 탭 격리 통과');

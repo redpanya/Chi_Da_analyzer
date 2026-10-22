@@ -69,7 +69,8 @@ def view(path, locked=False, owned=False):
     from .speech_store import state as speech_state
     fresh_exports = (r and s.get('export_run') == r['id'] and s.get('export_revision') == revision
                      and s.get('export_speech_updated_at') == speech_state(path).get('updated_at'))
-    return s | {'owned': owned, 'stale': bool(r and not current(path, r)), 'revision': revision,
+    from .analysis_inputs import speakers
+    return s | {'versions': speakers(path), 'owned': owned, 'stale': bool(r and not current(path, r)), 'revision': revision,
                 'exports': s.get('exports', {}) if fresh_exports else {}}
 
 
@@ -135,6 +136,10 @@ def decorate(path, transcript_run, rows):
     r = result(path)
     if not r or r['transcript_run'] != transcript_run or not current(path, r):
         return rows
+    return decorate_result(path, r, rows)
+
+
+def decorate_result(path, r, rows):
     e = edits(path, r['id']); names = r['speakers'] | e['speakers'] | e['names']
     mapping = r['assignments'] | e['assignments']
     return [row | mapping.get(row['id'], {'speaker': None, 'status': 'failed', 'reason': 'no_voice'}) |

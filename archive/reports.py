@@ -52,10 +52,12 @@ def counts(path, stage, job=None):
             characters += len(row.get('text') or '')
         result.update(chat_messages=total, chat_characters=characters)
     if stage == 'summary' and job:
-        source = (getattr(job, 'input', None) or {}).get('source', {})
+        prepared = getattr(job, 'input', None) or {}
+        source = prepared.get('source', {})
         for key, name in [('speech', 'speech'), ('chat', 'chat')]:
-            result[f'summary_input_{name}_characters'] = sum(len(r.get('text', '')) for r in source.get(key, []))
-        run = context_job.state(path).get('full_run')
+            rows = source.get('rows', []) if key == 'speech' and 'rows' in source else source.get(key, [])
+            result[f'summary_input_{name}_characters'] = sum(len(r.get('text', '')) for r in rows)
+        run = prepared.get('saved', {}).get('id') or context_job.state(path).get('full_run')
         file = context_job.local(path, f'runs/{run}/measurements.json') if run else None
         if file and file.exists():
             saved = read_json(file)
@@ -73,7 +75,7 @@ class Reports:
 
     def new(self, root, vod, settings=None):
         path = project_path(root, vod)
-        report = dict(schema=2, policy=report_schema.POLICY, report_id=uuid.uuid4().hex, vod_id=vod, app_version='0.19.0',
+        report = dict(schema=2, policy=report_schema.POLICY, report_id=uuid.uuid4().hex, vod_id=vod, app_version='0.20.0',
                       hardware=report_hardware.collect(), options=options(settings), stages=[], counts={})
         local = dict(payload=report, created_at=stamp(), updated_at=stamp(), events=[], details=[], revision=0)
         with self.guard:
@@ -112,6 +114,8 @@ class Reports:
                 if settings:
                     value['payload']['options'].update(settings)
                 value['payload']['stages'].append(dict(stage=stage, state='running', seconds=0, error_code='none'))
+                if stage=='summary':
+                    value['payload']['stages'][-1]['summary_mode']=(settings or {}).get('summary_mode','detail')
                 value['events'].append(dict(at=stamp(), stage=stage, state='running'))
             self.edit(path, report_id, change)
             started = time.monotonic()

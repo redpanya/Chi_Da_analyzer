@@ -38,8 +38,10 @@ def validate(value):
     allowed = {'language': {'ko', 'en', 'ja', 'auto'}, 'vad': {'standard', 'sensitive', 'off'},
                'speaker_backend': {'none', 'sherpa', 'pyannote', 'fluid'}, 'compute_requested': {'cpu', 'hybrid', 'platform_default'},
                'compute_actual': {'unknown', 'cpu', 'vulkan', 'metal'}, 'summary_model': {'gemma-4-E4B-it-Q4_K_M', 'unknown'}, 'speech_model': {'large-v3-turbo-q5_0'}}
-    if not isinstance(options, dict) or set(options) != set(allowed) | {'thinking', 'hint_characters'}:
+    if not isinstance(options, dict) or set(options)-{'summary_mode'} != set(allowed) | {'thinking', 'hint_characters'}:
         raise ValueError('설정 정보 필드를 확인하세요')
+    if options.get('summary_mode','detail') not in ('detail','timestamps'):
+        raise ValueError('문맥 모드를 확인하세요')
     for key, choices in allowed.items():
         if not isinstance(options[key], str) or options[key] not in choices:
             raise ValueError('설정 값이 올바르지 않습니다')
@@ -49,8 +51,10 @@ def validate(value):
     if not isinstance(value['stages'], list) or len(value['stages']) > 300:
         raise ValueError('단계 기록 수를 확인하세요')
     for stage in value['stages']:
-        if not isinstance(stage, dict) or set(stage) != {'stage', 'state', 'seconds', 'error_code'}:
+        if not isinstance(stage, dict) or set(stage)-{'summary_mode'} != {'stage', 'state', 'seconds', 'error_code'}:
             raise ValueError('단계 정보 필드를 확인하세요')
+        if 'summary_mode' in stage and (stage['stage']!='summary' or stage['summary_mode'] not in ('detail','timestamps')):
+            raise ValueError('단계의 문맥 모드를 확인하세요')
         if stage['stage'] not in STAGES or stage['state'] not in STATES or stage['error_code'] not in ERRORS:
             raise ValueError('단계 상태를 확인하세요')
         number(stage['seconds'])

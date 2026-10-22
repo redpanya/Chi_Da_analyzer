@@ -48,4 +48,10 @@ assert.equal($('speech-vad').value,'off');assert.equal($('speech-prompt').value,
 assert.equal($('separate-speech').onclick,undefined);assert.equal($('prepare-sam').onclick,undefined);
 const count=rowsRequests;view.setProject({...project,voices:{run:'새 화자 분석',revision:8,updated_at:'변경'}});await settle();
 assert.equal(rowsRequests,count);
-console.log('원음 전사·발화 검출·힌트·분리 제거·폴링 보존·잠금·VOD별 설정 복원 검사 통과');
+project={...project,speech:{...project.speech,run:'선택 전사',versions:[{id:'선택 전사',label:'한국어 · 원음 · 표준'}]}};
+view.setProject(project);await settle();
+globalThis.confirm=()=>false;
+const beforeDelete=calls.length;await $('speech-delete').onclick();assert.equal(calls.length,beforeDelete);
+globalThis.confirm=()=>true;
+await $('speech-delete').onclick();assert.equal(calls.at(-1).data.action,'delete');assert.equal(calls.at(-1).data.run,'선택 전사');
+console.log('원음 전사·옵션·폴링 보존·잠금·VOD별 설정·선택 삭제 확인 통과');

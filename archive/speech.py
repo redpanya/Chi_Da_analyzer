@@ -32,7 +32,7 @@ def transcribe(path, data, language, stop, lock, update, input_audio=None, raw_a
     execution = compute.select('whisper-cli')
     if compute.windows():
         binary = execution['binary']
-        update(compute=execution)
+    update(compute=execution)
     model_file = model.verify()
     vad_model = speech_vad.prepare(stop, update) if options['vad'] != 'off' else None
     signature = {'audio_sha256': audio['sha256'], 'language': language, 'engine': version,

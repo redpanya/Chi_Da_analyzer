@@ -8,11 +8,11 @@
   <button id="new" class="primary wide">＋ VOD 리스트 등록</button>
   <div class="library-head"><h2>저장한 VOD</h2><button id="refresh" class="subtle" aria-label="프로젝트 목록 새로고침">↻</button></div>
   <div id="projects"><p class="muted">저장한 프로젝트가 여기에 표시됩니다.</p></div>
-  <footer><span class="dot"></span> 이 컴퓨터에 저장<br><small>공개 VOD · 0.19.0</small></footer>
+  <footer><span class="dot"></span> 이 컴퓨터에 저장<br><small>공개 VOD · 0.20.0</small></footer>
 </aside>
 <main>
   <header><div><span class="eyebrow">내 컴퓨터의 방송 기록</span><h1 id="heading" tabindex="-1" data-help="import">VOD 리스트 등록</h1></div><div class="play-actions"><span class="local-badge">로컬 보관함</span><button id="delete-project" class="danger" hidden>VOD 삭제</button></div></header>
-  <nav aria-label="작업 단계"><button id="step1" class="step current">1 <span>가져오기</span></button><button id="step2" class="step" disabled>2 <span>가져오기 진행</span></button><button id="step3" class="step" disabled>3 <span>음성 전사</span></button><button id="step4" class="step" disabled>4 <span>화자 구분 (선택)</span></button><button id="step5" class="step" disabled>5 <span>통합 분석·재생</span></button><button id="step6" class="step" disabled>6 <span>AI 문맥 정리</span></button><button id="step7" class="step">7 <span>리포트</span></button></nav>
+  <nav aria-label="작업 단계"><button id="step1" class="step current">1 <span>가져오기</span></button><button id="step2" class="step" disabled>2 <span>가져오기 진행</span></button><button id="step3" class="step" disabled>3 <span>음성 전사</span></button><button id="step4" class="step" disabled>4 <span>화자 구분 (선택)</span></button><button id="step5" class="step" disabled>5 <span>통합 분석·재생</span></button><button id="step6" class="step" disabled>6 <span>AI 문맥 정리</span></button><button id="step7" class="step">7 <span>리포트</span></button><button id="step8" class="step" disabled>8 <span>외부 AI 파일 분석</span></button></nav>
   <div id="notice" role="status" aria-live="polite" hidden></div>
   <section id="import-panel" class="panel">
     <section class="queue-section" aria-labelledby="queue-heading">
@@ -72,7 +72,7 @@
     <div id="speech-audio-box" hidden><p id="speech-audio-label" class="hint"></p><audio id="speech-audio" controls preload="metadata"></audio><a id="speech-audio-save" class="text-link">추출 WAV 저장</a></div>
     <div class="play-actions"><button id="speech-next-step" class="primary">통합 분석·재생 →</button><button id="show-voices" class="secondary">화자 검토 (선택) →</button></div>
     <div id="sam-audio-box" hidden><h3 data-help="legacy-audio">이전에 저장한 분리음</h3><p id="sam-audio-label" class="hint"></p><audio id="sam-audio" controls preload="metadata"></audio><p id="sam-review" class="hint"></p></div>
-    <h3 data-help="transcript">전사 내용</h3><label for="speech-version">저장된 전사</label><select id="speech-version"></select><p id="speech-coverage" class="hint"></p><div id="speech-gaps"></div>
+    <h3 data-help="transcript">전사 내용</h3><label for="speech-version">저장된 전사</label><div class="input-row"><select id="speech-version"></select><button id="speech-delete" class="subtle" disabled>선택 전사 삭제</button></div><p id="speech-coverage" class="hint"></p><div id="speech-gaps"></div>
 
     <form id="speech-search" class="input-row"><input id="speech-query" placeholder="전사 내용 검색" aria-label="전사 내용 검색" maxlength="200"><button class="secondary">전사 검색</button></form>
     <div id="transcript-rows"></div><div class="play-actions"><button id="speech-prev" class="subtle" disabled>이전 100개</button><span id="speech-count" class="hint"></span><button id="speech-next" class="subtle" disabled>다음 100개</button></div>
@@ -85,7 +85,7 @@
     <div class="speech-steps">
       <article><h3 data-help="voice-model">1. 도구·모델 준비</h3><label for="voices-backend">화자 구분 엔진</label><select id="voices-backend"><option value="sherpa">sherpa-onnx · 기존</option><option value="pyannote">pyannote.audio + Community-1</option><option value="fluid">FluidAudio 오프라인 · Community-1 계열</option></select><p id="voices-tool-status" class="hint" role="status" aria-live="polite"></p><div class="play-actions"><button id="voices-tool-install" class="secondary">실행 도구 다운로드·설치</button><button id="voices-tool-check" class="subtle">실행 도구 검사</button></div><p id="voices-tool-hint" class="hint"></p><p id="voices-model" class="hint" aria-live="polite"></p><p id="voices-backend-hint" class="hint"></p><button id="voices-prepare" class="secondary">선택 모델 준비·검사</button><p id="voices-install-hint" class="hint"></p></article>
       <article><h3 data-help="voice-run">2. 전체 화자 구분</h3><label for="voices-number">알고 있는 화자 수 (0 = 자동)</label><input id="voices-number" type="number" min="0" max="20" value="0"><button id="voices-run" class="primary">화자 분석·이어받기</button><p id="voices-resume-hint" class="hint"></p></article>
-      <article><h3 data-help="voice-names">3. 검토·이름 변경</h3><label for="voices-version">화자 분석 버전</label><select id="voices-version"></select><button id="voices-select" class="secondary">선택 버전 열기</button></article>
+      <article><h3 data-help="voice-names">3. 검토·이름 변경</h3><label for="voices-version">화자 분석 버전</label><select id="voices-version"></select><div class="play-actions"><button id="voices-select" class="secondary">선택 버전 열기</button><button id="voices-delete" class="subtle" disabled>선택 화자 분석 삭제</button></div></article>
     </div>
     </details>
     <p id="voices-notice" role="status" aria-live="polite"></p><p id="voices-status" role="status" aria-live="polite"></p><progress id="voices-progress" max="100" value="0" aria-label="화자·음원 작업 진행"></progress><p id="voices-elapsed" class="hint task-elapsed">작업을 시작하면 소요 시간을 기록합니다.</p><button id="voices-stop" class="secondary">화자 작업 중단</button>
@@ -183,6 +183,12 @@
   </section>
   <section id="context-panel" class="panel context-section" hidden>
     <h2 data-help="context">전체 영상의 대화 흐름을 살펴보세요</h2><p id="context-title"></p>
+    <div class="review-tabs" role="tablist" aria-label="AI 문맥 결과 종류">
+      <button id="context-tab-detail" role="tab" aria-selected="true" aria-controls="context-view-panel">상세 문맥 정리</button>
+      <button id="context-tab-timestamps" role="tab" aria-selected="false" tabindex="-1" aria-controls="context-view-panel">타임스탬프</button>
+    </div>
+    <div id="context-view-panel" role="tabpanel" aria-labelledby="context-tab-detail">
+    <p id="context-mode-note" class="hint" role="status"></p>
 
     <form id="context-background-form" class="background-form">
       <label for="context-background" data-help="context-background">방송 배경 설명 (선택)</label>
@@ -191,24 +197,31 @@
     </form>
     <p class="hint">처리 방식 <strong>대사 중심 · 기본</strong> · 추론 모델 <strong>Gemma 4 E4B</strong></p>
 
+    <fieldset class="context-inputs"><legend>새 문맥 정리에 사용할 데이터</legend>
+      <label for="context-transcript">음성 전사</label><select id="context-transcript"></select>
+      <label for="context-speaker">화자 정보 (선택)</label><select id="context-speaker"></select>
+      <p id="context-input-status" class="hint" role="status"></p>
+      <p class="hint">이 정리 이어하기는 처음 사용한 입력을 유지합니다. 다른 페이지에서 열어 둔 버전은 바뀌지 않습니다.</p>
+    </fieldset>
+
     <label class="inline-check"><input id="context-thinking" type="checkbox" checked>사고 켜기 <span class="hint">새 정리에 적용</span></label>
     <p id="context-model" class="hint"></p>
 
     <div class="play-actions"><button id="context-prepare" class="secondary">요약 모델 준비·검사</button><button id="context-generate" class="primary">전체 영상 새로 정리</button><button id="context-resume" class="secondary" disabled>이 정리 이어하기</button><button id="context-stop" class="secondary" disabled>문맥 작업 중단</button></div>
     <details data-help="context-offset"><summary>이 문맥 작업의 채팅 시각 보정</summary><label>보정값 (초)<input id="context-offset" type="number" min="-600" max="600" step="0.001" value="0"></label></details>
-    <p id="context-status" role="status" aria-live="polite"></p><progress id="context-progress" max="100" value="0" aria-label="전체 문맥 처리 진행"></progress><p id="context-elapsed" class="hint task-elapsed">작업을 시작하면 소요 시간을 기록합니다.</p>
+    <p id="context-task-kind" class="hint"></p><p id="context-status" role="status" aria-live="polite"></p><progress id="context-progress" max="100" value="0" aria-label="전체 문맥 처리 진행"></progress><p id="context-elapsed" class="hint task-elapsed">작업을 시작하면 소요 시간을 기록합니다.</p>
     <details id="context-log" class="context-log"><summary id="context-log-toggle">처리 로그 열기</summary><div id="context-overview" tabindex="0" aria-label="문맥 처리 내역"><p class="hint">문맥 결과를 열면 처리 내역이 표시됩니다.</p></div></details>
     <div class="play-actions"><label>보존한 문맥 정리<select id="context-version"></select></label><button id="context-open" class="subtle">선택 정리 열기</button></div>
     <p id="context-notice" role="status" aria-live="polite"></p>
-    <div class="context-workspace"><div><h3 data-help="context-list">시간순 문맥 목록</h3><div class="context-list-toolbar"><label class="inline-control" for="context-min-reaction">🤩 반응지수<select id="context-min-reaction" aria-controls="context-result"><option value="0">전체</option><option value="1">1개 이상</option><option value="2">2개 이상</option><option value="3">3개 이상</option><option value="4">4개 이상</option><option value="5">5개 이상</option><option value="6">6개 이상</option><option value="7">7개 이상</option><option value="8">8개 이상</option><option value="9">9개 이상</option><option value="10">10개 이상</option></select></label><span id="context-filter-count" class="hint" role="status" aria-live="polite">표시 0 / 전체 0개</span></div><div id="context-result" tabindex="0" aria-label="시간순 문맥 목록"></div></div><div class="context-preview"><div id="context-video"></div><p id="context-playing" role="status">목록의 ‘이 구간 재생’을 눌러 영상을 확인하세요.</p>
+    <div class="context-workspace"><div><h3 id="context-list-title" data-help="context-list">시간순 문맥 목록</h3><div class="context-list-toolbar"><label class="inline-control" for="context-min-reaction">🤩 반응지수<select id="context-min-reaction" aria-controls="context-result"><option value="0">전체</option><option value="1">1개 이상</option><option value="2">2개 이상</option><option value="3">3개 이상</option><option value="4">4개 이상</option><option value="5">5개 이상</option><option value="6">6개 이상</option><option value="7">7개 이상</option><option value="8">8개 이상</option><option value="9">9개 이상</option><option value="10">10개 이상</option></select></label><span id="context-filter-count" class="hint" role="status" aria-live="polite">표시 0 / 전체 0개</span></div><div id="context-result" tabindex="0" aria-label="시간순 문맥 목록"></div></div><div class="context-preview"><div id="context-video"></div><p id="context-playing" role="status">목록의 ‘이 구간 재생’을 눌러 영상을 확인하세요.</p>
       <div class="context-comment" aria-labelledby="context-comment-heading"><h3 id="context-comment-heading" data-help="context-copy">댓글용 타임스탬프</h3><p id="context-copy-count" class="hint" role="status">선택한 문맥 0개 · 시간순</p>
         <label for="context-comment-text">체크한 문맥의 시작 시각과 제목</label><textarea id="context-comment-text" rows="5" spellcheck="false" placeholder="목록에서 ‘댓글에 포함’을 체크하세요." aria-describedby="context-draft-state"></textarea>
         <div class="play-actions"><button id="context-copy" class="primary" disabled>클립보드 복사하기</button><button id="context-copy-select" class="secondary" disabled>텍스트 전체 선택</button><button id="context-copy-reset" class="subtle" disabled>선택 목록으로 다시 만들기</button></div><p id="context-draft-state" class="hint" role="status"></p>
         <p id="context-copy-notice" class="hint" role="status" aria-live="polite"></p>
       </div>
     </div></div>
+    </div>
   </section>
-
 
   <section id="report-panel" class="panel" hidden>
     <h2 data-help="report">분석기 리포트</h2>
@@ -233,6 +246,31 @@
         <textarea id="report-payload" readonly rows="12" aria-label="이메일에 첨부할 JSON 정보"></textarea>
       </section>
     </div>
+  </section>
+  <section id="external-panel" class="panel" hidden>
+    <h2 data-help="external">외부 AI 파일 분석</h2><p id="external-title"></p>
+    <p>자료 ZIP의 작업서와 분할 JSON을 외부 AI에 전달하세요. 파일별 결과 JSON을 내려받아 ZIP으로 묶어 가져올 수 있습니다. 이 페이지는 외부로 전송하거나 API를 호출하지 않습니다.</p>
+    <fieldset class="context-inputs"><legend>내보낼 데이터</legend>
+      <label for="external-transcript">음성 전사</label><select id="external-transcript"></select>
+      <label for="external-speaker">화자 정보 (선택 · 익명 표시)</label><select id="external-speaker"></select>
+      <p id="external-input-status" class="hint" role="status"></p>
+      <label for="external-mode">결과 종류</label><select id="external-mode"><option value="timestamps">타임스탬프 · 전사만</option><option value="detail">상세 문맥 정리</option></select>
+      <label class="inline-check"><input id="external-chat" type="checkbox" disabled>채팅 본문 포함 (상세 정리만)</label>
+      <label for="external-offset">채팅 시각 보정 (초)</label><input id="external-offset" type="number" value="0" min="-600" max="600" step="0.001">
+    </fieldset>
+    <p class="hint">본문에 이름·개인정보가 남아 있을 수 있습니다. 저장한 파일을 확인하고 외부 서비스의 데이터 이용 조건에 동의하는 경우 직접 업로드하세요.</p>
+    <button id="external-create" class="primary" disabled>분석 자료 만들기</button>
+    <p id="external-status" role="status" aria-live="polite"></p>
+    <div id="external-downloads"></div>
+    <details><summary>외부 AI 요청문</summary><textarea id="external-prompt" readonly rows="8"></textarea><button id="external-copy" class="secondary">요청문 복사</button></details>
+    <h3>외부 작업 목록</h3><div id="external-list"></div>
+    <h3>결과 가져오기</h3><label for="external-file">결과 JSON 또는 결과 JSON들을 묶은 ZIP (압축 전·후 각각 10MiB 이내)</label><input id="external-file" type="file" accept=".json,.zip,application/json,application/zip">
+    <p id="external-file-info" class="hint"></p>
+    <label for="external-json">또는 JSON 붙여넣기</label><textarea id="external-json" rows="8" spellcheck="false"></textarea>
+    <div class="play-actions"><button id="external-preview" class="secondary" disabled>결과 검사·미리보기</button><button id="external-import" class="primary" disabled>새 결과 버전으로 저장</button></div>
+    <p id="external-import-status" role="status" aria-live="polite"></p>
+    <label id="external-partial-label" class="inline-check" hidden><input id="external-partial" type="checkbox">오류 묶음은 제외하고 정상 결과만 부분 저장합니다. 누락된 결과는 나중에 추가합니다.</label>
+    <div id="external-preview-result" aria-live="polite"></div>
   </section>
 </main>
 <dialog id="queue-saved-dialog" class="saved-vod-dialog" aria-labelledby="queue-saved-title">

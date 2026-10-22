@@ -21,7 +21,7 @@ export function createReports({api,getProject}){
   $('report-stages').replaceChildren();
   for(const stage of data.payload.stages){
    const tr=document.createElement('tr');
-   for(const text of [stages[stage.stage],states[stage.state],stage.seconds==null?'미계측':stage.seconds.toLocaleString()+'초',stage.error_code==='none'?'—':stage.error_code])tr.append(node('td',text));
+   for(const text of [stage.summary_mode==='timestamps'?'빠른 타임스탬프':stages[stage.stage],states[stage.state],stage.seconds==null?'미계측':stage.seconds.toLocaleString()+'초',stage.error_code==='none'?'—':stage.error_code])tr.append(node('td',text));
    $('report-stages').append(tr);
   }
   $('report-counts').replaceChildren();

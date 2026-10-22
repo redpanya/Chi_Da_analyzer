@@ -40,12 +40,17 @@ def view(path, locked=False, owned=False):
     if saved['state'] in ('running','stopping') and not locked:
         saved=task_timing.interrupted(saved)|{'state':'paused','message':'이전 요약 작업이 중단됐습니다. 완료 요약은 유지됩니다. 전체 문맥은 이어서 정리할 수 있습니다'}
     from .context_catalog import MODELS
-    return saved|{'owned':owned,'model':model.status(),'models':[model.status(name) for name in dict.fromkeys([model.DEFAULT_NAME,model.NAME,*MODELS])]}
+    from .analysis_inputs import catalog
+    return saved|{'inputs': catalog(path), 'compute':compute.visible_execution(saved.get('compute')),
+                  'owned':owned,'model':model.status(),'models':[model.status(name) for name in dict.fromkeys([model.DEFAULT_NAME,model.NAME,*MODELS])]}
 
 def result(path, vod, id=None):
     saved=state(path);id=id or saved.get('run')
     if not id:return None
     if not isinstance(id,str) or not re.fullmatch(r'[a-f0-9]{32}',id) or id not in [r['id'] for r in saved['runs']]:raise ValueError('저장된 요약 버전이 아닙니다')
+    if next(r for r in saved['runs'] if r['id']==id).get('scope') in ('timestamps','external'):
+        from .context_exchange_data import result as exchange_result
+        return exchange_result(path,vod,id)
     if next(r for r in saved['runs'] if r['id']==id).get('scope')=='full':
         from . import context_full
         return context_full.result(path,vod,id)
@@ -65,8 +70,8 @@ class ContextJob:
         self.output_tokens=self.inference['output'] if self.inference else context_tokens.OUTPUT
         self.stop=threading.Event();self.closed=False
         previous=state(path)
-        resume=action=='resume' and previous.get('action') in ('whole','resume') and previous.get('full_run')==value['saved']['id']
-        self.value=previous|{'state':'running','action':action,'message':'요약 작업 준비 중','progress':{},
+        resume=(action=='resume' and previous.get('action') in ('whole','resume') and previous.get('full_run')==value['saved']['id']) or (action=='timestamps-resume' and previous.get('run')==value['saved']['id'])
+        self.value=previous|{'state':'running','action':action,'message':'요약 작업 준비 중','progress':{},'compute':None,
                              'timing':task_timing.start(previous,resume=resume)}
         self.thread=threading.Thread(target=self.run,daemon=True)
         self.update()
@@ -82,7 +87,7 @@ class ContextJob:
         self.model_hash_seconds=time.monotonic()-hash_started
         self.compute=compute.select('llama-server' if self.inference else 'llama-completion')
         binary=self.compute['binary']
-        if compute.windows(): self.update(compute=self.compute)
+        self.update(compute=self.compute)
         if not binary:raise ValueError('로컬 요약 엔진이 없습니다. 앱을 다시 설치하세요')
         version=subprocess.run([binary,'--version'],capture_output=True,text=True,timeout=15,check=True)
         self.engine_version=(version.stdout+version.stderr).strip()
@@ -161,6 +166,9 @@ class ContextJob:
         try:
             problems=0
             if self.action=='model':model.prepare(self.stop,self.update,self.model_info['name'])
+            elif self.action in ('timestamps','timestamps-resume'):
+                from . import context_timestamps
+                problems=context_timestamps.run(self) or 0
             elif self.action in ('whole','resume'):
                 from . import context_full
                 problems=context_full.run(self) or 0

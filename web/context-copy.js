@@ -27,22 +27,23 @@ export function createContextCopy({api}={}){
     const valid=new Set(items.map(key)),selected=new Set([...current.selected].filter(id=>valid.has(id)));
     if(selected.size!==current.selected.size){current.selected=selected;changed(current);}
   }
+  const line=item=>`${timecode(item.start_ms+vodOffset)} ${item.summary.title.replace(/\s+/g,' ').trim()}`;
   function generated(){return items.filter(item=>current.selected.has(key(item))).sort((a,b)=>a.start_ms-b.start_ms||(b.kind==='topic')-(a.kind==='topic')||a.end_ms-b.end_ms)
-    .map(item=>`${timecode(item.start_ms+vodOffset)} ${item.summary.title.replace(/\s+/g,' ').trim()}`).join('\n');}
+    .map(line).join('\n');}
   function renderStatus(){
     if(!current){status.textContent='';return;}
     status.textContent=current.loading?'저장한 댓글 초안 확인 중…':current.loadError||current.error||(current.saving||current.changed?'저장 중…':api?'이 컴퓨터에 저장됨':'화면 초안')
-      +(current.edited?' · 직접 편집한 초안':'')+(current.edited&&current.basis!==generated()?' · 선택 목록이 변경됨. 편집을 유지하거나 선택 목록으로 다시 만드세요.':'');
+      +(current.edited?' · 직접 편집한 초안':'')+(current.edited&&current.basis!==generated()?' · 선택 목록과 편집 내용은 다를 수 있습니다.':'');
   }
   function render(){
-    if(!current){text.value='';text.disabled=true;$('context-copy').disabled=$('context-copy-select').disabled=$('context-copy-reset').disabled=true;renderStatus();return;}
+    if(!current){text.value='';text.disabled=true;$('context-copy-count').textContent='선택한 문맥 0개 · 시간순';$('context-copy').disabled=$('context-copy-select').disabled=$('context-copy-reset').disabled=true;renderStatus();return;}
     const value=generated();
     if(!current.loading&&!current.edited&&current.text!==value){current.text=value;current.basis=value;changed(current);}
     if(text.value!==current.text)text.value=current.text;
     text.disabled=current.loading;
     const rows=items.filter(item=>current.selected.has(key(item)));
     const duplicate=new Set(rows.map(x=>timecode(x.start_ms))).size<rows.length;
-    $('context-copy-count').textContent=`선택한 문맥 ${rows.length}개 · 시간순${duplicate?' · 같은 시작 시각이 있습니다. 미리보기를 확인하세요.':''}`;
+    $('context-copy-count').textContent=`선택한 문맥 ${rows.length}개 · ${current.edited?'편집 유지 · 새 선택은 맨 아래 추가':'시간순'}${duplicate?' · 같은 시작 시각이 있습니다. 미리보기를 확인하세요.':''}`;
     $('context-copy').disabled=$('context-copy-select').disabled=!current.text||current.loading;
     $('context-copy-reset').disabled=current.loading||!current.edited;
     renderStatus();
@@ -82,9 +83,24 @@ export function createContextCopy({api}={}){
       if(d?.ready){await d.ready;if(d!==current)return;d.ready=null;pruneSelection();render();}
     },
     checkbox(item){
+      const draft=current,id=key(item);
       const label=document.createElement('label'),input=document.createElement('input');label.className='inline-check context-check';input.type='checkbox';input.checked=current?.selected.has(key(item))||false;input.disabled=!!current?.loading;
       input.setAttribute('aria-label',`댓글에 포함: ${item.summary.title}`);
-      input.onchange=()=>{if(!current||current.loading)return;if(input.checked)current.selected.add(key(item));else current.selected.delete(key(item));changed(current);notice.textContent='';render();};
+      input.onchange=()=>{
+        if(!current||current!==draft||current.loading)return;
+        const selected=items.find(row=>key(row)===id),adding=input.checked&&!current.selected.has(id);
+        if(input.checked&&!selected)return;
+        if(input.checked)current.selected.add(id);else current.selected.delete(id);
+        notice.textContent='';
+        if(current.edited&&adding){
+          const addition=line(selected);
+          if(!current.text.split(/\r\n|\r|\n/).some(row=>row.trim()===addition)){
+            current.text+=(current.text&&!/[\r\n]$/.test(current.text)?'\n':'')+addition;
+            notice.textContent='선택한 시각·제목을 댓글 맨 아래에 추가했습니다.';
+          }else notice.textContent='같은 시각·제목이 댓글에 이미 있어 중복으로 추가하지 않았습니다.';
+        }else if(current.edited&&!input.checked)notice.textContent='선택을 해제했습니다. 편집한 글의 해당 줄은 필요하면 직접 삭제하세요.';
+        changed(current);render();
+      };
       label.append(input,'댓글에 포함');return label;
     }
   };

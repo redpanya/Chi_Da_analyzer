@@ -1,3 +1,4 @@
+import {vodLabel} from './vod-label.js';
 import {createSavedPicker,savedDescription} from './queue-saved.js';
 const states={queued:'대기',running:'진행 중',paused:'일시정지',complete:'완료',partial:'일부 완료',error:'확인 필요',reused:'기존 자료 사용',skipped:'생략'};
 const stages={download:'영상·전체 채팅',audio:'원음 추출',transcribe:'음성 전사',diarize:'화자 구분',reactions:'채팅 반응 분석',summary:'AI 문맥 요약'};
@@ -20,7 +21,7 @@ export function createQueue({api,getRoot,onOpen,onChanged,onLock}){
  function row(project){
    const wrap=node('div');wrap.className='input-row queue-url';wrap.project=project||null;
    const number=node('span');number.className='queue-number';wrap.append(number);
-   if(project){const content=node('div');content.className='queue-saved-entry';content.append(node('strong',project.metadata.title),node('small',savedDescription(project)));wrap.append(content);}
+   if(project){const content=node('div');content.className='queue-saved-entry';content.append(node('strong',vodLabel(project)),node('small',savedDescription(project)));wrap.append(content);}
    else{const input=node('input');input.type='url';input.placeholder='https://chzzk.naver.com/video/… 또는 naver.me';input.setAttribute('aria-label','등록할 VOD 주소');wrap.append(input);}
    for(const [label,name,fn] of [
      ['↑','등록 순서 앞으로',()=>{if(wrap.previousElementSibling)wrap.parentElement.insertBefore(wrap,wrap.previousElementSibling);}],

@@ -28,6 +28,11 @@ def trash(path, vod, token, confirmation):
     value = preview(path, vod)
     if confirmation != vod or token != value['token']:
         raise Conflict('확인한 VOD 또는 자료가 바뀌었습니다. 삭제 내용을 다시 확인하세요')
+    return trash_path(path)
+
+
+def trash_path(path):
+    """호출자가 프로젝트 잠금과 삭제 범위를 검증한 폴더만 이동한다."""
     if os.name == 'nt':
         from send2trash import send2trash
         send2trash(str(path))

@@ -26,13 +26,20 @@ def sample(rows, budget):
         limit-=1
     return []
 
-def source(path, vod, offset=0):
+def source(path, vod, offset=0, selection=None, *, include_chat=True):
     explore.options(chat_offset_ms=offset)
     data=load_project(path,vod)
     duration=data['tasks']['video'].get('verification',{}).get('duration',data['metadata'].get('duration',0))
     if not duration or duration<=0:raise ValueError('영상 길이를 확인할 수 없습니다')
+    chats=list(analysis_store.rows(path,data,mapping_offset=offset)) if include_chat and data['tasks']['chat']['assets'].get('jsonl') else []
+    if selection is not None:
+        from .analysis_inputs import selected
+        chosen = selected(path, data, selection)
+        return {'duration_ms':round(duration*1000),
+                'speech':[explore.timed('speech', row, row['start_ms'], row['end_ms']) for row in chosen['speech']],
+                'chat':chats, 'notes':[explore.chat_note(data)]+chosen['notes'],
+                'chat_offset_ms':offset, 'input_selection':chosen['selection'], 'input_label':chosen['label']}
     saved=explore.snapshot(path,data,offset)
-    chats=list(analysis_store.rows(path,data,mapping_offset=offset)) if data['tasks']['chat']['assets'].get('jsonl') else []
     return {'duration_ms':round(duration*1000),'speech':saved['speech'],'chat':chats,'notes':saved['notes'],'chat_offset_ms':offset}
 
 def build(path, vod, values):

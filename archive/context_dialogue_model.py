@@ -59,7 +59,7 @@ def call(job, folder, key, value, text, schema, validate):
         saved=read_json(file)
         if saved['signature']!=signature:raise ValueError('추론 체크포인트의 입력이 다릅니다')
         if validate(saved['raw']) is not False:
-            if getattr(job,'input',{}).get('version') in (8,9,10):
+            if getattr(job,'input',{}).get('version') in (8,9,10,11):
                 from .context_metrics import record
                 record(folder,{'stage':key,'checkpoint_reused':True})
             return saved['raw']
@@ -73,7 +73,7 @@ def call(job, folder, key, value, text, schema, validate):
         output=getattr(job,'output_tokens',tokens.OUTPUT)
         if count+output+tokens.MARGIN>tokens.CONTEXT:raise SplitRequired('출력 여유를 포함한 문맥 한도를 넘었습니다')
         attempt_folder=folder/(key+'-'+uuid.uuid4().hex)
-        if getattr(job,'input',{}).get('version') in (8,9,10):
+        if getattr(job,'input',{}).get('version') in (8,9,10,11):
             from .context_metrics import record
             record(folder,{'stage':key,'attempt':attempt,'folder':attempt_folder.name,'checkpoint_reused':False})
         try:

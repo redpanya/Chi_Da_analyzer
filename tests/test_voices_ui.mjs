@@ -44,4 +44,13 @@ project={...project,path:'/검증/vod-2',locked:false,voices:{runs:[],stems:[],b
 assert.equal($('voices-backend').value,'fluid');assert.equal($('voices-number').disabled,false);
 project={...project,path:'/검증/이전-nemo',voices:{runs:[],stems:[],backend:'nemo'}};view.setProject(project);await settle();
 assert.equal($('voices-backend').value,'sherpa');
-console.log('화자 엔진 UI: 준비 안내·잠금·선택 유지·제거된 엔진 선택 복구 통과');
+project={...project,voices:{...project.voices,runs:['a','b'],run:'a',versions:[{id:'a',label:'첫 분석'},{id:'b',label:'다른 분석'}]}};
+view.setProject(project);await settle();
+$('voices-version').value='b';
+project={...project,voices:{...project.voices,updated_at:'다음 폴링'}};view.setProject(project);await settle();
+assert.equal($('voices-version').value,'b');
+globalThis.confirm=()=>false;const beforeDelete=calls.length;
+await $('voices-delete').onclick();assert.equal(calls.length,beforeDelete);
+globalThis.confirm=()=>true;
+await $('voices-delete').onclick();assert.equal(calls.at(-1).data.action,'delete');assert.equal(calls.at(-1).data.options.run,'b');
+console.log('화자 엔진 UI: 준비 안내·잠금·선택 유지·선택 버전 삭제 확인 통과');

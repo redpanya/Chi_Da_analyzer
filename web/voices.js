@@ -65,6 +65,8 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
     $('voices-prepare').disabled=disabled||!d?.engine||d?.supported===false;
     $('voices-run').disabled=disabled||!ready||!d?.ready||!d?.engine||d?.supported===false;
     $('voices-select').disabled=disabled||!s.runs?.length;
+    $('voices-delete').disabled=disabled||!s.runs?.length;
+    $('voices-version').disabled=disabled;
     $('stem-select').disabled=disabled||!s.stems?.length;
     $('voices-export').disabled=disabled||!result?.run||s.stale;
     for(const id of ['voice-assign','voice-split','voice-merge','voice-undo'])$(id).disabled=disabled||!result?.run||s.stale||(id==='voice-undo'&&!result?.undo);
@@ -86,7 +88,11 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
     $('voices-tool-hint').textContent=voiceToolStatus(m,s).hint;
     $('voices-resume-hint').textContent=m.resume===false?'중단 시 처음부터 재실행 · 완료 결과 보존':'30분 조각 처리 · 완료 조각부터 이어받기';
     $('voices-run').textContent=m.resume===false?'전체 화자 분석':'화자 분석·이어받기';
-    options('voices-version',(s.runs||[]).map((id,i)=>[id,`분석 ${i+1} · ${id.slice(0,8)}`]),s.run);
+    const versionKey=JSON.stringify([s.versions,s.runs,s.run]);
+    if($('voices-version').dataset.key!==versionKey){
+      options('voices-version',s.versions?.map(r=>[r.id,r.label])||(s.runs||[]).map(id=>[id,`이전 화자 분석 · ${id.slice(0,8)}`]),s.run);
+      $('voices-version').dataset.key=versionKey;
+    }
     options('stem-version',(s.stems||[]).map(v=>[v.id,`${timecode(v.start_ms)}~${timecode(v.end_ms)} · ${v.profile_label || '이전 설정'} · ${v.id.slice(0,8)}`]),s.stem);
     $('voices-summary').textContent=result.run?`${result.backend_label||'기존 화자 분석'} · ${result.speakers.length}개 화자 묶음 · ${result.total_rows}개 발언 중 화자인식 실패 ${result.failed}개 · 자동 배정도 오분류 가능 · 변경 ${result.revision}회${result.speakers.length>20?' · 묶음이 많아 과분할 검토가 필요합니다. 실제 화자 수를 아는 경우 지정 후 다시 분석하세요.':''}`:'화자 분석을 완료하면 이름과 대표 발언이 표시됩니다.';
     const target=$('voice-target').value, merge=$('voice-merge-source').value;
@@ -169,6 +175,11 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
   $('voices-run').onclick=()=>start('diarize',{backend:backend(),speakers:diarizationInfo()?.manual_speakers===false?-1:Number($('voices-number').value)||-1});
   $('voices-stop').onclick=()=>request('voices-stop',{});
   $('voices-select').onclick=()=>edit('select',{run:$('voices-version').value});
+  $('voices-delete').onclick=()=>{
+    const run=$('voices-version').value;
+    if(!run||project?.locked||!confirm('선택한 화자 분석과 그 버전의 이름·수동 배정을 휴지통으로 이동할까요?\n영상·오디오·전사·다른 화자 분석·내보낸 파일·기존 요약은 유지됩니다.'))return;
+    stopPreview();return edit('delete',{run});
+  };
   $('voices-export').onclick=()=>edit('export');
   $('voice-assign').onclick=()=>edit('assign',{...range('voice'),speaker:$('voice-target').value||null,reason:$('voice-reason').value});
   $('voice-split').onclick=()=>edit('split',range('voice'));

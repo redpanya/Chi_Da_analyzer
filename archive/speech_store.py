@@ -26,6 +26,8 @@ def update(path, **values):
 
 def manifest(path, value=None):
     run = (value or state(path)).get('run')
+    if run in state(path).get('deleted_runs', []):
+        return None
     return read_json(local(path, f'runs/{run}/manifest.json')) if run else None
 
 
@@ -48,7 +50,7 @@ def matching_run(path, signature):
     files = sorted(local(path, 'runs').glob('*/manifest.json'), key=lambda p: p.stat().st_mtime, reverse=True)
     ids += [file.parent.name for file in files if not file.is_symlink() and not file.parent.is_symlink()]
     for run_id in dict.fromkeys(ids):
-        if not run_id: continue
+        if not run_id or run_id in value.get('deleted_runs', []): continue
         try:
             run = manifest(path, {'run': run_id})
             compared = run | input_info(run)
@@ -76,17 +78,10 @@ def view(path, data, busy=False, owned=False):
         value['transcript'].update(input_info(run))
         value['transcript']['quality_revision'] = run.get('quality_revision',0)
         stale |= not audio or run.get('source_audio_sha256', run['audio_sha256']) != audio['sha256']
-    versions = []
-    folder = local(path, 'runs')
-    if folder.exists():
-        for file in sorted(folder.glob('*/manifest.json')):
-            if file.is_symlink() or file.parent.is_symlink(): continue
-            try:
-                saved = read_json(file)
-                versions.append({k: saved[k] for k in ('id', 'created_at', 'complete', 'segment_count')} | input_info(saved) | {'quality_revision':saved.get('quality_revision',0)})
-            except (OSError, ValueError, KeyError, TypeError):
-                value['version_warning'] = '일부 이전 전사 기록을 읽지 못했습니다. 해당 파일은 보존했습니다'
-    value['versions'] = sorted(versions, key=lambda v: v['created_at'], reverse=True)
+    from .analysis_inputs import transcripts
+    from .compute import visible_execution
+    value['versions'] = transcripts(path)
+    value['compute'] = visible_execution(value.get('compute'))
     return value | {'stale': stale, 'owned': owned}
 
 
@@ -226,7 +221,15 @@ def export(path):
 def select(path, run_id):
     if not isinstance(run_id, str) or len(run_id) != 32 or any(c not in '0123456789abcdef' for c in run_id):
         raise ValueError('저장된 전사 버전을 선택하세요')
-    run = manifest(path, {'run': run_id}); segments(path, run)
+    run = manifest(path, {'run': run_id})
+    if not run: raise ValueError('삭제된 전사 데이터입니다')
+    segments(path, run)
+    audio = audio_for_run(path, run)
+    if not audio: raise ValueError('이전 전사의 원음 정보를 찾을 수 없습니다. 파일은 보존되어 있습니다')
+    update(path, run=run_id, audio=audio, exports={})
+
+
+def audio_for_run(path, run):
     audio = run.get('source_audio')
     if not audio:
         wanted = run.get('source_audio_sha256', run['audio_sha256'])
@@ -236,5 +239,4 @@ def select(path, run_id):
         if not audio:
             candidate = state(path).get('audio')
             if candidate and candidate['sha256'] == wanted: audio = candidate
-    if not audio: raise ValueError('이전 전사의 원음 정보를 찾을 수 없습니다. 파일은 보존되어 있습니다')
-    update(path, run=run_id, audio=audio, exports={})
+    return audio

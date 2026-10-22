@@ -371,7 +371,7 @@ class Manager:
                     key += [raw.get('sha256'), raw.get('source'), language, options, quality_revision, speech_options.REVISION]
                 settings = {'input_kind':'original', 'asr_options':options}
                 speech_store.update(path, state='running', action=action, message='음성 작업을 준비합니다', progress={},
-                                    options=settings, timing_key=key, timing=task_timing.start(previous, resume=action != 'audio' and previous.get('action') == action and previous.get('timing_key', key) == key))
+                                    compute=None, options=settings, timing_key=key, timing=task_timing.start(previous, resume=action != 'audio' and previous.get('action') == action and previous.get('timing_key', key) == key))
                 self.speech_job = speech.SpeechJob(path, data, lock, action, {'track': track, 'language': language, 'input_kind': 'original', 'asr_options':options})
                 self.speech_job.report_started = time.monotonic()
                 self.speech_job.thread.start()
@@ -415,6 +415,9 @@ class Manager:
                     speech_store.select(path, run)
                 elif action == 'export':
                     speech_store.export(path)
+                elif action == 'delete':
+                    from .result_deletion import speech as delete
+                    delete(path, run)
                 else:
                     raise ValueError('전사 편집 요청이 올바르지 않습니다')
         return self.view(root, vod)
@@ -484,6 +487,9 @@ class Manager:
             with ProjectLock(path):
                 load_project(path,vod)
                 if action == 'export': voice_store.export(path)
+                elif action == 'delete':
+                    from .result_deletion import voices as delete
+                    delete(path, options.get('run'))
                 elif action == 'accept-suggestion':
                     from .voice_suggestions import accept
                     accept(path,options)
@@ -532,7 +538,7 @@ class Manager:
                 return {'text': context_background.save(path, text)}
 
     def context_start(self, root, vod, action, options=None):
-        if action not in ('model','summarize','whole','resume'): raise ValueError('알 수 없는 문맥 작업입니다')
+        if action not in ('model','summarize','whole','resume','timestamps','timestamps-resume'): raise ValueError('알 수 없는 문맥 작업입니다')
         if options is not None and not isinstance(options,dict):raise ValueError('문맥 작업 설정 형식이 올바르지 않습니다')
         if action=='model' and options and set(options)-{'model'}:raise ValueError('모델 설정을 확인하세요')
         if action in ('model','whole'):
@@ -543,7 +549,10 @@ class Manager:
         with self.guard:
             self.speech_idle();load_project(path,vod);lock=ProjectLock(path)
             try:
-                if action in ('whole','resume'):
+                if action in ('timestamps','timestamps-resume'):
+                    from . import context_timestamps
+                    value=context_timestamps.prepare(path,vod,action,options or {})
+                elif action in ('whole','resume'):
                     from . import context_full
                     value=context_full.prepare(path,vod,action,options or {})
                 else:
@@ -551,11 +560,30 @@ class Manager:
                 self.context_job=context_job.ContextJob(path,vod,lock,action,value)
                 self.context_job.report_started = time.monotonic()
                 self.context_job.thread.start()
-                if action in ('whole', 'resume'):
-                    self.reports.watch(self.context_job, 'summary', {'thinking': (value.get('inference') or {}).get('thinking', True), 'summary_model': context_model.DEFAULT_NAME if self.context_job.model_info['name'] == context_model.DEFAULT_NAME else 'unknown'})
+                if action in ('whole', 'resume', 'timestamps', 'timestamps-resume'):
+                    self.reports.watch(self.context_job, 'summary', {'summary_mode':'timestamps' if action.startswith('timestamps') else 'detail', 'thinking': (value.get('inference') or {}).get('thinking', True), 'summary_model': context_model.DEFAULT_NAME if self.context_job.model_info['name'] == context_model.DEFAULT_NAME else 'unknown'})
             except Exception:
                 lock.close();self.context_job=None;raise
         return self.view(root,vod)
+
+    def context_exchange(self, action, values):
+        from . import context_exchange as exchange, context_exchange_zip as zipper, context_exchange_batch as batch
+        path=project_path(values['root'],values['vod_id']);vod=values['vod_id']
+        with self.guard:
+            load_project(path,vod)
+            if action=='list':return exchange.listing(path)
+            if action=='bundle':return exchange.bundle(path,values.get('export_id'))
+            if action=='archive':return zipper.pack(path,values.get('export_id'))
+            if action=='preview':return exchange.preview(path,vod,values.get('text'))
+            if action=='check-files':return batch.preview(path,vod,values)
+            self.speech_idle()
+            with ProjectLock(path):
+                if action=='create':return exchange.create(path,vod,values.get('options'))
+                if action=='receive':return exchange.receive(path,vod,values.get('text'),values.get('token'))
+                if action=='import-files':return batch.receive(path,vod,values)
+                if action=='cancel':return exchange.cancel(path,values.get('export_id'))
+                if action=='resume':return exchange.resume(path,vod,values.get('export_id'))
+                raise ValueError('알 수 없는 외부 파일 작업입니다')
 
     def context_stop(self, root, vod):
         with self.guard:

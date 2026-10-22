@@ -57,7 +57,8 @@ def main():
                 http=build_opener(ProxyHandler({}))
                 for relative in ('','app.js','voice-model-help.js','voice-tool-status.js','voice-tabs.js',
                                  'compute.js','queue.js','queue-saved.js','reports.js',
-                                 'context-background.js','context-fallback.js','timeline.js'):
+                                 'context-background.js','context-inputs.js','context-fallback.js','timeline.js',
+                                 'context-external.js','context-copy.js','vod-label.js'):
                     with http.open(url+relative,timeout=15) as response:assert response.status==200
                 with http.open(url+'api/config', timeout=30) as response: config=json.load(response)
                 assert config['folders']['compute']['visible'] == (sys.platform == 'win32')
