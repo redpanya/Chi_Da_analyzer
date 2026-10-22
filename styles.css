@@ -216,3 +216,7 @@ body:has(dialog[open]) { overflow:hidden; }
   .entry summary { font-size:12pt; break-after:avoid; }
   .entry-body p { margin-bottom:6px; }
 }
+
+/* 0.20.0 새 안내도 기존 전단지 스타일을 따른다. */
+.edition-update{background:#e9ff66;border:3px double #171717;padding:14px 18px;margin:24px 0 16px;line-height:1.8;box-shadow:5px 5px 0 #171717;}
+.edition-update strong{color:#d63072;}

@@ -23,7 +23,7 @@ function filter() {
   document.body.classList.toggle('searching', !!words.length);
   clear.hidden = !words.length;
   document.querySelector('#empty-state').hidden = count !== 0;
-  status.textContent = words.length ? `검색 결과 ${count}개 · 설명서 안에서 찾았어요` : '9개 주제 · 102개 안내 · 설명 바로 아래 화면 참고';
+  status.textContent = words.length ? `검색 결과 ${count}개 · 설명서 안에서 찾았어요` : `${chapters.length}개 주제 · ${entries.length}개 안내 · 설명 바로 아래 화면 참고`;
   if (!words.length) beforeSearch = null;
   refreshExpand();
 }

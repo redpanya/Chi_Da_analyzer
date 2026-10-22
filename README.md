@@ -1,11 +1,16 @@
-# 치다 분석기 웹 사용설명서
+# 치다 분석기 HTML 사용설명서
 
-치다 분석기의 설치부터 영상 가져오기, 음성 전사, 선택적 화자 구분, AI 요약, 댓글 만들기까지 설명하는 한국어 매뉴얼입니다.
+[바로 열기](https://redpanya.github.io/Chi_Da_analyzer/) · [앱 다운로드](https://github.com/redpanya/Chi_Da_analyzer/releases/tag/v0.20.0-preview.1)
 
-- 9개 주제, 102개 설명, 실제 화면 8장을 사용한 설명별 화면 33곳을 제공합니다.
-- 모든 설명은 기본으로 펼쳐지며 검색, 설명 접기·펼치기, 화면 확대를 사용할 수 있습니다.
-- 모델·영상·음성·채팅 원본·인증정보·앱 실행 파일은 포함하지 않습니다. 설명에 쓰인 실제 앱 화면만 포함합니다.
-- 이 페이지는 사용설명서이며 분석 앱을 실행하거나 방송 자료를 처리하지 않습니다.
-- 안내 기준: 앱 0.18.0 / v0.18.0-preview.5 / 2026-10-16.
+2026-10-22, 앱 0.20.0 기준. 11개 주제·62개 안내와 설명 위치에 배치한 화면 31개입니다. 화면은 가상의 예시 자료로 촬영했으며 실제 AI 품질·성능 측정 결과가 아닙니다.
 
-GitHub Pages에는 이 폴더의 정적 HTML·CSS·JavaScript·화면 이미지가 게시됩니다. 앱 소스 저장소의 비공개 여부와 별개입니다.
+왼쪽 차례 없이 기본 펼침, 검색, 화면 확대, 오프라인 열기를 지원합니다. `index.html`, `styles.css`, `manual.js`, `screenshots/`를 함께 보관하세요. 기존 전단지 디자인은 유지합니다.
+
+## 수정·확인
+
+- 본문: `source/content.json`
+- 화면 배치·강조: `source/shots.json`, `source/images.json`
+- 생성: `python3 scripts/build.py`
+- 정합성 확인: `python3 scripts/check.py`, `node --check manual.js`
+
+GitHub Pages는 `codex/manual-site` 브랜치 루트에서 게시합니다. 소스 앱 변경·패키징과는 별개입니다. 삭제된 다른 outputs 폴더에 의존하지 않습니다.
