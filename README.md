@@ -2,7 +2,7 @@
 
 치지직 다시보기를 내려받아 음성 전사·채팅 반응·AI 문맥 요약을 확인하는 로컬 프로그램입니다.
 
-- **[현재 공개 릴리스 · macOS / Windows 다운로드](https://github.com/redpanya/Chi_Da_analyzer/releases/tag/v0.18.1-preview.1)**
+- **[현재 공개 릴리스 · macOS / Windows 다운로드](https://github.com/redpanya/Chi_Da_analyzer/releases/tag/v0.20.0-preview.1)**
 - **[HTML 사용설명서](https://redpanya.github.io/Chi_Da_analyzer/)**
 
 ## 라이선스
