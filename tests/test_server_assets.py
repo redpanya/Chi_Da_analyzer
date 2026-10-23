@@ -16,7 +16,10 @@ class ServerAssetTests(unittest.TestCase):
         client = HTTPConnection(parsed.hostname, parsed.port, timeout=5)
         try:
             files = [(p.name, p, 'text/javascript') for p in WEB.glob('*.js')]
-            files += [('', WEB/'index.html', 'text/html'), ('style.css', WEB/'style.css', 'text/css')]
+            files += [('', WEB/'index.html', 'text/html')]
+            files += [(p.name, p, 'text/css') for p in WEB.glob('*.css')]
+            files += [(f'patterns/pattern-{i:02}.webp', WEB/f'patterns/pattern-{i:02}.webp', 'image/webp')
+                      for i in range(1, 9)]
             for route, file, mime in files:
                 with self.subTest(file=file.name):
                     client.request('GET', parsed.path+route)
@@ -24,10 +27,12 @@ class ServerAssetTests(unittest.TestCase):
                     self.assertEqual(response.status, 200)
                     self.assertTrue(response.getheader('Content-Type').startswith(mime))
                     self.assertEqual(response.read(), file.read_bytes())
-            client.request('GET', parsed.path+'archive/server.py')
-            response = client.getresponse()
-            self.assertEqual(response.status, 404)
-            response.read()
+            for forbidden in ('archive/server.py', 'patterns/pattern-09.webp',
+                              'patterns/../archive/server.py', 'patterns/%2e%2e/archive/server.py'):
+                client.request('GET', parsed.path+forbidden)
+                response = client.getresponse()
+                self.assertEqual(response.status, 404)
+                response.read()
         finally:
             client.close()
             server.shutdown()

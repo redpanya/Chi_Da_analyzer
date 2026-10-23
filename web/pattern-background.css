@@ -1,0 +1,25 @@
+/* 선택된 한 장만 요청한다. 외부 연결·애니메이션·클릭 영역이 없는 장식이다. */
+:root[data-pattern="1"] { --pattern-image: url("patterns/pattern-01.webp"); }
+:root[data-pattern="2"] { --pattern-image: url("patterns/pattern-02.webp"); }
+:root[data-pattern="3"] { --pattern-image: url("patterns/pattern-03.webp"); }
+:root[data-pattern="4"] { --pattern-image: url("patterns/pattern-04.webp"); }
+:root[data-pattern="5"] { --pattern-image: url("patterns/pattern-05.webp"); }
+:root[data-pattern="6"] { --pattern-image: url("patterns/pattern-06.webp"); }
+:root[data-pattern="7"] { --pattern-image: url("patterns/pattern-07.webp"); }
+:root[data-pattern="8"] { --pattern-image: url("patterns/pattern-08.webp"); }
+
+body { isolation: isolate; background-image: none; }
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--pattern-image, none);
+  background-repeat: repeat;
+  background-size: 512px 512px;
+  image-rendering: pixelated;
+  opacity: .12;
+}
+@media print { body::before { display: none; } }
+@media (forced-colors: active) { body::before { display: none; } }

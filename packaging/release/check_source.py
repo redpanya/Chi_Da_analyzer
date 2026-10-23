@@ -26,6 +26,8 @@ def main():
     ):
         subprocess.run(['node', str(ROOT/'tests'/f'test_{name}.mjs')],
                        cwd=ROOT, check=True)
+    subprocess.run(['node', str(ROOT/'tests/test_pattern_background.cjs')],
+                   cwd=ROOT, check=True)
 
 
 if __name__ == '__main__':

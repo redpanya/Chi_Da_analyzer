@@ -60,6 +60,11 @@ def main():
                                  'context-background.js','context-inputs.js','context-fallback.js','timeline.js',
                                  'context-external.js','context-copy.js','vod-label.js'):
                     with http.open(url+relative,timeout=15) as response:assert response.status==200
+                for relative in ('pattern-background.js', 'pattern-background.css',
+                                 *(f'patterns/pattern-{i:02}.webp' for i in range(1, 9))):
+                    with http.open(url+relative, timeout=15) as response:
+                        assert response.status == 200
+                        assert response.read() == (ROOT/'web'/relative).read_bytes()
                 with http.open(url+'api/config', timeout=30) as response: config=json.load(response)
                 assert config['folders']['compute']['visible'] == (sys.platform == 'win32')
                 if sys.platform == 'win32':
@@ -78,7 +83,7 @@ def main():
                           '다운로드 후 검사 재개 (수신 대체)','패키지 원음 정보·추출 API','원본·채팅 보존',
                           '시작 시각 이동·기존 임시 재생본 복구','저장된 경계 응답의 채팅 보완',
                           '순차 작업 상태·VOD 번호 포함 리포트·구형 사본 보존·자동 전송 제거',
-                          'HTTP 및 정적 모듈','정상 종료']
+                          'HTTP 및 정적 모듈','픽셀 배경 8종·CSS·JS 포함 및 원본 일치','정상 종료']
         (ROOT/'dist/smoke.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
         print('패키지 기본 실행 검사 통과 (모델 추론 제외)')
 
