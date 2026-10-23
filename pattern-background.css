@@ -9,17 +9,29 @@
 :root[data-pattern="8"] { --pattern-image: url("patterns/pattern-08.webp"); }
 
 body { isolation: isolate; background-image: none; }
-body::before {
-  content: "";
+.pattern-background {
+  --pattern-size: 256px;
+  --pattern-gap: 96px;
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: var(--pattern-image, none);
-  background-repeat: repeat;
-  background-size: 512px 512px;
-  image-rendering: pixelated;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, var(--pattern-size));
+  grid-auto-rows: var(--pattern-size);
+  gap: var(--pattern-gap);
+  justify-content: center;
+  align-content: start;
+  padding-block: calc(var(--pattern-gap) / 2);
+  box-sizing: border-box;
+  overflow: hidden;
   opacity: .28;
 }
-@media print { body::before { display: none; } }
-@media (forced-colors: active) { body::before { display: none; } }
+.pattern-background > span {
+  background-image: var(--pattern-image, none);
+  background-repeat: no-repeat;
+  background-size: var(--pattern-size) var(--pattern-size);
+  image-rendering: pixelated;
+}
+@media print { .pattern-background { display: none; } }
+@media (forced-colors: active) { .pattern-background { display: none; } }
