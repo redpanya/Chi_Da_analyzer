@@ -20,7 +20,7 @@ body { isolation: isolate; background-image: none; }
   grid-template-columns: repeat(auto-fill, var(--pattern-size));
   grid-auto-rows: var(--pattern-size);
   gap: var(--pattern-gap);
-  justify-content: center;
+  justify-content: space-between;
   align-content: start;
   padding-block: calc(var(--pattern-gap) / 2);
   box-sizing: border-box;
