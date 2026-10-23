@@ -1,5 +1,6 @@
 """기존 매뉴얼을 보존하고, 오프라인에서도 열리는 HTML을 만든다."""
 import html
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -60,11 +61,13 @@ for n, chapter in enumerate(chapters):
        <header class="chapter-heading"><div class="chapter-number">{n:02}</div><div><h2 id="heading-{ids[n]}">{html.escape(name)}</h2><p>{html.escape(chapter['intro'])}</p></div><span class="chapter-stamp" aria-hidden="true">{stickers[n]}</span></header>
        <div class="entries">{"".join(entries)}</div></section>''')
 
+pattern_assets = {name: f'{name}?v={hashlib.sha256((OUT/name).read_bytes()).hexdigest()[:12]}'
+                  for name in ('pattern-background.css', 'pattern-background.js')}
 page = f'''<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>치다 분석기 사용설명서 — 다시보기, 빠르게 이해하기</title>
 <meta name="description" content="치다 분석기 0.20.0 사용설명서. VOD 순차 작업, 전사, 화자 선택, 빠른 타임스탬프와 외부 AI ZIP 사용법.">
-<meta name="color-scheme" content="light"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="pattern-background.css"><script src="pattern-background.js" defer></script><script src="manual.js" defer></script></head>
+<meta name="color-scheme" content="light"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="{pattern_assets['pattern-background.css']}"><script src="{pattern_assets['pattern-background.js']}" defer></script><script src="manual.js" defer></script></head>
 <body><a class="skip" href="#content">본문으로 바로가기</a>
 <header class="masthead"><a class="brand" href="#top" aria-label="치다 분석기 사용설명서 처음으로"><span class="brand-icon" aria-hidden="true">↙</span><span>치<small>(지직)</small> 다<small>(시보기)</small> 분석기</span></a><span class="masthead-label">사용설명서 <span class="edition">0.20.0</span></span></header>
 <div class="layout">

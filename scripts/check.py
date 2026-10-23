@@ -1,7 +1,9 @@
 """설명·링크·화면 표시 범위의 정합성을 검사한다."""
 import json
+import hashlib
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import urlsplit, parse_qs
 
 root = Path(__file__).resolve().parents[1]
 source = json.loads((root/'source/content.json').read_text())
@@ -43,7 +45,10 @@ assert len(p.ids) == len(set(p.ids)), '중복 ID'
 assert set(p.targets) <= set(p.ids), '깨진 내부 링크'
 for asset in p.assets:
     assert not asset.startswith(('http:', 'https:', '//')), '외부 필수 자원'
-    assert (root/asset).is_file(), f'빠진 자원: {asset}'
+    path = root/urlsplit(asset).path
+    assert path.is_file(), f'빠진 자원: {asset}'
+    if path.name in ('pattern-background.css', 'pattern-background.js'):
+        assert parse_qs(urlsplit(asset).query).get('v') == [hashlib.sha256(path.read_bytes()).hexdigest()[:12]], '배경 캐시 버전 불일치'
 labels={c['id']:{r[0] for r in c['rows']} for c in source}
 assert len({(s['chapter'],s['item']) for s in shots}) == len(shots)
 for s in shots:
