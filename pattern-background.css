@@ -19,7 +19,7 @@ body::before {
   background-repeat: repeat;
   background-size: 512px 512px;
   image-rendering: pixelated;
-  opacity: .12;
+  opacity: .28;
 }
 @media print { body::before { display: none; } }
 @media (forced-colors: active) { body::before { display: none; } }
