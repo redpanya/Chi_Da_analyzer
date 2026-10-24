@@ -10,27 +10,29 @@
 
 body { isolation: isolate; background-image: none; }
 .pattern-background {
-  --pattern-size: 256px;
-  --pattern-gap: 96px;
+  --pattern-pitch: 156px;
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
   display: grid;
-  grid-template-columns: repeat(auto-fill, var(--pattern-size));
-  grid-auto-rows: var(--pattern-size);
-  gap: var(--pattern-gap);
-  justify-content: space-between;
+  grid-template-columns: repeat(auto-fill, var(--pattern-pitch));
+  grid-auto-rows: var(--pattern-pitch);
+  justify-content: space-evenly;
   align-content: start;
-  padding-block: calc(var(--pattern-gap) / 2);
   box-sizing: border-box;
   overflow: hidden;
   opacity: .28;
 }
 .pattern-background > span {
+  display: grid;
+  place-items: center;
+}
+.pattern-background > span > i {
+  display: block;
   background-image: var(--pattern-image, none);
   background-repeat: no-repeat;
-  background-size: var(--pattern-size) var(--pattern-size);
+  background-size: var(--pattern-sheet-size) var(--pattern-sheet-size);
   image-rendering: pixelated;
 }
 @media print { .pattern-background { display: none; } }
