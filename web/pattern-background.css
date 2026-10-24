@@ -22,7 +22,7 @@ body { isolation: isolate; background-image: none; }
   align-content: start;
   box-sizing: border-box;
   overflow: hidden;
-  opacity: .28;
+  opacity: .40;
 }
 .pattern-background > span {
   display: grid;
