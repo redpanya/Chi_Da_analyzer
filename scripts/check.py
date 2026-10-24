@@ -47,8 +47,8 @@ for asset in p.assets:
     assert not asset.startswith(('http:', 'https:', '//')), '외부 필수 자원'
     path = root/urlsplit(asset).path
     assert path.is_file(), f'빠진 자원: {asset}'
-    if path.name in ('pattern-background.css', 'pattern-background.js'):
-        assert parse_qs(urlsplit(asset).query).get('v') == [hashlib.sha256(path.read_bytes()).hexdigest()[:12]], '배경 캐시 버전 불일치'
+    if path.name in ('styles.css', 'pattern-background.css', 'pattern-background.js'):
+        assert parse_qs(urlsplit(asset).query).get('v') == [hashlib.sha256(path.read_bytes()).hexdigest()[:12]], '스타일·배경 캐시 버전 불일치'
 labels={c['id']:{r[0] for r in c['rows']} for c in source}
 assert len({(s['chapter'],s['item']) for s in shots}) == len(shots)
 for s in shots:

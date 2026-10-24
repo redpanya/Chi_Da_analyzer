@@ -28,7 +28,7 @@ button:disabled { cursor:default; }
 .edition { display:inline-block; border:1.5px solid var(--ink); background:var(--lilac); border-radius:20px; padding:3px 10px; margin-left:10px; font-size:11px; }
 .layout { max-width:1100px; margin:auto; padding:0 40px; }
 main { min-width:0; padding-bottom:30px; }
-.hero { margin:36px 0 34px; padding:28px 32px 24px; background:var(--lime); border:7px double #a60081; border-radius:0; box-shadow:9px 9px 0 #263cb5; }
+.hero { margin:36px 0 34px; padding:28px 32px 24px; background:transparent; border:7px double #a60081; border-radius:0; box-shadow:9px 9px 0 #263cb5; }
 .hero-topline { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
 .eyebrow { display:inline-block; padding:5px 11px; background:#263cb5; color:white; border:3px outset #a5afff; font-size:12px; font-weight:800; letter-spacing:.4px; transform:rotate(-2deg); }
 .hero-edition { font-size:12px; font-weight:700; }
@@ -218,5 +218,5 @@ body:has(dialog[open]) { overflow:hidden; }
 }
 
 /* 0.20.0 새 안내도 기존 전단지 스타일을 따른다. */
-.edition-update{background:#e9ff66;border:3px double #171717;padding:14px 18px;margin:24px 0 16px;line-height:1.8;box-shadow:5px 5px 0 #171717;}
+.edition-update{background:transparent;border:3px double #171717;padding:14px 18px;margin:24px 0 16px;line-height:1.8;box-shadow:5px 5px 0 #171717;}
 .edition-update strong{color:#d63072;}
