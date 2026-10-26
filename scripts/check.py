@@ -1,5 +1,6 @@
 """설명·링크·화면 표시 범위의 정합성을 검사한다."""
 import json
+import re
 import hashlib
 from html.parser import HTMLParser
 from pathlib import Path
@@ -60,5 +61,5 @@ for s in shots:
 for stale in ('0.18.0', 'preview.5', '실제 화면 8장', '102개 안내'):
     assert stale not in page, f'이전 버전 안내: {stale}'
 assert 'v0.20.0-preview.4' in page
-assert '/Users/brightp' not in page and 'vod-15655103' not in page
+assert not re.search(r'/Users/|/Volumes/|[A-Za-z]:[\\/]Users[\\/]|vod-\d{6,}', page), '개인 경로·실제 VOD 식별자 노출'
 print(f'통과: {p.chapters}개 주제 · {p.entries}개 기본 펼침 · 설명별 화면 {p.images}개 · 링크/로컬 자원/크롭/표시 경계')
