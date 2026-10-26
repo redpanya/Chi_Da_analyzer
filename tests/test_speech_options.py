@@ -1,11 +1,9 @@
-"""분리 설정 격리, 원음 우회, 설정 전환 후 복구와 이전 결과 보존."""
-import hashlib
-import json
+"""이전 분리음 전사·교정 보존과 원음 전사·제거된 실행 차단."""
 import threading
 import unittest
 from unittest.mock import patch
 
-from archive import sam_models, sam_options, separation, speech, speech_model as model, speech_store as store, speech_media as media
+from archive import sam_options, speech, speech_model as model, speech_store as store, speech_media as media
 from archive.jobs import Manager
 from archive.source import Cancelled
 from archive.storage import ProjectLock, save_json
@@ -26,31 +24,7 @@ class SpeechOptionsTests(unittest.TestCase):
             speech.transcribe(self.path, self.data, 'ko', threading.Event(), lock, lambda **v: store.update(self.path, **v), audio, raw)
         return store.manifest(self.path)
 
-    def test_profiles_and_old_standard_contract(self):
-        old = {'model':sam_models.NAME,'revision':sam_models.REVISION,'runtime':'mlx-audio/0.5.9',
-               'rate':48000,'chunk_seconds':10,'overlap_seconds':3,'seed':42,'description':'speech','ode':'midpoint/16','version':1}
-        self.assertEqual(separation.contract(), old)
-        self.assertEqual([sam_options.ode_options(separation.contract(p)) for p in ('standard','balanced','fast')],
-                         [{'method':'midpoint','step_size':1/16}, {'method':'midpoint','step_size':1/8}, {'method':'euler','step_size':1/8}])
-        for bad in ('', 'turbo', [], None):
-            with self.assertRaises(ValueError): separation.contract(bad)
-        with self.assertRaises(ValueError): sam_options.ode_options({'ode':'euler/0'})
 
-    def test_cached_whole_separation_is_isolated_and_kept(self):
-        self.audio(1000); raw = store.state(self.path)['audio']
-        signature = {'source':raw['source'],'raw_sha256':raw['sha256'],'track':raw['track'],'contract':separation.contract()}
-        key = hashlib.sha256(json.dumps(signature,sort_keys=True).encode()).hexdigest()
-        folder = media.local(self.path, 'separations/'+key); folder.mkdir(parents=True)
-        for name in ('target','residual','speech16'): (folder/(name+'.wav')).write_bytes(b'cached')
-        result = {'contract':separation.contract(),'review_chunks':[], 'hashes':{k:model.digest(folder/(k+'.wav')) for k in ('target','residual')}}
-        save_json(folder/'result.json', result); before = (folder/'result.json').read_bytes()
-        with patch.object(sam_models,'verify'), patch.object(separation,'validate'), patch.object(media,'validate_wav'), patch.object(separation,'run_worker') as worker:
-            _, audio = separation.whole(self.path,self.data,threading.Event(),None,lambda **v:store.update(self.path,**v))
-            worker.assert_not_called()
-            self.assertEqual(audio['separation_run'],key)
-            self.assertEqual(audio['sam_profile'],'standard')
-        self.assertIsNone(separation.completed(folder,'fast'))
-        self.assertEqual((folder/'result.json').read_bytes(),before)
 
     def test_same_audio_different_source_and_profile_create_separate_runs(self):
         self.audio()
@@ -90,13 +64,13 @@ class SpeechOptionsTests(unittest.TestCase):
 
     def test_original_job_does_not_prepare_or_require_sam(self):
         self.audio();raw=store.state(self.path)['audio']
-        with patch.object(separation,'whole',side_effect=AssertionError('SAM 실행 금지')), patch.object(sam_models,'verify',side_effect=AssertionError('SAM 검사 금지')), patch.object(speech,'transcribe') as transcribe:
+        with patch.object(speech,'transcribe') as transcribe:
             job=speech.SpeechJob(self.path,self.data,ProjectLock(self.path),'transcribe',{'language':'ko','input_kind':'original'})
             job.run();self.assertTrue(job.closed);self.assertEqual(store.state(self.path)['state'],'complete')
             self.assertEqual(transcribe.call_args.args[-2],raw|{'input_kind':'original'})
-        with patch.object(separation,'whole',return_value=(raw,raw)) as separate:
+        with patch.object(speech,'transcribe') as transcribe:
             job=speech.SpeechJob(self.path,self.data,ProjectLock(self.path),'separate',{'sam_profile':'fast'})
-            job.run();separate.assert_not_called();self.assertEqual(store.state(self.path)['state'],'error')
+            job.run();transcribe.assert_not_called();self.assertEqual(store.state(self.path)['state'],'error')
 
     def test_invalid_options_do_not_change_state(self):
         self.audio();before=media.local(self.path,'state.json').read_bytes();m=Manager(self.root)

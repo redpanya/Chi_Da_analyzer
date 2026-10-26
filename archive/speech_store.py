@@ -8,7 +8,7 @@ import uuid
 
 from .speech_media import local, identity, source
 from .storage import read_json, save_json, stamp
-from . import task_timing, sam_options, roformer_models
+from . import task_timing, sam_options, roformer_config
 
 CHUNK_MS = 300000
 
@@ -37,7 +37,7 @@ def input_info(run):
     kind = run.get('input_kind', audio.get('input_kind', 'sam' if audio.get('separation_run') else 'original'))
     profile = audio.get('sam_profile', 'standard') if kind == 'sam' else None
     label = 'SAM 분리음 · '+sam_options.label(profile) if kind == 'sam' else '원본 오디오'
-    if kind == 'roformer': label = roformer_models.NAME+' · '+roformer_models.profile(audio.get('separation_profile','fast'))['label']
+    if kind == 'roformer': label = roformer_config.NAME+' · '+roformer_config.profile(audio.get('separation_profile','fast'))['label']
     return {'input_kind': kind, 'sam_profile': profile,
             'separation_run': run.get('separation_run', audio.get('separation_run')),
             'input_label': label, 'asr_options': run.get('asr_options', {'vad':'standard','prompt':''})}

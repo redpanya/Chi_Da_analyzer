@@ -1,9 +1,9 @@
-"""현재 분리 실행기 가상환경의 구성요소 출처와 라이선스를 수집한다."""
+"""현재 선택 화자 실행기 가상환경의 구성요소 출처와 라이선스를 수집한다."""
 from importlib.metadata import distributions
 from pathlib import Path
 import argparse,json,shutil
 
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('worker',choices=['sam','roformer','pyannote']);args=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('worker',choices=['pyannote']);args=p.parse_args()
 root=Path(__file__).resolve().parent/'notices'/(args.worker+'-python');root.mkdir(exist_ok=True)
 manifest=[]
 for dist in distributions():
