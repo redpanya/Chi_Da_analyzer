@@ -444,42 +444,62 @@
   {
     "chapter": "comments",
     "item": "직접 편집한 뒤에도 항목 추가",
-    "source": "020-comment-editor.jpg",
+    "source": "020-comment-list-preview4.jpg",
     "crop": [
-      80,
-      348,
       390,
-      385
+      347,
+      370,
+      285
     ],
     "focus": [
       [
-        88,
-        434,
-        363,
-        150
+        465,
+        440,
+        253,
+        30
       ]
     ],
-    "caption": "앞의 두 줄은 직접 편집하고, 마지막 줄은 새 체크로 추가한 예시예요. · 0.20.0 설명용 예시"
+    "caption": "제목을 고친 뒤 4·7번을 추가해도 시각순으로 정렬돼요. · preview.4 가상 예시"
+  },
+  {
+    "chapter": "comments",
+    "item": "선택한 구간만 이어 보기",
+    "source": "020-comment-list-preview4.jpg",
+    "crop": [
+      390,
+      280,
+      370,
+      428
+    ],
+    "focus": [
+      [
+        497,
+        634,
+        100,
+        29
+      ]
+    ],
+    "caption": "목록 구간 이어 재생으로 선택한 부분만 확인해요. · preview.4 가상 예시"
   },
   {
     "chapter": "comments",
     "item": "클립보드 복사와 실제 댓글 붙여넣기",
-    "source": "020-comment-editor.jpg",
+    "source": "020-comment-list-preview4.jpg",
     "crop": [
-      80,
-      584,
       390,
-      150
+      600,
+      370,
+      108
     ],
     "focus": [
       [
-        89,
-        589,
-        238,
-        37
+        399,
+        634,
+        95,
+        29
       ]
     ],
-    "caption": "클립보드 복사 또는 텍스트 전체 선택으로 직접 복사해요. · 0.20.0 설명용 예시"
+    "caption": "전체 목록 복사와 목록 초기화 버튼이에요. · preview.4 가상 예시"
   },
   {
     "chapter": "external",
