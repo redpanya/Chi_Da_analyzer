@@ -1,7 +1,12 @@
 import {timecode} from './player.js';
+import {contextSummaryFailed} from './context-tree.js';
 
-const key=item=>item.id||JSON.stringify([item.start_ms,item.end_ms,item.summary.title]);
-export const canCopyContext=item=>!item.provisional&&!item.time_review&&!item.gap&&!item.failed&&item.relation_status!=='failed'&&item.grounding_state!=='pending'&&item.grounding_state!=='review'&&item.copy_ready!==false;
+export const contextCommentTitle=item=>contextSummaryFailed(item)?'요약 실패':item.gap?'사용 가능한 전사 없음':item.summary?.title||'제목 없음';
+const key=item=>item.id||JSON.stringify([item.start_ms,item.end_ms,item.summary?.title??contextCommentTitle(item)]);
+export const hasUsableContextSummary=item=>!item.provisional&&!item.time_review&&!item.gap&&!item.failed&&item.relation_status!=='failed'&&item.grounding_state!=='pending'&&item.grounding_state!=='review'&&item.copy_ready!==false;
+export const canCopyContext=item=>hasUsableContextSummary(item)||(
+  (contextSummaryFailed(item)||!!item.gap)&&!item.provisional&&!item.time_review
+  &&Number.isFinite(item.start_ms)&&item.start_ms>=0&&Number.isFinite(item.end_ms)&&item.end_ms>item.start_ms);
 export function createContextCopy({api}={}){
   const $=id=>document.getElementById(id),text=$('context-comment-text'),notice=$('context-copy-notice'),status=$('context-draft-state');
   const drafts=new Map();let current=null,items=[],vodOffset=0;
@@ -27,7 +32,7 @@ export function createContextCopy({api}={}){
     const valid=new Set(items.map(key)),selected=new Set([...current.selected].filter(id=>valid.has(id)));
     if(selected.size!==current.selected.size){current.selected=selected;changed(current);}
   }
-  const line=item=>`${timecode(item.start_ms+vodOffset)} ${item.summary.title.replace(/\s+/g,' ').trim()}`;
+  const line=item=>`${timecode(item.start_ms+vodOffset)} ${contextCommentTitle(item).replace(/\s+/g,' ').trim()}`;
   function generated(){return items.filter(item=>current.selected.has(key(item))).sort((a,b)=>a.start_ms-b.start_ms||(b.kind==='topic')-(a.kind==='topic')||a.end_ms-b.end_ms)
     .map(line).join('\n');}
   function renderStatus(){
@@ -85,7 +90,7 @@ export function createContextCopy({api}={}){
     checkbox(item){
       const draft=current,id=key(item);
       const label=document.createElement('label'),input=document.createElement('input');label.className='inline-check context-check';input.type='checkbox';input.checked=current?.selected.has(key(item))||false;input.disabled=!!current?.loading;
-      input.setAttribute('aria-label',`댓글에 포함: ${item.summary.title}`);
+      input.setAttribute('aria-label',`댓글에 포함: ${contextCommentTitle(item)}`);
       input.onchange=()=>{
         if(!current||current!==draft||current.loading)return;
         const selected=items.find(row=>key(row)===id),adding=input.checked&&!current.selected.has(id);

@@ -3,7 +3,7 @@ import {createContextInputs} from './context-inputs.js';
 import {fallbackEvidence,fallbackChats} from './context-fallback.js';
 import {timecode} from './player.js';
 import {contextReactions} from './context-reactions.js';
-import {createContextCopy,canCopyContext} from './context-copy.js';
+import {createContextCopy,canCopyContext,hasUsableContextSummary} from './context-copy.js';
 import {interpretationDetails} from './context-interpretations.js';
 import {contextGroups,relationLabel,phaseProgress,contextSummaryFailed,contextReactionRows} from './context-tree.js';
 const $=id=>document.getElementById(id);
@@ -78,12 +78,12 @@ export function createContext({api,player,onProject}) {
     if(item.time_review)box.append(node('p','겹친 발언의 경계 시각 확인 필요 · 댓글 복사 선택에서 제외했습니다.','hint'));
     if(item.evidence_review)box.append(node('p','요약 근거 확인 필요 · 전사 내용이 불명확하거나 원문 대조를 확정하지 못했습니다. 원음을 확인하세요.','hint'));
     if(item.grounding_state==='pending')box.append(node('p','요약 초안 · 원문 대조 중입니다. 대조 완료 후 댓글에 선택할 수 있습니다.','hint'));
-    if(item.chat_state==='pending')box.append(node('p',canCopyContext(item)?'채팅 설명 대기 · 대화 문맥은 사용할 수 있습니다.':'채팅 설명 대기','hint'));
+    if(item.chat_state==='pending')box.append(node('p',hasUsableContextSummary(item)?'채팅 설명 대기 · 대화 문맥은 사용할 수 있습니다.':'채팅 설명 대기','hint'));
     if(item.chat_state==='failed')box.append(node('p','채팅 정리 실패 · '+item.chat_error,'hint'));
     const extra=node('details','');extra.append(node('summary',currentResult?.version>=6?'채팅·원문 보기':'채팅 반응·비교·원문 보기'));
     if(item.grounding_state==='review'&&item.draft_summary){
       const draft=node('details','');draft.append(node('summary','검토용 초안 · 미확정'));
-      draft.append(node('p','원문 대조를 통과하지 못해 댓글 복사에서 제외했습니다. 원문·원음과 함께 확인하세요.','hint'));
+      draft.append(node('p',canCopyContext(item)?'원문 대조를 통과하지 못한 초안입니다. 댓글에는 초안 제목 대신 ‘요약 실패’를 넣을 수 있습니다. 원문·원음과 함께 확인하세요.':'원문 대조를 통과하지 못해 댓글 복사에서 제외했습니다. 원문·원음과 함께 확인하세요.','hint'));
       draft.append(node('p',item.draft_summary.title));
       for(const part of item.draft_summary.context||[])draft.append(node('p',part.text));
       extra.append(draft);
@@ -176,7 +176,7 @@ export function createContext({api,player,onProject}) {
         if(value.stats.speech_total!=null)overview.append(node('p',`발언 ${value.stats.speech_used}/${value.stats.speech_total}개 · `+(value.version===5?`제공 채팅 ${value.stats.chat_total}건`:`채팅 ${value.stats.chat_used}/${value.stats.chat_total}건 사용`),'hint'));
         if(value.version<6)overview.append(node('p',value.version===5?'이전 상위·하위 방식의 결과':'이전 문맥 처리 방식의 결과','hint'));
         if(value.pending_topic&&![7,8,9,10].includes(value.version)){const p=value.pending_topic;overview.append(node('p',`${timecode(p.start_ms)} ~ ${timecode(p.end_ms)} · 이어지는 주제: ${p.topic} · 주제 전환 또는 영상 끝에서 요약합니다.`,'hint'));}
-        overview.append(node('p',`요약 사용 가능 ${value.items.filter(canCopyContext).length}개 · 요약 실패 ${value.items.filter(contextSummaryFailed).length}개 · 전사 없음 ${value.items.filter(r=>r.gap).length}구간`,'hint'));
+        overview.append(node('p',`요약 사용 가능 ${value.items.filter(hasUsableContextSummary).length}개 · 요약 실패 ${value.items.filter(contextSummaryFailed).length}개 · 전사 없음 ${value.items.filter(r=>r.gap).length}구간`,'hint'));
         if(value.evidence_reviews)overview.append(node('p',`요약 근거 확인 필요 ${value.evidence_reviews}개 · 자동 재시도 없이 원문 검토가 필요합니다.`,'hint'));
         if(value.input_rejections?.length)overview.append(node('p',`자료 형식 확인 필요 ${value.input_rejections.length}개`,'hint'));
         if(value.version===10&&value.input_rejections?.length){

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {createContextCopy} from '../web/context-copy.js';
+import {createContextCopy,canCopyContext,hasUsableContextSummary} from '../web/context-copy.js';
 import {contextReactionRows} from '../web/context-tree.js';
 
 class Element{
@@ -53,8 +53,17 @@ assert.equal(copy.checkbox(child).children[0].checked,true);
 assert.equal(text.value,'00:01:40 질문 답변');
 const failed={...child,id:'failure',relation_status:'failed'};
 copy.setItems([failed],'실패');check(failed);assert.equal(text.value,'');
-const flatFailed={...child,id:'flat-failure',failed:true};
-copy.setItems([flatFailed],'요약 실패');check(flatFailed);assert.equal(text.value,'');
+const flatFailed={...child,id:'flat-failure',failed:true,copy_ready:false};
+copy.setItems([flatFailed],'요약 실패');check(flatFailed);assert.equal(text.value,'00:01:40 요약 실패');
+assert.equal(canCopyContext(flatFailed),true);assert.equal(hasUsableContextSummary(flatFailed),false);
+assert.equal(copy.checkbox(flatFailed).children[0].attributes['aria-label'],'댓글에 포함: 요약 실패');
+copy.setItems([gap],'전사 없음');check(gap);assert.equal(text.value,'00:00:00 사용 가능한 전사 없음');
+assert.equal(canCopyContext(gap),true);assert.equal(hasUsableContextSummary(gap),false);
+assert.equal(copy.checkbox(gap).children[0].attributes['aria-label'],'댓글에 포함: 사용 가능한 전사 없음');
+const reviewFailed={...child,id:'review-failure',grounding_state:'review',copy_ready:false,
+  summary:{title:'검증을 통과하지 못한 제목',context:[]}};
+copy.setItems([reviewFailed],'근거 대조 실패');check(reviewFailed);assert.equal(text.value,'00:01:40 요약 실패');
+assert.equal(hasUsableContextSummary(reviewFailed),false);
 console.log('문맥 선택·시간순 서식·해제·갱신/버전 격리·복사/수동 대안·원본 불변 검사 통과');
 
 for (const flag of ['provisional','time_review']) {
@@ -62,7 +71,7 @@ for (const flag of ['provisional','time_review']) {
 }
 const completed={...child,id:'완료',chat_state:'pending'};copy.setItems([completed],'채팅 대기');check(completed);assert.notEqual(text.value,'');
 for(const grounding_state of ['pending','review']){
-  const item={...child,id:grounding_state,grounding_state};copy.setItems([item],'대조 대기');check(item);assert.equal(text.value,'');
+  const item={...child,id:grounding_state,grounding_state,summary:{...child.summary,context:[{text:'검토 중 문맥'}]}};copy.setItems([item],'대조 대기');check(item);assert.equal(text.value,'');
 }
 copy.setItems([completed],'채팅 대기');check(completed);
 copy.setItems([{...completed,chat_state:'complete'}],'채팅 대기');assert.equal(copy.checkbox(completed).children[0].checked,true);
@@ -136,3 +145,36 @@ staleCheckbox.checked=true;staleCheckbox.onchange();assert.equal(text.value,'다
 const invalid={...b,id:'처리 중',provisional:true},invalidCheck=appendCopy.checkbox(invalid).children[0];
 invalidCheck.checked=true;invalidCheck.onchange();assert.equal(text.value,'다른 탭 초안');
 console.log('편집 후 아래줄 추가·재선택 중복 방지·줄바꿈 보존·원본 시각 보정·다른 탭 격리 통과');
+
+// 실패·전사 없음도 일반 선택과 함께 시간순 정렬하고, 편집·저장·복원 경로를 재사용한다.
+const failedRows=[gap,flatFailed,reviewFailed],failedBefore=JSON.stringify(failedRows);
+let failureCopy=createContextCopy({api});
+const failureIdentity={...draftIdentity,run:'c'.repeat(32)};
+await failureCopy.setItems([a,...failedRows],'실패 항목 영구 초안',3600000,failureIdentity);
+const toggleFailure=(row,checked=true)=>{const input=failureCopy.checkbox(row).children[0];input.checked=checked;input.onchange();};
+toggleFailure(flatFailed);toggleFailure(gap);
+assert.equal(text.value,'01:00:00 사용 가능한 전사 없음\n01:01:40 요약 실패');
+toggleFailure(gap,false);assert.equal(text.value,'01:01:40 요약 실패');
+text.value='01:01:40 직접 확인한 제목';text.oninput();
+toggleFailure(gap);assert.equal(text.value,'01:01:40 직접 확인한 제목\n01:00:00 사용 가능한 전사 없음');
+toggleFailure(gap,false);toggleFailure(gap);
+assert.equal(text.value,'01:01:40 직접 확인한 제목\n01:00:00 사용 가능한 전사 없음');
+text.onblur();await new Promise(resolve=>setTimeout(resolve,5));
+failureCopy=createContextCopy({api});
+await failureCopy.setItems([a,...failedRows],'실패 항목 영구 초안',3600000,failureIdentity);
+assert.equal(failureCopy.checkbox(gap).children[0].checked,true);
+assert.equal(failureCopy.checkbox(flatFailed).children[0].checked,true);
+assert.equal(text.value,'01:01:40 직접 확인한 제목\n01:00:00 사용 가능한 전사 없음');
+await failureCopy.setItems([a,...failedRows],'실패 항목 영구 초안',3600000,failureIdentity);
+assert.equal(text.value,'01:01:40 직접 확인한 제목\n01:00:00 사용 가능한 전사 없음');
+navigator.clipboard={async writeText(value){copied=value;}};
+await el('context-copy').onclick();assert.equal(copied,text.value);
+assert.equal(JSON.stringify(failedRows),failedBefore);
+for(const row of [gap,flatFailed,reviewFailed]){
+  for(const change of [{provisional:true},{time_review:true},{start_ms:-1},{start_ms:NaN},{end_ms:row.start_ms},{end_ms:Infinity}]){
+    const invalid={...row,...change};assert.equal(canCopyContext(invalid),false);
+  }
+}
+assert.equal(hasUsableContextSummary(a),true);
+assert.equal(failedRows.filter(hasUsableContextSummary).length,0);
+console.log('실패·전사 없음 선택/상태 제목/시각 보정/편집 후 추가/저장 복원/복사/성공 개수 분리/원본 보존 통과');
