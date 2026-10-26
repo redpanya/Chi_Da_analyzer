@@ -9,7 +9,7 @@ import {contextGroups,relationLabel,phaseProgress,contextSummaryFailed,contextRe
 const $=id=>document.getElementById(id);
 const node=(tag,text,cls='')=>{const el=document.createElement(tag);el.textContent=text;el.className=cls;return el;};
 export function createContext({api,player,onProject}) {
-  const copy=createContextCopy({api});
+  const copy=createContextCopy({api,player});
   let project=null,key='',serial=0,currentRun=null,currentResult=null,latestRun=null,listItems=[],viewMode='detail';
   const selectedRuns={detail:null,timestamps:null}, thinking={detail:true,timestamps:false};
   const modeOf=r=>r?.mode||'detail';

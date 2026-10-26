@@ -1,24 +1,19 @@
 import {timecode} from './player.js';
-import {contextSummaryFailed} from './context-tree.js';
+import {canCopyContext,contextCommentTitle,contextKey,commentRow,commentText,orderedRows,restoreComment,validRange} from './context-comment-model.js';
+export {canCopyContext,contextCommentTitle,hasUsableContextSummary} from './context-comment-model.js';
 
-export const contextCommentTitle=item=>contextSummaryFailed(item)?'요약 실패':item.gap?'사용 가능한 전사 없음':item.summary?.title||'제목 없음';
-const key=item=>item.id||JSON.stringify([item.start_ms,item.end_ms,item.summary?.title??contextCommentTitle(item)]);
-export const hasUsableContextSummary=item=>!item.provisional&&!item.time_review&&!item.gap&&!item.failed&&item.relation_status!=='failed'&&item.grounding_state!=='pending'&&item.grounding_state!=='review'&&item.copy_ready!==false;
-export const canCopyContext=item=>hasUsableContextSummary(item)||(
-  (contextSummaryFailed(item)||!!item.gap)&&!item.provisional&&!item.time_review
-  &&Number.isFinite(item.start_ms)&&item.start_ms>=0&&Number.isFinite(item.end_ms)&&item.end_ms>item.start_ms);
-export function createContextCopy({api}={}){
-  const $=id=>document.getElementById(id),text=$('context-comment-text'),notice=$('context-copy-notice'),status=$('context-draft-state');
-  const drafts=new Map();let current=null,items=[],vodOffset=0;
-  function payload(d){return {revision:d.revision,text:d.text,selected:[...d.selected],edited:d.edited,basis:d.basis};}
+export function createContextCopy({api,player}={}){
+  const $=id=>document.getElementById(id),list=$('context-comment-list'),notice=$('context-copy-notice'),status=$('context-draft-state');
+  const drafts=new Map(),nodes=new Map();let current=null,items=[],vodOffset=0,renderedOrder='';
+  const blocked=()=>!current||current.loading||!!current.loadError;
+  const text=()=>current?commentText(current.rows,vodOffset):'';
+  function payload(d){return {revision:d.revision,format:2,rows:d.rows.map(row=>({...row})),legacy_text:d.legacy_text};}
   async function save(d){
     clearTimeout(d.timer);
     if(!api||!d.identity||d.loading||d.loadError||d.saving||!d.changed)return;
     const serial=d.serial;d.saving=true;d.error='';renderStatus();
-    try{
-      const value=await api('context-comment-save',{...d.identity,draft:payload(d)});
-      d.revision=value.revision;d.changed=d.serial!==serial;
-    }catch(error){d.error='미저장 · '+error.message;}
+    try{const value=await api('context-comment-save',{...d.identity,draft:payload(d)});d.revision=value.revision;d.changed=d.serial!==serial;}
+    catch(error){d.error='미저장 · '+error.message;}
     finally{d.saving=false;renderStatus();if(d.changed&&!d.error)save(d);}
   }
   function changed(d){d.changed=true;d.serial++;clearTimeout(d.timer);d.timer=setTimeout(()=>save(d),350);}
@@ -27,84 +22,96 @@ export function createContextCopy({api}={}){
     if(!pending.length)return;
     pending.forEach(save);event.preventDefault();event.returnValue='';
   });
-  function pruneSelection(){
-    if(!current||current.loading||current.loadError)return;
-    const valid=new Set(items.map(key)),selected=new Set([...current.selected].filter(id=>valid.has(id)));
-    if(selected.size!==current.selected.size){current.selected=selected;changed(current);}
+  function renderStatus(){status.textContent=!current?'':current.loading?'저장한 댓글 목록 확인 중…':current.loadError||current.error||(current.saving||current.changed&&api?'저장 중…':api?'이 컴퓨터에 저장됨':'화면 목록');}
+  function syncChecks(){
+    if(!current)return;
+    for(const input of document.querySelectorAll('.context-check input')){
+      if(input.commentScope!==current?.scope)continue;
+      input.checked=current.rows.some(row=>row.source_id===input.commentSource);input.disabled=blocked();
+    }
   }
-  const line=item=>`${timecode(item.start_ms+vodOffset)} ${contextCommentTitle(item).replace(/\s+/g,' ').trim()}`;
-  function generated(){return items.filter(item=>current.selected.has(key(item))).sort((a,b)=>a.start_ms-b.start_ms||(b.kind==='topic')-(a.kind==='topic')||a.end_ms-b.end_ms)
-    .map(line).join('\n');}
-  function renderStatus(){
-    if(!current){status.textContent='';return;}
-    status.textContent=current.loading?'저장한 댓글 초안 확인 중…':current.loadError||current.error||(current.saving||current.changed?'저장 중…':api?'이 컴퓨터에 저장됨':'화면 초안')
-      +(current.edited?' · 직접 편집한 초안':'')+(current.edited&&current.basis!==generated()?' · 선택 목록과 편집 내용은 다를 수 있습니다.':'');
+  function playbackStatus(){
+    const state=player?.sequenceState?.()||{active:false},button=$('context-list-play');
+    button.textContent=state.active?(state.paused?'목록 재생 계속':'목록 재생 일시정지'):'목록 구간 이어 재생';
+    button.disabled=blocked()||!player||!current.rows.some(validRange);
+    $('context-list-playing').textContent=state.active?`선택 구간 ${state.index+1}/${state.total}${state.paused?' · 일시정지':' · 빈 시간 건너뛰기'}`:'';
+  }
+  player?.onSequence?.(playbackStatus);
+  function remove(id){
+    if(blocked())return;player?.stopSequence?.();current.rows=current.rows.filter(row=>row.id!==id);
+    changed(current);notice.textContent='댓글 목록에서 항목을 제거했습니다.';render();
+  }
+  function rowNode(row){
+    const d=current,li=document.createElement('li'),clock=document.createElement('button'),title=document.createElement('input'),del=document.createElement('button');
+    li.className='context-comment-row';clock.className='subtle comment-time';title.type='text';title.maxLength=50000;title.className='comment-title';del.className='subtle comment-remove';del.textContent='×';
+    title.oninput=()=>{if(d!==current||blocked())return;const value=current.rows.find(r=>r.id===row.id);if(!value)return;value.title=title.value;changed(d);$('context-copy-fallback').hidden=true;renderStatus();};
+    title.onblur=()=>save(d);
+    clock.onclick=()=>{if(d!==current||blocked())return;const value=current.rows.find(r=>r.id===row.id);if(value&&validRange(value))player?.seek(value.start_ms,true,value.end_ms);};
+    del.onclick=()=>{if(d===current)remove(row.id);};
+    li.append(clock,title,del);return {li,clock,title,del};
   }
   function render(){
-    if(!current){text.value='';text.disabled=true;$('context-copy-count').textContent='선택한 문맥 0개 · 시간순';$('context-copy').disabled=$('context-copy-select').disabled=$('context-copy-reset').disabled=true;renderStatus();return;}
-    const value=generated();
-    if(!current.loading&&!current.edited&&current.text!==value){current.text=value;current.basis=value;changed(current);}
-    if(text.value!==current.text)text.value=current.text;
-    text.disabled=current.loading;
-    const rows=items.filter(item=>current.selected.has(key(item)));
-    const duplicate=new Set(rows.map(x=>timecode(x.start_ms))).size<rows.length;
-    $('context-copy-count').textContent=`선택한 문맥 ${rows.length}개 · ${current.edited?'편집 유지 · 새 선택은 맨 아래 추가':'시간순'}${duplicate?' · 같은 시작 시각이 있습니다. 미리보기를 확인하세요.':''}`;
-    $('context-copy').disabled=$('context-copy-select').disabled=!current.text||current.loading;
-    $('context-copy-reset').disabled=current.loading||!current.edited;
-    renderStatus();
+    const rows=current?orderedRows(current.rows):[],ids=new Set(rows.map(r=>r.id));
+    for(const [id,node] of nodes)if(!ids.has(id)){node.li.remove();nodes.delete(id);}
+    for(const row of rows){
+      if(!nodes.has(row.id))nodes.set(row.id,rowNode(row));const {clock,title,del}=nodes.get(row.id);
+      const at=Number.isFinite(row.start_ms)?timecode(row.start_ms+vodOffset):'시각 없음';
+      clock.textContent=at;clock.disabled=blocked()||!player||!validRange(row);
+      clock.title=validRange(row)?`${at} 구간 재생`:'끝 시각을 확인할 수 없어 이어 재생에서 제외합니다.';
+      title.setAttribute('aria-label',`${at} 댓글 제목`);title.disabled=blocked();if(title.value!==row.title)title.value=row.title;
+      del.setAttribute('aria-label',`${at} 항목 제거`);del.disabled=blocked();
+    }
+    const order=JSON.stringify(rows.map(r=>r.id));
+    if(order!==renderedOrder){for(const row of rows)list.append(nodes.get(row.id).li);renderedOrder=order;}
+    $('context-comment-empty').hidden=!!rows.length;
+    const excluded=rows.filter(row=>!validRange(row)).length;
+    $('context-copy-count').textContent=`목록 ${rows.length}개 · 시간순${excluded?' · 재생 범위 미확인 '+excluded+'개':''}`;
+    $('context-copy').disabled=blocked()||!rows.length;$('context-copy-reset').disabled=blocked()||!rows.length;
+    $('context-comment-legacy').hidden=!current?.legacy_text;$('context-comment-legacy-text').textContent=current?.legacy_text||'';
+    syncChecks();renderStatus();playbackStatus();
   }
-  text.oninput=()=>{if(!current||current.loading)return;current.text=text.value;current.edited=true;changed(current);render();};
-  text.onblur=()=>{if(current)save(current);};
   $('context-copy-reset').onclick=()=>{
-    if(!current||current.loading)return;
-    if(current.edited&&!globalThis.confirm('직접 편집한 댓글을 선택한 문맥의 시각·제목으로 다시 만듭니다. 계속할까요?'))return;
-    current.edited=false;current.text=generated();current.basis=current.text;changed(current);notice.textContent='선택 목록으로 다시 만들었습니다.';render();
+    if(blocked()||!current.rows.length)return;
+    if(!globalThis.confirm('댓글 목록과 편집한 제목을 초기화합니다. 요약 원본과 보관된 이전 메모는 유지합니다. 계속할까요?'))return;
+    player?.stopSequence?.();current.rows=[];changed(current);notice.textContent='댓글 목록을 초기화했습니다.';$('context-copy-fallback').hidden=true;render();
   };
-  const select=()=>{text.focus();text.select();};
-  $('context-copy-select').onclick=select;
+  $('context-list-play').onclick=()=>{
+    if(blocked()||!player)return;
+    if(player.sequenceState().active)player.toggleSequence();else if(player.playSequence(orderedRows(current.rows)))notice.textContent='목록의 시작·끝 시각으로 재생합니다. 겹치는 구간은 한 번만 재생합니다.';
+    playbackStatus();
+  };
   $('context-copy').onclick=async()=>{
-    const value=text.value,source=current;if(!value)return;
-    if(source)save(source);
-    try{await navigator.clipboard.writeText(value);if(source===current&&value===text.value)notice.textContent='복사했습니다. 치지직 다시보기 댓글에 붙여넣으세요.';}
-    catch{if(source===current&&value===text.value){select();notice.textContent='자동 복사를 사용할 수 없습니다. 선택된 내용을 ⌘C로 복사하세요.';}}
+    if(blocked())return;const value=text(),source=current;if(!value)return;save(source);
+    try{await navigator.clipboard.writeText(value);if(source===current&&value===text()){notice.textContent='복사했습니다. 치지직 다시보기 댓글에 붙여넣으세요.';$('context-copy-fallback').hidden=true;}}
+    catch{if(source===current&&value===text()){const fallback=$('context-copy-fallback');fallback.hidden=false;fallback.value=value;fallback.focus();fallback.select();notice.textContent='자동 복사를 사용할 수 없습니다. 선택된 내용을 ⌘C 또는 Ctrl+C로 복사하세요.';}}
   };
   return {
     async setItems(values,scope,offset=0,identity=null){
       if(current?.scope!==scope){
-        if(current)save(current);
-        notice.textContent='';current=null;
+        if(current)save(current);player?.stopSequence?.();notice.textContent='';current=null;nodes.clear();list.replaceChildren();renderedOrder='';$('context-copy-fallback').hidden=true;
         if(scope){
           if(!drafts.has(scope)){
-            const d={scope,identity,revision:0,text:'',selected:new Set(),edited:false,basis:'',serial:0,changed:false,loading:!!api};drafts.set(scope,d);
-            if(api)d.ready=api('context-comment',identity).then(value=>{Object.assign(d,value,{selected:new Set(value.selected),loading:false});})
-              .catch(error=>{d.loading=false;d.loadError='기존'+' 초안 조회 실패 · 편집 내용은 자동 저장하지 않습니다: '+error.message;});
+            const d={scope,identity,revision:0,rows:[],legacy_text:'',serial:0,changed:false,loading:!!api};drafts.set(scope,d);
+            if(api)d.ready=api('context-comment',identity).then(value=>{d.raw=value;d.loading=false;})
+              .catch(error=>{d.loading=false;d.loadError='기존 목록 조회 실패 · 새로고침 후 다시 확인하세요: '+error.message;});
           }
           current=drafts.get(scope);
         }
       }
-      items=values.filter(canCopyContext);vodOffset=offset;
-      pruneSelection();
-      render();const d=current;
-      if(d?.ready){await d.ready;if(d!==current)return;d.ready=null;pruneSelection();render();}
+      items=values.filter(canCopyContext);vodOffset=offset;render();const d=current;
+      if(d?.ready){await d.ready;if(d!==current)return;d.ready=null;if(d.raw){Object.assign(d,restoreComment(d.raw,items,vodOffset),{revision:d.raw.revision});delete d.raw;}render();}
     },
     checkbox(item){
-      const draft=current,id=key(item);
-      const label=document.createElement('label'),input=document.createElement('input');label.className='inline-check context-check';input.type='checkbox';input.checked=current?.selected.has(key(item))||false;input.disabled=!!current?.loading;
+      const draft=current,id=contextKey(item),label=document.createElement('label'),input=document.createElement('input');
+      label.className='inline-check context-check';input.type='checkbox';input.checked=current?.rows.some(row=>row.source_id===id)||false;input.disabled=blocked();input.commentScope=current?.scope;input.commentSource=id;
       input.setAttribute('aria-label',`댓글에 포함: ${contextCommentTitle(item)}`);
       input.onchange=()=>{
-        if(!current||current!==draft||current.loading)return;
-        const selected=items.find(row=>key(row)===id),adding=input.checked&&!current.selected.has(id);
+        if(current!==draft||blocked())return;const selected=items.find(row=>contextKey(row)===id);
         if(input.checked&&!selected)return;
-        if(input.checked)current.selected.add(id);else current.selected.delete(id);
-        notice.textContent='';
-        if(current.edited&&adding){
-          const addition=line(selected);
-          if(!current.text.split(/\r\n|\r|\n/).some(row=>row.trim()===addition)){
-            current.text+=(current.text&&!/[\r\n]$/.test(current.text)?'\n':'')+addition;
-            notice.textContent='선택한 시각·제목을 댓글 맨 아래에 추가했습니다.';
-          }else notice.textContent='같은 시각·제목이 댓글에 이미 있어 중복으로 추가하지 않았습니다.';
-        }else if(current.edited&&!input.checked)notice.textContent='선택을 해제했습니다. 편집한 글의 해당 줄은 필요하면 직접 삭제하세요.';
-        changed(current);render();
+        const existing=current.rows.find(row=>row.source_id===id);
+        if(input.checked&&!existing){player?.stopSequence?.();current.rows.push(commentRow(selected));notice.textContent='시간순 위치에 추가했습니다.';}
+        else if(!input.checked&&existing){remove(existing.id);return;}else return;
+        changed(current);$('context-copy-fallback').hidden=true;render();
       };
       label.append(input,'댓글에 포함');return label;
     }

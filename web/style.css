@@ -47,7 +47,7 @@ main:has(#context-panel:not([hidden])){max-width:1550px}.context-workspace{displ
 .context-item h3.context-failed{color:#b42318;font-weight:800}
 .context-failed-item{border-color:#d98a83}
 .context-reaction-index{display:block;font-size:.88rem;font-weight:600;overflow-wrap:anywhere;margin-top:.4rem}
-#speech-prompt,#context-comment-text{width:100%;box-sizing:border-box;resize:vertical}
+#speech-prompt{width:100%;box-sizing:border-box;resize:vertical}
 
 /* 모든 창에서 영역 순서·열 수를 유지한다. 1024px 아래는 문서 가로 스크롤. */
 html{scrollbar-gutter:stable}
@@ -119,3 +119,5 @@ button{touch-action:manipulation;user-select:none;-webkit-user-select:none}butto
 #external-panel textarea{display:block;width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;resize:vertical}#external-downloads,#external-list{max-height:320px;overflow:auto;margin:10px 0}#external-preview-result{max-height:260px;overflow:auto}.external-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)}.external-row span{flex:1;min-width:0}.project-duration{white-space:nowrap;font-size:.9em}nav .step{min-width:0}
 
 #external-panel .external-error{color:var(--danger,#b42318);font-weight:700;overflow-wrap:anywhere}
+
+.context-comment-list{list-style:none;padding:0;margin:8px 0;max-height:320px;overflow:auto;scrollbar-gutter:stable}.context-comment-row{display:grid;grid-template-columns:82px minmax(0,1fr) 28px;gap:6px;align-items:center;margin:5px 0}.context-comment-row .comment-time{font:12px ui-monospace,monospace;padding:6px 2px;white-space:nowrap}.context-comment-row .comment-title{box-sizing:border-box;width:100%;min-width:0;border:1px solid var(--line);border-radius:5px;background:#fff;padding:7px 8px;font-family:inherit;font-size:13px;line-height:1.4;color:inherit}.context-comment-row .comment-title:focus-visible{outline:2px solid #B7481F;outline-offset:1px}.context-comment-row .comment-remove{padding:6px;font-size:18px}.context-comment-row button:disabled{cursor:default}#context-comment-legacy-text{white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:auto;font:12px/1.6 ui-monospace,monospace}#context-copy-fallback{box-sizing:border-box;min-height:80px}#context-copy-fallback[hidden]{display:none}

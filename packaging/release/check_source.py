@@ -13,7 +13,7 @@ def main():
         'test_automation_reports', 'test_server_assets', 'test_queue_registration',
         'test_context_background', 'test_voices', 'test_legal_packaging',
         'test_analysis_inputs', 'test_context_exchange', 'test_context_exchange_http',
-        'test_context_exchange_zip',
+        'test_context_exchange_zip', 'test_context_comments',
     )
     env = os.environ | {'PYTHONPATH': os.pathsep.join((str(ROOT/'tests'), str(ROOT)))}
     subprocess.run([sys.executable, '-m', 'unittest', *modules, '-v'],
@@ -22,7 +22,7 @@ def main():
         'reports_ui', 'speech_readiness', 'speech_ui', 'timeline',
         'context_review_ui', 'voice_review', 'voices_ui', 'local_import_ui',
         'voice_tools_ui',
-        'context_inputs', 'context_external', 'context_copy', 'vod_label',
+        'context_inputs', 'context_external', 'context_copy', 'comment_playback', 'vod_label',
     ):
         subprocess.run(['node', str(ROOT/'tests'/f'test_{name}.mjs')],
                        cwd=ROOT, check=True)

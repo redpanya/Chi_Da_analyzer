@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import {createPlayer} from '../web/player.js';
+import {playbackRanges} from '../web/player-sequence.js';
+assert.deepEqual(playbackRanges([{start_ms:40,end_ms:80},{start_ms:10,end_ms:50},{start_ms:120,end_ms:130},{start_ms:null,end_ms:200}]),[{start:10,end:80},{start:120,end:130}]);
+const handlers=new Map(),elements=new Map();
+const video={duration:200,currentTime:0,paused:true,error:null,seeking:false,getAttribute:()=>'/fixture.mp4',addEventListener:(name,fn)=>{handlers.set(name,[...(handlers.get(name)||[]),fn]);},pause(){this.paused=true;},async play(){this.paused=false;}};
+globalThis.document={getElementById(id){if(id==='player')return video;if(!elements.has(id))elements.set(id,{textContent:'',value:'1',hidden:false});return elements.get(id);}};
+const $=id=>document.getElementById(id),player=createPlayer(),tick=()=>{for(const fn of handlers.get('timeupdate'))fn();};
+player.playSequence([{start_ms:10000,end_ms:20000},{start_ms:40000,end_ms:50000},{start_ms:45000,end_ms:55000},{start_ms:90000,end_ms:100000}]);
+assert.equal(video.currentTime,10);assert.equal(player.sequenceState().total,3);
+video.currentTime=20.05;tick();assert.equal(video.currentTime,40);assert.equal(video.paused,false);
+handlers.get('seeked').forEach(fn=>fn());handlers.get('seeked').forEach(fn=>fn());assert.equal(player.sequenceState().active,true); // 지연·중복 seek 완료 이벤트
+video.currentTime=50;tick();assert.equal(video.currentTime,50);
+video.currentTime=55;tick();assert.equal(video.currentTime,90);
+video.currentTime=100;tick();assert.equal(video.currentTime,100);assert.equal(video.paused,true);assert.equal(player.sequenceState().active,false);
+player.playSequence([{start_ms:0,end_ms:10000},{start_ms:30000,end_ms:40000}]);player.toggleSequence();assert(video.paused);player.toggleSequence();assert(!video.paused);
+player.previewMode(true);assert.equal($('playback-speed-control').hidden,true);assert.equal($('play-back').hidden,false);assert.equal(video.playbackRate,1);
+video.currentTime=2;$('play-back').onclick();assert.equal(video.currentTime,0);assert.equal(player.sequenceState().active,false);
+video.currentTime=199;$('play-forward').onclick();assert.equal(video.currentTime,200);
+player.playSequence([{start_ms:1000,end_ms:2000}]);player.clearRange();assert.equal(video.paused,true);assert.equal(player.sequenceState().active,false);
+player.playSequence([{start_ms:1000,end_ms:2000}]);player.seek(3000,true);assert.equal(player.sequenceState().active,false);assert.equal(video.currentTime,3);
+player.previewMode(false);assert.equal($('playback-speed-control').hidden,false);assert.equal($('play-back').hidden,true);
+assert.equal(player.playSequence([{start_ms:201000,end_ms:202000}]),false);
+video.error={};assert.equal(player.playSequence([{start_ms:0,end_ms:1000}]),false);
+video.error=null;video.duration=NaN;assert(player.playSequence([{start_ms:1000,end_ms:5000}]));video.duration=2;handlers.get('loadedmetadata').forEach(fn=>fn());assert.equal(video.currentTime,1);video.currentTime=2;tick();assert(video.paused);
+console.log('선택 구간 건너뛰기·중첩 합치기·마지막 정지·일시정지/계속·3초 이동·페이지 전환·미준비 영상 검사 통과');
+
+video.duration=20;let rejectPlay;video.play=()=>new Promise((_,reject)=>{rejectPlay=reject;});
+player.playSequence([{start_ms:1000,end_ms:3000}]);const staleReject=rejectPlay;player.seek(5000,false);staleReject(Error('이전 재생 취소'));await Promise.resolve();
+assert.equal(video.currentTime,5);assert.doesNotMatch($('player-status').textContent,/시작하지 못했습니다/);
+console.log('지연된 탐색 완료·이전 재생 Promise 취소가 새 탐색을 방해하지 않음 확인');
