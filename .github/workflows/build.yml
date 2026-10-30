@@ -48,6 +48,8 @@ jobs:
             packaging/release/requirements.txt
       - name: Python 실행 환경
         run: python -m pip install -r packaging/release/requirements.txt
+      - name: TLS 거부 검사 전용 의존성 (앱 미포함)
+        run: python -m pip install --target build/test-deps cryptography==50.0.2
       - name: OS별 잠금과 실행 검사
         run: python packaging/release/check_source.py
       - name: macOS 빌드 도구
@@ -62,6 +64,7 @@ jobs:
           install: >-
             make
             diffutils
+            patch
             nasm
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-pkgconf
@@ -103,7 +106,7 @@ jobs:
         id: media-cache
         with:
           path: build/native/ffmpeg
-          key: media-${{ matrix.media-label }}-${{ hashFiles('packaging/release/sources.json', 'packaging/release/build_ffmpeg.sh') }}
+          key: media-${{ matrix.media-label }}-${{ hashFiles('packaging/release/sources.json', 'packaging/release/build_ffmpeg.sh', 'packaging/release/ffmpeg-tls-verify.patch') }}
       - name: FFmpeg 빌드 (macOS)
         if: runner.os == 'macOS' && steps.media-cache.outputs.cache-hit != 'true'
         run: bash packaging/release/build_ffmpeg.sh

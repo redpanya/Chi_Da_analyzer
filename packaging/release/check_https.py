@@ -1,5 +1,6 @@
 """배포 FFmpeg로 인증서를 검증하며 실제 HTTPS 구간을 수신·디코딩한다."""
 import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -15,6 +16,31 @@ from urllib.request import urlopen
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT/'tests/fixtures/https-media.mp4'
 DIGEST = '064e914cf3ac2c20cc1df6761abc348cecdf7cf898c0a3e68373624e76eef653'
+FIXTURES = {
+    'https-media.mp4': DIGEST,
+    'https-master.m3u8': '6bcce75c2bbe6bcf82c8f835f6f5dc4a1b792e5a0b68553e734ced27465d4c9e',
+    'https-media.m3u8': 'ed7a9e5fb71c28f0733657513c879292740d3c6f18c9ab6afc0690499954461e',
+    'https-segment.ts': 'f07419d4427ec4927855a6caefbf3a0628cdda746d31794b30abb5790db89010',
+}
+
+
+@contextmanager
+def exact_tools(tools):
+    """PATH에 의존하지 않고 실제 자식 프로세스의 실행 파일만 고정한다."""
+    real_popen = subprocess.Popen
+    paths = dict(zip(('ffmpeg', 'ffprobe'), tools))
+    calls = []
+
+    def launch(args, *positional, **kwargs):
+        if isinstance(args, (list, tuple)) and args:
+            tool = Path(str(args[0])).stem.lower()
+            if tool in paths:
+                args = [str(paths[tool]), *args[1:]]
+                calls.append(tool)
+        return real_popen(args, *positional, **kwargs)
+
+    with patch.object(subprocess, 'Popen', side_effect=launch):
+        yield calls
 
 
 def check(ffmpeg, ffprobe, repository, revision):
@@ -22,46 +48,51 @@ def check(ffmpeg, ffprobe, repository, revision):
         raise ValueError('검사 저장소 이름이 올바르지 않습니다')
     if not re.fullmatch(r'[0-9a-f]{40}', revision):
         raise ValueError('HTTPS 검사에는 공개된 커밋의 40자리 SHA가 필요합니다')
-    if hashlib.sha256(FIXTURE.read_bytes()).hexdigest() != DIGEST:
-        raise ValueError('합성 검사 영상의 원본 해시가 다릅니다')
+    for name, digest in FIXTURES.items():
+        if hashlib.sha256((FIXTURE.parent/name).read_bytes()).hexdigest() != digest:
+            raise ValueError('합성 검사 자료의 원본 해시가 다릅니다: '+name)
     tools = [Path(ffmpeg).resolve(), Path(ffprobe).resolve()]
     if any(not tool.is_file() for tool in tools) or tools[0].parent != tools[1].parent:
         raise ValueError('같은 배포 폴더의 FFmpeg·ffprobe 실행 파일을 지정하세요')
     protocols = subprocess.check_output([str(tools[0]), '-hide_banner', '-protocols'], timeout=15).decode('utf-8', errors='replace').split()
     if not {'https', 'tls', 'tcp', 'file'}.issubset(protocols):
         raise ValueError('배포 FFmpeg에 HTTPS/TLS 지원이 없습니다')
-    url = f'https://raw.githubusercontent.com/{repository}/{revision}/tests/fixtures/https-media.mp4'
+    base = f'https://raw.githubusercontent.com/{repository}/{revision}/tests/fixtures'
     # Python과 FFmpeg가 같은 커밋의 작은 합성 자료를 받는지 확인한다.
-    with urlopen(url, timeout=30) as response:
-        data = response.read(100000)
-    if hashlib.sha256(data).hexdigest() != DIGEST:
-        raise ValueError('HTTPS 검사 영상 응답의 해시가 다릅니다')
-
-    # Windows CreateProcess도 실제 배포 도구를 찾도록 부모 환경부터 설정한다.
-    previous = os.environ.get('PATH', '')
-    os.environ['PATH'] = str(tools[0].parent)+os.pathsep+previous
+    for name, digest in FIXTURES.items():
+        with urlopen(base+'/'+name, timeout=30) as response:
+            data = response.read(100000)
+        if hashlib.sha256(data).hexdigest() != digest:
+            raise ValueError('HTTPS 검사 자료 응답의 해시가 다릅니다: '+name)
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
     from archive import remote_media
     from archive.storage import ProjectLock
+    from check_tls_rejection import check as check_rejection
 
-    try:
-        with tempfile.TemporaryDirectory(prefix='chida-https-') as temp:
-            folder = Path(temp).resolve()
-            output = folder/'https-range.mp4'
+    with tempfile.TemporaryDirectory(prefix='chida-https-') as temp, exact_tools(tools) as calls:
+        folder = Path(temp).resolve()
+        ranges = {}
+        for kind, name in [('mp4', 'https-media.mp4'), ('hls', 'https-master.m3u8')]:
+            output = folder/(kind+'-range.mp4')
             # 치지직의 주소 조회만 대체하고 앱의 실제 HTTPS 수신·검사 코드를 실행한다.
             with patch.object(remote_media, 'YoutubeDL') as downloader, ProjectLock(folder) as lock:
-                downloader.return_value.__enter__.return_value.extract_info.return_value = {'url': url}
+                downloader.return_value.__enter__.return_value.extract_info.return_value = {'url': base+'/'+name}
                 result = remote_media.receive('1', 1000, 3000, output, threading.Event(), lock, lambda **v: None)
             if abs(result['duration']-2) > .15 or result['bytes'] <= 0:
-                raise ValueError('HTTPS 구간 수신의 출력 길이·크기가 잘못됐습니다')
-            return {'source_revision': revision, 'fixture_sha256': DIGEST,
-                    'https_and_tls_protocols': True, 'tls_verify': True,
-                    'range_start_seconds': 1, 'range_end_seconds': 3,
-                    'duration_seconds': result['duration'], 'output_bytes': result['bytes'],
-                    'full_decode_passed': True}
-    finally:
-        os.environ['PATH'] = previous
+                raise ValueError('HTTPS 구간 수신의 출력 길이·크기가 잘못됐습니다: '+kind)
+            ranges[kind] = {'duration_seconds': result['duration'], 'output_bytes': result['bytes'],
+                            'full_decode_passed': True}
+        if calls.count('ffmpeg') != 4 or calls.count('ffprobe') != 2:
+            raise ValueError('구간 수신·디코딩·검사가 지정된 실행 도구로 진행되지 않았습니다')
+        rejected = check_rejection(tools[0], folder, FIXTURE.parent, ROOT/'build/test-deps')
+        return {'source_revision': revision, 'fixture_sha256': DIGEST,
+                'fixture_hashes': FIXTURES, 'https_and_tls_protocols': True, 'tls_verify': True,
+                'range_start_seconds': 1, 'range_end_seconds': 3, 'ranges': ranges,
+                'untrusted_certificate_rejected': rejected,
+                'tools': {name: {'path': str(path), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+                          for name, path in zip(('ffmpeg', 'ffprobe'), tools)},
+                'executions': {name: calls.count(name) for name in ('ffmpeg', 'ffprobe')}}
 
 
 def main():

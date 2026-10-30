@@ -2,6 +2,9 @@
 import tempfile
 import threading
 import unittest
+import importlib.util
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -80,6 +83,18 @@ class MediaHttpsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'HTTPS'):
                 remote_media.receive('1', 0, 1000, self.path/'range.mp4', threading.Event(), None, lambda **v: None)
         command.assert_not_called()
+
+    def test_release_https_check_pins_real_process_paths(self):
+        script = Path(__file__).resolve().parents[1]/'packaging/release/check_https.py'
+        spec = importlib.util.spec_from_file_location('release_https_check', script)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        # 동명 실행 파일을 PATH에서 찾는 대신 지정한 실제 Python 프로세스를 실행한다.
+        with module.exact_tools([Path(sys.executable), Path(sys.executable)]) as calls:
+            for command in ('ffmpeg', 'ffprobe'):
+                result = subprocess.run([command, '-c', 'print("pinned")'], capture_output=True, check=True)
+                self.assertEqual(result.stdout.strip(), b'pinned')
+        self.assertEqual(calls, ['ffmpeg', 'ffprobe'])
 
 
 if __name__ == '__main__':

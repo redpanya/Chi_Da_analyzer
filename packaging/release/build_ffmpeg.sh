@@ -27,6 +27,9 @@ cd "${x264_source[0]}"
 make -j3
 make install
 cd "${ffmpeg_source[0]}"
+# HLS 하위 playlist·segment·key 연결에도 인증 검증이 기본으로 적용되게 한다.
+# 이 변경 패치는 배포하는 native-corresponding-sources.zip에 함께 포함한다.
+patch --batch --forward -p1 < "$root/packaging/release/ffmpeg-tls-verify.patch"
 # x86은 외부 SIMD와 inline SIMD를 함께 빌드한다. 실행 시 CPU 기능 자동 감지는 유지한다.
 # 자동 탐지를 끈 상태에서도 OS 인증서 저장소를 쓰는 HTTPS/TLS를 반드시 포함한다.
 ./configure --prefix="$prefix" --pkg-config-flags=--static --disable-autodetect --enable-zlib --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay "${assembly[@]}" "${tls[@]}" --enable-gpl --enable-libx264 "${extra[@]}"
