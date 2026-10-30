@@ -15,8 +15,9 @@ prefix="$scratch/prefix"
 mkdir -p "$prefix" "$root/build/native/ffmpeg"
 export PKG_CONFIG_PATH="$prefix/lib/pkgconfig"
 extra=(--extra-ldflags=)
+assembly=(--disable-x86asm)
 case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*) extra=(--extra-ldflags=-static) ;;
+  MINGW*|MSYS*|CYGWIN*) extra=(--extra-ldflags=-static); assembly=(--enable-x86asm) ;;
   Darwin) export MACOSX_DEPLOYMENT_TARGET=14.0 ;;
   *) echo 'macOS 또는 Windows MSYS2에서 빌드하세요' >&2; exit 1 ;;
 esac
@@ -25,7 +26,8 @@ cd "${x264_source[0]}"
 make -j3
 make install
 cd "${ffmpeg_source[0]}"
-./configure --prefix="$prefix" --pkg-config-flags=--static --disable-autodetect --enable-zlib --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay --disable-x86asm --enable-gpl --enable-libx264 "${extra[@]}"
+# x86은 외부 SIMD와 inline SIMD를 함께 빌드한다. 실행 시 CPU 기능 자동 감지는 유지한다.
+./configure --prefix="$prefix" --pkg-config-flags=--static --disable-autodetect --enable-zlib --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay "${assembly[@]}" --enable-gpl --enable-libx264 "${extra[@]}"
 # configure가 정한 기본 타깃을 사용한다. MSYS2의 OSTYPE 값에 의존하지 않는다.
 make -j3
 suffix=""

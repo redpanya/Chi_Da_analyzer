@@ -37,8 +37,11 @@ def main():
                              'output_yuv': sample(output, 'yuv420p', flags),
                              'output_rgb': sample(output, 'rgb24', flags)}
         print(json.dumps(results, ensure_ascii=False), flush=True)
-        r, g, b = results['default']['output_rgb']
-        assert r > 35 and g < 40 and b > 70, '배포 FFmpeg의 PNG 합성 색상이 예상과 다릅니다'
+        for mode in results:
+            assert all(abs(actual-expected) <= 5 for actual, expected in
+                       zip(results[mode]['output_rgb'], (60, 10, 112))), '배포 FFmpeg의 PNG 합성 색상이 예상과 다릅니다'
+        assert all(abs(a-b) <= 3 for a, b in zip(results['default']['output_rgb'],
+                                                results['scalar']['output_rgb'])), 'CPU 최적화에 따라 PNG 합성 색상이 달라집니다'
 
 
 if __name__ == '__main__':

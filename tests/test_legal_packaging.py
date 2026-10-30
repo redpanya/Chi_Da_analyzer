@@ -2,10 +2,12 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import ssl
 import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+from urllib.error import HTTPError, URLError
 import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packaging/release"))
@@ -66,11 +68,75 @@ class LegalPackagingTest(unittest.TestCase):
             {"file": "source.tar.gz", "url": "https://example.invalid/source", "sha256": sha}
         ]}))
         cache = self.root / "build/legal-sources"
-        with patch.object(legal, "urlopen", return_value=io.BytesIO(b"wrong")):
+        with patch.object(legal, "urlopen", return_value=io.BytesIO(b"wrong")) as fetch:
             with self.assertRaisesRegex(ValueError, "체크섬"):
                 legal.fetch_sources(self.root)
+        fetch.assert_called_once()
         self.assertFalse((cache / "source.tar.gz").exists())
         self.assertFalse((cache / "source.tar.gz.part").exists())
+
+    def test_network_failure_restarts_partial_source_and_verifies_checksum(self):
+        manifest = self.root / "packaging/release/legal_sources.json"
+        manifest.write_text(json.dumps({"sources": [
+            {"file": "source.tar.gz", "url": "https://example.invalid/source",
+             "sha256": hashlib.sha256(b"complete").hexdigest()}
+        ]}))
+        class Interrupted(io.BytesIO):
+            def read(self, size=-1):
+                if self.tell():
+                    raise ConnectionResetError("연결 중단")
+                return super().read(size)
+        attempts = [URLError(ssl.SSLEOFError("연결 종료")),
+                    Interrupted(b"partial"), io.BytesIO(b"complete")]
+        with patch.object(legal, "urlopen", side_effect=attempts) as fetch, \
+                patch.object(legal.time, "sleep") as sleep:
+            legal.fetch_sources(self.root)
+        self.assertEqual(fetch.call_count, 3)
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], [1, 2])
+        file = self.root / "build/legal-sources/source.tar.gz"
+        self.assertEqual(file.read_bytes(), b"complete")
+        self.assertFalse(file.with_name(file.name + ".part").exists())
+        self.assertNotIn("context", fetch.call_args.kwargs)
+
+    def test_download_retries_only_temporary_failures(self):
+        part = self.root / "download.part"
+        errors = [
+            (HTTPError("https://example.invalid", 503, "일시 오류", {}, None), 3),
+            (URLError(TimeoutError("시간 초과")), 3),
+            (HTTPError("https://example.invalid", 404, "없음", {}, None), 1),
+            (ssl.SSLCertVerificationError("인증서 오류"), 1),
+            (URLError(ssl.SSLCertVerificationError("인증서 오류")), 1),
+            (PermissionError("읽기 전용 폴더"), 1),
+        ]
+        for error, expected in errors:
+            with self.subTest(error=repr(error)):
+                part.write_bytes(b"previous partial")
+                with patch.object(legal, "urlopen", side_effect=error) as fetch, \
+                        patch.object(legal.time, "sleep") as sleep, \
+                        self.assertRaises(type(error)):
+                    legal.download("https://example.invalid", part)
+                self.assertEqual(fetch.call_count, expected)
+                self.assertEqual(sleep.call_count, expected - 1)
+                self.assertFalse(part.exists())
+
+    def test_python_notice_uses_retry_and_preserves_existing_on_invalid_response(self):
+        folder = self.root / "package"
+        data = b"PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2\n"
+        attempts = [HTTPError("https://example.invalid", 429, "잠시 대기", {}, None),
+                    io.BytesIO(data)]
+        with patch.object(legal, "distributions", return_value=[]), \
+                patch.object(legal, "urlopen", side_effect=attempts) as fetch, \
+                patch.object(legal.time, "sleep"):
+            legal.collect(folder, root=self.root)
+        self.assertEqual(fetch.call_count, 2)
+        self.assertEqual((folder / "python-runtime/LICENSE").read_bytes(), data)
+        with patch.object(legal, "distributions", return_value=[]), \
+                patch.object(legal, "urlopen", return_value=io.BytesIO(b"wrong")) as fetch, \
+                self.assertRaisesRegex(ValueError, "런타임 고지"):
+            legal.collect(folder, root=self.root)
+        fetch.assert_called_once()
+        self.assertEqual((folder / "python-runtime/LICENSE").read_bytes(), data)
+        self.assertFalse((folder / "python-runtime/LICENSE.part").exists())
 
     def test_valid_cache_is_reused_and_corruption_is_rejected(self):
         cache = self.root / "build/legal-sources"

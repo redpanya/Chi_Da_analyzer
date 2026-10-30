@@ -1,11 +1,16 @@
 """고지·대응 소스를 수집하고 누락·해시 불일치 시 배포를 중단한다."""
 import argparse
 import hashlib
+from http.client import IncompleteRead
 from importlib.metadata import distributions
 import json
 from pathlib import Path, PureWindowsPath
 import shutil
+import socket
+import ssl
 import sys
+import time
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 import zipfile
 
@@ -51,6 +56,29 @@ def verify_materials(root=ROOT):
     return manifest
 
 
+def download(url, part, timeout=120):
+    """임시 파일을 처음부터 받고 일시적인 통신 장애만 최대 3회 시도한다."""
+    request = Request(url, headers={"User-Agent": "ChiDaanalyzer-source/1"})
+    for attempt in range(3):
+        try:
+            with urlopen(request, timeout=timeout) as response, part.open("wb") as output:
+                while block := response.read(1024 * 1024):
+                    output.write(block)
+            return
+        except Exception as error:
+            part.unlink(missing_ok=True)
+            if isinstance(error, HTTPError):
+                error.close()
+            reason = error.reason if isinstance(error, URLError) else error
+            retry = (error.code in (408, 425, 429, 500, 502, 503, 504)
+                     if isinstance(error, HTTPError) else
+                     isinstance(reason, (TimeoutError, ConnectionError, ssl.SSLEOFError, IncompleteRead))
+                     or isinstance(reason, socket.gaierror) and reason.errno == socket.EAI_AGAIN)
+            if not retry or attempt == 2:
+                raise
+            time.sleep(attempt + 1)
+
+
 def fetch_sources(root=ROOT, cache=None):
     cache = cache or root / "build/legal-sources"
     cache.mkdir(parents=True, exist_ok=True)
@@ -61,10 +89,7 @@ def fetch_sources(root=ROOT, cache=None):
         if not file.exists():
             part = file.with_name(file.name + ".part")
             try:
-                request = Request(row["url"], headers={"User-Agent": "ChiDaanalyzer-source/1"})
-                with urlopen(request, timeout=120) as response, part.open("wb") as output:
-                    while block := response.read(1024 * 1024):
-                        output.write(block)
+                download(row["url"], part)
                 if digest(part) != row["sha256"]:
                     raise ValueError("대응 소스 체크섬 불일치: " + row["file"])
                 part.replace(file)
@@ -121,11 +146,15 @@ def collect(folder, *, python_runtime=True, root=ROOT):
     runtime = folder / "python-runtime"
     runtime.mkdir(exist_ok=True)
     url = f"https://raw.githubusercontent.com/python/cpython/v{version}/LICENSE"
-    with urlopen(url, timeout=60) as response:
-        data = response.read()
-    if b"PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2" not in data:
-        raise ValueError("Python 런타임 고지 응답을 확인할 수 없습니다")
-    (runtime / "LICENSE").write_bytes(data)
+    part = runtime / "LICENSE.part"
+    try:
+        download(url, part, timeout=60)
+        data = part.read_bytes()
+        if b"PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2" not in data:
+            raise ValueError("Python 런타임 고지 응답을 확인할 수 없습니다")
+        part.replace(runtime / "LICENSE")
+    finally:
+        part.unlink(missing_ok=True)
     (runtime / "source.json").write_text(json.dumps(
         {"version": version, "url": url, "sha256": hashlib.sha256(data).hexdigest()},
         ensure_ascii=False, indent=2), encoding="utf-8")
