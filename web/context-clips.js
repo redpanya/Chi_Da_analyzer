@@ -60,7 +60,7 @@ export function createClipResults({api,player,onResult=()=>{},checkbox=()=>null}
       if(item.review_needed)card.append(node('p','불확실한 내용 · 원음과 장면 확인 필요','clip-review'));
       for(const text of item.uncertainties)refs.append(node('p',text,'clip-review'));
       if(item.chat_summary)card.append(node('h4','관측된 채팅 반응'),node('p',item.chat_summary));
-      
+
       lazyDetails(refs,()=>{evidence(refs,'대사 근거',item.evidence);evidence(refs,'채팅 근거',item.chat_evidence);});card.append(refs);box.append(card);
     }
     box.scrollTop=scroll;

@@ -1,5 +1,7 @@
 """OS별로 빌드한 FFmpeg를 써서 최근 추가 기능을 검사한다."""
 import os
+import hashlib
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -8,9 +10,14 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
+    for row in json.loads((ROOT/'web/fonts/sources.json').read_text(encoding='utf-8')):
+        file = ROOT/'web/fonts'/row['file']
+        assert hashlib.sha256(file.read_bytes()).hexdigest() == row['sha256'], '동봉 글꼴·OFL 원문 변경: '+row['file']
     env = os.environ | {'PYTHONPATH': os.pathsep.join((str(ROOT/'tests'), str(ROOT))),
                         'PATH': str(ROOT/'build/native/ffmpeg')+os.pathsep+os.environ.get('PATH', '')}
-    decoders = subprocess.check_output(['ffmpeg', '-hide_banner', '-decoders'], env=env, text=True)
+    # Windows CreateProcess는 전달한 env의 PATH로 실행 파일을 찾지 않는다.
+    ffmpeg = ROOT/'build/native/ffmpeg'/('ffmpeg.exe' if os.name == 'nt' else 'ffmpeg')
+    decoders = subprocess.check_output([str(ffmpeg), '-hide_banner', '-decoders'], env=env, text=True)
     assert any(' png ' in line for line in decoders.splitlines()), '배포 FFmpeg에 자막·이미지용 PNG 디코더가 없습니다'
     modules = (
         'test_annotation_preview', 'test_automation_selection', 'test_automation_summary',
