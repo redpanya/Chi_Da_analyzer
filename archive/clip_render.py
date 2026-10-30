@@ -97,7 +97,8 @@ def join(files,clips,options,target,stop,lock,update):
 
 def burn(file,rows,size,options,target,total,stop,lock,update,overlay=None):
     listing=captions.images(target.parent/(target.stem+'-captions'),rows,size,options,total,stop,overlay=overlay)
-    command(['-i',str(file),'-f','concat','-safe','0','-i',str(listing),'-filter_complex','[0:v][1:v]overlay=eof_action=pass:repeatlast=0:format=auto,format=yuv420p[v]',
+    # 드문 자막 프레임 사이도 30fps로 유지한다. OS별 디코더의 EOF 처리 속도에 의존하지 않는다.
+    command(['-i',str(file),'-f','concat','-safe','0','-i',str(listing),'-filter_complex','[1:v]setpts=PTS-STARTPTS,fps=30[decoration];[0:v][decoration]overlay=eof_action=pass:repeatlast=0:format=auto,format=yuv420p[v]',
              '-map','[v]','-map','0:a:0?','-c:v','libx264','-preset','veryfast','-crf','20','-r','30','-c:a','copy','-t',str(total),'-movflags','+faststart',str(target)],target.parent,target.stem,stop,lock,update,total)
 
 

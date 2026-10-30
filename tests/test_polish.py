@@ -1,5 +1,5 @@
 """폴리싱의 데이터 보존·공간·이력 경계 계약."""
-import json, tempfile, threading, unittest
+import json, os, tempfile, threading, unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -73,6 +73,9 @@ class Polish(unittest.TestCase):
         (folder/'clip-001.srt').write_text('자막');value=read_json(file);output=value['outputs']['clip-001']
         output['assets']['srt']='clip-001.srt';output['asset_identities']={'srt':clean.identity(folder/'clip-001.srt')};save_json(file,value)
         (folder/'clip-001.srt').write_text('변경')
+        # 빠른 동일 크기 덮어쓰기는 NTFS 시각 한 틱 안에 끝날 수 있다.
+        saved=output['asset_identities']['srt'][3]
+        os.utime(folder/'clip-001.srt',ns=(saved+1_000_000_000,saved+1_000_000_000))
         with self.assertRaises(Conflict):clean.preview(self.path,file,'delete')
     def range_job(self):
         file=self.path/'studio/runs'/('c'*32)/'manifest.json';child=file.parent/'analysis/vod-1'

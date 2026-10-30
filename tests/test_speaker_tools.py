@@ -1,6 +1,7 @@
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import stat
 import sys
@@ -25,9 +26,15 @@ class ToolTests(unittest.TestCase):
         self.support.start()
         self.platform=patch.object(tools,'platform_id',return_value='macOS-arm64')
         self.platform.start()
+        # ZIP 설치/프로토콜 검사는 실제 실행하되, 가상 Python 파일은 Windows에서도
+        # Python으로 연다. Windows는 Unix shebang을 실행 파일로 인식하지 않는다.
+        check = tools.check
+        self.checker = patch.object(tools, 'check', side_effect=lambda args, *rest:
+                                   check([sys.executable, *args] if os.name == 'nt' else args, *rest))
+        self.checker.start()
         self.stop=threading.Event()
     def tearDown(self):
-        self.platform.stop();self.support.stop();self.temp.cleanup()
+        self.checker.stop();self.platform.stop();self.support.stop();self.temp.cleanup()
 
     def package(self, backend='sherpa', marker=True):
         path=self.root/f'{backend}.zip'
@@ -82,7 +89,8 @@ class ToolTests(unittest.TestCase):
         for index,(name,kind) in enumerate(cases):
             file=self.root/f'bad{index}.zip'
             with zipfile.ZipFile(file,'w') as archive:
-                info=zipfile.ZipInfo(name);info.external_attr=(kind|0o755)<<16;archive.writestr(info,'../escape')
+                info=zipfile.ZipInfo(name);info.filename=name
+                info.external_attr=(kind|0o755)<<16;archive.writestr(info,'../escape')
             target=self.root/f'out{index}';target.mkdir()
             with self.assertRaises(ValueError):installer.extract(file,target,self.stop)
         with patch.object(tools,'platform_id',return_value='Windows-x64'),ProjectLock(self.root/'작업') as lock:

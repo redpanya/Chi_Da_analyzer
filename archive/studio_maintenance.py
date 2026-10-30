@@ -17,7 +17,7 @@ def inventory(folder):
     rows=[]
     for file in sorted(folder.rglob('*')):
         if file.is_symlink() or not (file.is_file() or file.is_dir()):raise Conflict('작업에 연결 파일 또는 특수 파일이 있습니다')
-        rows.append([str(file.relative_to(folder)),*identity(file)])
+        rows.append([file.relative_to(folder).as_posix(),*identity(file)])
     return rows
 
 def preview(path,file,mode):

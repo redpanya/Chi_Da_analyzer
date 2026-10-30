@@ -1,6 +1,7 @@
 import copy
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -48,7 +49,10 @@ class StudioJobs(unittest.TestCase):
         checked=self.manager.studio.dispatch('clean-preview',self.args|{'run':value['id'],'mode':'delete'})
         with ProjectLock(path),self.assertRaises(Conflict):
             self.manager.studio.dispatch('clean',self.args|{'run':value['id'],'mode':'delete','token':checked['token']})
-        with patch('archive.studio_maintenance.trash_path',side_effect=lambda f:f.rename(self.root/'trashed-range')):
+        from archive.deletion import trash_path
+        # Windows의 실제 휴지통 API로 열린 잠금 핸들과의 호환성을 확인한다.
+        trash = trash_path if os.name == 'nt' else lambda f:f.rename(self.root/'trashed-range')
+        with patch('archive.studio_maintenance.trash_path',side_effect=trash):
             self.manager.studio.dispatch('clean',self.args|{'run':value['id'],'mode':'delete','token':checked['token']})
         self.assertTrue(self.file.exists());self.assertFalse(path.exists())
     def test_copy_transcript_and_manual_speaker(self):

@@ -40,6 +40,26 @@ macOS Apple Silicon 및 Windows x64가 대상이며 DMG를 만들지 않는다.
 - 기존 패키지·릴리즈는 덮어쓰지 않고 새 사전 릴리즈를 만든다.
 - macOS 임시 서명만 적용하며 Developer ID 공증과 Windows Authenticode 서명은 없다.
 
+## 진행 기록
+
+- 개발 Mac: 기존 Python 검사 125개(Windows 전용 2개 제외), 신규 Python 검사
+  138개와 관련 JavaScript 검사 통과. 신규 검사는 PNG 지원이 있는 개발용 FFmpeg로
+  확인했으며, 최종 판정은 각 OS의 배포 FFmpeg와 패키지 검사로 별도 진행한다.
+- 첫 CI에서 배포 진입점 동기화 누락으로 개발 주석 옵션 차단 검사 문구가 달랐다.
+  진입점을 동기화했으며 패키지에서는 옵션 사용을 거부하는 동작을 유지한다.
+- Windows 검사 도구가 자식 환경의 PATH만 전달해 FFmpeg를 찾지 못했다.
+  검사 진입 명령은 OS별 실행 파일의 절대 경로를 쓰도록 변경했다.
+- Windows Git의 개행 변환으로 글꼴 고지 원문 해시가 달라지지 않도록
+  동봉 글꼴과 OFL 파일의 원문 보존 및 해시 검사를 추가했다.
+- 재실행 CI: https://github.com/redpanya/Chi_Da_analyzer/actions/runs/41015129454
+
+- Windows 추가 검사에서 클립 중간 파일의 경로 구분자 문제를 발견해
+  소유 파일 목록을 POSIX 경로로 정규화했다. 출력 픽셀 차이를 줄이기 위해
+  자막·PNG의 드문 프레임도 합성 전에 영상과 같은 30fps로 정규화한다.
+- 테스트용 Python 실행 파일과 ZIP 경로가 Windows에서 다르게 해석되는 부분,
+  NTFS 한 틱 안의 동일 크기 파일 교정 판정을 검사 데이터에서 보완했다.
+  범위 작업 삭제는 Windows의 실제 휴지통 API로 검증한다.
+
 ## 결과
 
-진행 중. OS별 CI 결과와 최종 배포 파일 해시를 완료 후 기록한다.
+OS별 CI와 최종 배포 파일 확인 중. 완료 결과는 아래에 추가한다.
