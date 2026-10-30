@@ -17,6 +17,9 @@ def check(http, url, project):
     assert queue['state'] == 'idle' and not queue['active'] and not queue['items']
     config = post('report-config', {})
     assert 'hardware' in config and 'configuration' not in config
+    hardware = config['hardware']
+    # 패키지가 PATH를 제한한 상태에서도 실제 OS 사양 조회가 성공해야 한다.
+    assert hardware['cpu'] and hardware['cores'] > 0 and hardware['ram_bytes'] > 0, hardware
     deadline = time.monotonic()+20
     while True:
         records = post('reports', project)
@@ -55,4 +58,5 @@ def check(http, url, project):
         html = response.read().decode('utf-8')
     assert 'mailto:redpanyaday@gmail.com' in html and 'id="report-send"' not in html
     return {'queue_idle': True, 'audio_report_recorded': True, 'vod_id_in_export': True,
-            'legacy_file_preserved': True, 'email_instructions': True, 'upload_removed_410': True}
+            'legacy_file_preserved': True, 'email_instructions': True, 'upload_removed_410': True,
+            'hardware': hardware}

@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def main():
     modules = (
-        'test_portable', 'test_compute', 'test_media_probe', 'test_import_recovery',
+        'test_portable', 'test_compute', 'test_media_probe', 'test_import_recovery', 'test_report_hardware',
         'test_automation_reports', 'test_server_assets', 'test_queue_registration',
         'test_context_background', 'test_voices', 'test_legal_packaging',
         'test_analysis_inputs', 'test_context_exchange', 'test_context_exchange_http',

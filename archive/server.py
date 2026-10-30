@@ -205,8 +205,8 @@ def make_server(manager, port=0, *, annotation_preview=False):
             if path == '/split-audio':
                 try:
                     query = parse_qs(urlsplit(self.path).query)
-                    target = manager.splitter.audio_preview.file(query.get('id', [None])[0])
-                    self.send_file(target, body, download=False)
+                    with manager.splitter.audio_preview.borrow(query.get('id', [None])[0]) as target:
+                        self.send_file(target, body, download=False)
                 except (ValueError, KeyError, OSError) as error:
                     self.reply(404, {'error': safe_error(error)})
                 return

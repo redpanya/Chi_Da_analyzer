@@ -16,9 +16,10 @@ mkdir -p "$prefix" "$root/build/native/ffmpeg"
 export PKG_CONFIG_PATH="$prefix/lib/pkgconfig"
 extra=(--extra-ldflags=)
 assembly=(--disable-x86asm)
+tls=()
 case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*) extra=(--extra-ldflags=-static); assembly=(--enable-x86asm) ;;
-  Darwin) export MACOSX_DEPLOYMENT_TARGET=14.0 ;;
+  MINGW*|MSYS*|CYGWIN*) extra=(--extra-ldflags=-static); assembly=(--enable-x86asm); tls=(--enable-schannel) ;;
+  Darwin) export MACOSX_DEPLOYMENT_TARGET=14.0; tls=(--enable-securetransport) ;;
   *) echo 'macOS 또는 Windows MSYS2에서 빌드하세요' >&2; exit 1 ;;
 esac
 cd "${x264_source[0]}"
@@ -27,7 +28,8 @@ make -j3
 make install
 cd "${ffmpeg_source[0]}"
 # x86은 외부 SIMD와 inline SIMD를 함께 빌드한다. 실행 시 CPU 기능 자동 감지는 유지한다.
-./configure --prefix="$prefix" --pkg-config-flags=--static --disable-autodetect --enable-zlib --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay "${assembly[@]}" --enable-gpl --enable-libx264 "${extra[@]}"
+# 자동 탐지를 끈 상태에서도 OS 인증서 저장소를 쓰는 HTTPS/TLS를 반드시 포함한다.
+./configure --prefix="$prefix" --pkg-config-flags=--static --disable-autodetect --enable-zlib --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay "${assembly[@]}" "${tls[@]}" --enable-gpl --enable-libx264 "${extra[@]}"
 # configure가 정한 기본 타깃을 사용한다. MSYS2의 OSTYPE 값에 의존하지 않는다.
 make -j3
 suffix=""

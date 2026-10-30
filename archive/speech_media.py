@@ -14,6 +14,7 @@ from .source import Cancelled, check_cancel
 from .storage import asset_path, Conflict
 from .video import probe
 from .speech_model import digest
+from .media_errors import failure_message
 
 RATE = 16000
 
@@ -68,7 +69,7 @@ def process(args, log, stop, lock, on_poll=None):
                     raise Cancelled()
             check_cancel(stop)
             if child.returncode:
-                raise ValueError(f'음성 처리 프로그램이 종료됐습니다({child.returncode}). 메모리·디스크와 {log.name}을 확인하세요')
+                raise ValueError(failure_message(args, child.returncode, log))
         finally:
             processes.stop(child, timeout=5)
 

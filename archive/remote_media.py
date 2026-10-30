@@ -15,7 +15,7 @@ def receive(vod, start_ms, end_ms, target, stop, lock, update, *, height=480, fo
     if not isinstance(url, str) or urlsplit(url).scheme != 'https':
         raise ValueError('구간 다운로드 가능한 HTTPS 영상 주소가 없습니다')
     duration = (end_ms-start_ms)/1000
-    clip_render.command(['-protocol_whitelist','https,http,tcp,tls,crypto,data','-rw_timeout','20000000',
+    clip_render.command(['-protocol_whitelist','https,http,tcp,tls,crypto,data','-tls_verify','1','-rw_timeout','20000000',
         '-ss',str(start_ms/1000),'-i',url,'-t',str(duration),'-map','0:v:0','-map','0:a:0?',
         '-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart',str(target)],
         target.parent, target.stem, stop, lock, lambda **v:update(**(v | {'progress':v.get('progress',0)*.85})), duration)

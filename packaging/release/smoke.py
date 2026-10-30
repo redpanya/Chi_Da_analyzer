@@ -10,6 +10,7 @@ from urllib.request import build_opener, ProxyHandler, Request
 import media_smoke
 import report_smoke
 import feature_smoke
+import check_https
 
 ROOT=Path(__file__).resolve().parents[2]
 
@@ -40,6 +41,7 @@ def main():
             for engine, name in [('llama','llama-server'),('llama','llama-completion'),('whisper','whisper-cli')]:
                 assert (native/(engine+'-vulkan')/(name+'.exe')).is_file()
         ffmpeg=report['tools']['ffmpeg']['path'];ffprobe=report['tools']['ffprobe']['path']
+        report['https_range'] = check_https.check(ffmpeg, ffprobe, os.environ['GITHUB_REPOSITORY'], os.environ['GITHUB_SHA'])
         movie=work/'한글 영상.mp4'
         subprocess.run([ffmpeg,'-v','error','-f','lavfi','-i','color=c=black:s=320x180:r=25',
                         '-f','lavfi','-i','sine=frequency=440:sample_rate=16000','-t','1',

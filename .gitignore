@@ -25,6 +25,7 @@ outputs/
 *.safetensors
 *.wav
 *.mp4
+!tests/fixtures/https-media.mp4
 *.mkv
 *.part
 *.log

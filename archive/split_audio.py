@@ -1,11 +1,13 @@
 """분할 오디오 선택 계약과 세션 전용 무압축 미리듣기 캐시."""
 from collections import OrderedDict
+from contextlib import contextmanager
 import math
 from pathlib import Path
 import tempfile
 import threading
 import uuid
 from . import split_contract as contract
+from .source import check_cancel
 
 
 def selection(source, value=None):
@@ -49,14 +51,32 @@ class Preview:
         self.stop = threading.Event()
         self.temp = None
         self.cache = OrderedDict()
+        self.readers = {}
+        self.pending = {}
+
+    def _cleanup(self):
+        # HTTP 전송 중이거나 Windows에서 아직 열린 파일은 다음 정리 때 다시 시도한다.
+        for token, file in tuple(self.pending.items()):
+            if self.readers.get(token):
+                continue
+            try:
+                file.unlink(missing_ok=True)
+            except OSError:
+                continue
+            del self.pending[token]
+        if self.stop.is_set() and not self.pending and not self.readers and self.temp:
+            try:
+                self.temp.cleanup()
+            except OSError:
+                return
+            self.temp = None
 
     def close(self):
         self.stop.set()
         with self.guard:
-            if self.temp:
-                self.temp.cleanup()
-                self.temp = None
+            self.pending.update((item['info']['id'], item['file']) for item in self.cache.values())
             self.cache.clear()
+            self._cleanup()
 
     def prepare(self, source_id, source, track, at):
         from . import split_media as media
@@ -64,6 +84,8 @@ class Preview:
         if type(at) not in (int, float) or not math.isfinite(at) or not 0 <= at < source['duration']:
             raise ValueError('원본 범위 안의 미리보기 시각을 선택하세요')
         with self.guard:
+            check_cancel(self.stop)
+            self._cleanup()
             path = contract.unchanged(source)
             start = math.floor(at / 60) * 60
             key = (source_id, track, start)
@@ -71,7 +93,7 @@ class Preview:
                 self.cache.move_to_end(key)
                 return self.cache[key]['info']
             if self.temp is None:
-                self.temp = tempfile.TemporaryDirectory(prefix='chida-split-audio-')
+                self.temp = tempfile.TemporaryDirectory(prefix='chida-split-audio-', ignore_cleanup_errors=True)
             token = uuid.uuid4().hex
             file = Path(self.temp.name) / (token + '.m4a')
             end = min(start + 60, source['duration'])
@@ -85,22 +107,42 @@ class Preview:
                 if len(output) != 1 or output[0].get('codec_name') != 'aac' or not output[0].get('duration'):
                     raise ValueError('이 시각에 재생할 오디오가 없습니다. 다른 시각을 선택하세요')
                 contract.unchanged(source)
-                # MP4의 편집 목록에 담긴 선행 무음도 포함하는 재생 시간축이다.
-                info = {'id': token, 'start': start, 'end': end, 'track': track}
-                self.cache[key] = {'file': file, 'source': source, 'info': info}
-                while len(self.cache) > 8:
-                    _, old = self.cache.popitem(last=False)
-                    old['file'].unlink(missing_ok=True)
-                return info
+                check_cancel(self.stop)
             except BaseException:
-                file.unlink(missing_ok=True)
+                self.pending[token] = file
+                self._cleanup()
                 raise
+            # 완성 파일만 등록한다. 이전 캐시 정리 실패는 새 미리듣기 결과를 무효화하지 않는다.
+            info = {'id': token, 'start': start, 'end': end, 'track': track}
+            self.cache[key] = {'file': file, 'source': source, 'info': info}
+            while len(self.cache) > 8:
+                _, old = self.cache.popitem(last=False)
+                self.pending[old['info']['id']] = old['file']
+            self._cleanup()
+            return info
+
+    def _file(self, token):
+        contract.run_id(token)
+        for item in self.cache.values():
+            if item['info']['id'] == token:
+                contract.unchanged(item['source'])
+                return item['file']
+        raise ValueError('미리듣기를 다시 준비하세요')
 
     def file(self, token):
-        contract.run_id(token)
         with self.guard:
-            for item in self.cache.values():
-                if item['info']['id'] == token:
-                    contract.unchanged(item['source'])
-                    return item['file']
-        raise ValueError('미리듣기를 다시 준비하세요')
+            return self._file(token)
+
+    @contextmanager
+    def borrow(self, token):
+        with self.guard:
+            file = self._file(token)
+            self.readers[token] = self.readers.get(token, 0) + 1
+        try:
+            yield file
+        finally:
+            with self.guard:
+                self.readers[token] -= 1
+                if not self.readers[token]:
+                    del self.readers[token]
+                self._cleanup()

@@ -118,6 +118,8 @@ jobs:
           key: ${{ steps.media-cache.outputs.cache-primary-key }}
       - name: 클립·글꼴·분할·다중 오디오 OS별 검사
         run: python packaging/release/check_features.py
+      - name: HTTPS 인증 검증·실제 구간 수신
+        run: python packaging/release/check_https.py --output build/https-native.json
       - name: Python 실행기 패키징
         run: python -m PyInstaller --noconfirm --clean --distpath build/frozen --workpath build/pyinstaller packaging/release/backend.spec
       - name: 앱 구성

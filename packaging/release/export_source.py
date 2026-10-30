@@ -30,6 +30,11 @@ def export(target, *, docs=True):
         font_files.append(file)
     files += font_files
     files += list((ROOT/'web/patterns').glob('pattern-*.webp'))
+    # 직접 생성한 HTTPS 회귀 검사 영상만 허용한다. 사용자 영상은 반출하지 않는다.
+    fixture = ROOT/'tests/fixtures/https-media.mp4'
+    if hashlib.sha256(fixture.read_bytes()).hexdigest() != '064e914cf3ac2c20cc1df6761abc348cecdf7cf898c0a3e68373624e76eef653':
+        raise ValueError('HTTPS 합성 검사 영상 해시가 다릅니다')
+    files.append(fixture)
     files += [p for p in (ROOT/'packaging').glob('*') if p.is_file() and p.suffix in ('.py','.swift','.spec','.txt','.md')]
     files += [p for p in (ROOT/'packaging/release').iterdir() if p.is_file()]
     files += [p for p in (ROOT/'packaging/speaker_tools').iterdir() if p.is_file() and p.suffix in ('.py','.spec','.txt','.md')]
