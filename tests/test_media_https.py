@@ -3,6 +3,7 @@ import tempfile
 import threading
 import unittest
 import importlib.util
+import hashlib
 import subprocess
 import sys
 from pathlib import Path
@@ -75,6 +76,10 @@ class MediaHttpsTests(unittest.TestCase):
         self.assertEqual(args[args.index('-i')+1], url)
         self.assertEqual(args[args.index('-ss')+1], '2.0')
         self.assertEqual(args[args.index('-t')+1], '1.0')
+        self.assertNotIn('file', args[args.index('-protocol_whitelist')+1].split(','))
+        self.assertNotIn('ALL', args)
+        if '-extension_picky' in args:
+            self.assertEqual(args[args.index('-extension_picky')+1], '1')
 
     def test_non_https_input_rejected_before_ffmpeg(self):
         with patch.object(remote_media, 'YoutubeDL') as downloader, \
@@ -95,6 +100,21 @@ class MediaHttpsTests(unittest.TestCase):
                 result = subprocess.run([command, '-c', 'print("pinned")'], capture_output=True, check=True)
                 self.assertEqual(result.stdout.strip(), b'pinned')
         self.assertEqual(calls, ['ffmpeg', 'ffprobe'])
+
+    def test_fmp4_fixtures_preserve_same_media_for_extension_comparison(self):
+        root = Path(__file__).resolve().parents[1]
+        spec = importlib.util.spec_from_file_location('release_https_check', root/'packaging/release/check_https.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for name, digest in module.FIXTURES.items():
+            self.assertEqual(hashlib.sha256((root/'tests/fixtures'/name).read_bytes()).hexdigest(), digest, name)
+        for index in (0, 1):
+            stem = root/'tests/fixtures'/f'https-fmp4-{index:02}'
+            self.assertEqual(stem.with_suffix('.m4v').read_bytes(), stem.with_suffix('.m4s').read_bytes())
+        query = (root/'tests/fixtures/https-fmp4-query.m3u8').read_text()
+        self.assertIn('https-fmp4-init.mp4?fixture=1', query)
+        self.assertIn('https-fmp4-00.m4v?fixture=1', query)
+        self.assertIn('https-fmp4-01.m4v?fixture=1', query)
 
 
 if __name__ == '__main__':

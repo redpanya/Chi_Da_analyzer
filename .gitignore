@@ -26,6 +26,7 @@ outputs/
 *.wav
 *.mp4
 !tests/fixtures/https-media.mp4
+!tests/fixtures/https-fmp4-init.mp4
 *.mkv
 *.part
 *.log

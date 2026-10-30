@@ -1,0 +1,14 @@
+--- a/libavformat/hls.c
++++ b/libavformat/hls.c
+@@ -764,6 +764,11 @@
+         if (in_fmt->extensions) {
+             matchF =      av_match_ext(    seg->url, in_fmt->extensions)
+                      + 2*(ff_match_url_ext(seg->url, in_fmt->extensions) > 0);
++            // ChiDa: M4V is also an MP4 container suffix; keep other probes strict.
++            if (av_match_name("mp4", in_fmt->name)) {
++                matchF |=      av_match_ext(    seg->url, "m4v")
++                          + 2*(ff_match_url_ext(seg->url, "m4v") > 0);
++            }
+             // Youtube uses aac files with .ts extension
+             if(av_match_name("mp4", in_fmt->name) || av_match_name("aac", in_fmt->name)) {
+                 matchF |=      av_match_ext(    seg->url, "ts,m2t,m2ts,mts,mpg,m4s,mpeg,mpegts,cmfv,cmfa")

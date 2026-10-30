@@ -27,7 +27,7 @@ def main():
         'test_polish', 'test_studio_jobs', 'test_clip_render', 'test_studio_decorations',
         'test_caption_fonts', 'test_font_families', 'test_caption_rendering',
         'test_caption_design', 'test_caption_templates',
-        'test_video_split', 'test_video_split_server', 'test_split_deletion', 'test_split_audio_cache', 'test_media_https',
+        'test_video_split', 'test_video_split_server', 'test_split_deletion', 'test_split_audio_cache', 'test_media_https', 'test_media_errors',
     )
     subprocess.run([sys.executable, '-m', 'unittest', *modules, '-v'], cwd=ROOT, env=env, check=True)
     for name in ('queue_options', 'workspace_ui', 'context_guidance', 'context_external_prompt', 'context_clip_evidence',

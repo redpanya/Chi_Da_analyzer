@@ -36,6 +36,14 @@ def export(target, *, docs=True):
         'https-master.m3u8': '6bcce75c2bbe6bcf82c8f835f6f5dc4a1b792e5a0b68553e734ced27465d4c9e',
         'https-media.m3u8': 'ed7a9e5fb71c28f0733657513c879292740d3c6f18c9ab6afc0690499954461e',
         'https-segment.ts': 'f07419d4427ec4927855a6caefbf3a0628cdda746d31794b30abb5790db89010',
+        'https-fmp4-init.mp4': 'a34730609e59f11847fd298b6a4255dda534318fd1b3928de3f8bd250be0d2af',
+        'https-fmp4-00.m4v': '073ae0a2a4c6c469d990e20ed5d721fd56de797fb70ad880a522503448b448a3',
+        'https-fmp4-01.m4v': 'b10e4b64e8d66058e43964d86e45f7957cd12659b0407f5274ec8d59c72dd590',
+        'https-fmp4-00.m4s': '073ae0a2a4c6c469d990e20ed5d721fd56de797fb70ad880a522503448b448a3',
+        'https-fmp4-01.m4s': 'b10e4b64e8d66058e43964d86e45f7957cd12659b0407f5274ec8d59c72dd590',
+        'https-fmp4-m4v.m3u8': '76725e9617380b1e16e1f361b503a970a8c1cc245cddf02bf5ba155a435aeea3',
+        'https-fmp4-m4s.m3u8': 'fb8261d86d4c89b7a4381c46d4c83c3e17987f8062430ffdefda77dd38243a94',
+        'https-fmp4-query.m3u8': '418246d03e14a0c3f093453aab4c960492db8d4c3ed925626e0b85c6d9f550be',
     }
     for name, digest in fixtures.items():
         fixture = ROOT/'tests/fixtures'/name

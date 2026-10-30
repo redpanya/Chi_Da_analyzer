@@ -106,7 +106,7 @@ jobs:
         id: media-cache
         with:
           path: build/native/ffmpeg
-          key: media-${{ matrix.media-label }}-${{ hashFiles('packaging/release/sources.json', 'packaging/release/build_ffmpeg.sh', 'packaging/release/ffmpeg-tls-verify.patch') }}
+          key: media-${{ matrix.media-label }}-${{ hashFiles('packaging/release/sources.json', 'packaging/release/build_ffmpeg.sh', 'packaging/release/*.patch') }}
       - name: FFmpeg 빌드 (macOS)
         if: runner.os == 'macOS' && steps.media-cache.outputs.cache-hit != 'true'
         run: bash packaging/release/build_ffmpeg.sh

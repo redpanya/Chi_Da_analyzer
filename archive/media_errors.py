@@ -23,6 +23,10 @@ def failure_message(args, code, log):
                                      'ssl handshake failed', 'sec_e_untrusted_root', '0x80090325',
                                      '0x800b0109', '0x80090322', '0x800b010f', '0x800b0101')):
             reason = 'HTTPS 보안 연결·인증서 검증에 실패했습니다. PC 시각과 네트워크의 인증서 설정을 확인하세요.'
+        elif 'mismatches allowed extensions' in tail:
+            reason = '영상 조각의 확장자와 내부 형식이 맞지 않아 중단했습니다. 앱의 영상 형식 호환 여부를 확인하세요.'
+        elif 'not in allowed_segment_extensions' in tail:
+            reason = '허용하지 않는 영상 조각의 확장자가 감지돼 중단했습니다. 로그에서 입력 형식을 확인하세요.'
         elif 'no space left on device' in tail:
             reason = '저장 공간이 부족합니다. 공간을 확보한 뒤 다시 시도하세요.'
         elif any(v in tail for v in ('connection timed out', 'connection timeout', 'operation timed out')):
