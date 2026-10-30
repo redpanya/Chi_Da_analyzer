@@ -66,5 +66,93 @@
   "020-comment-list-preview4.jpg": [
     787,
     708
+  ],
+  "p8-more.jpg": [
+    1265,
+    712
+  ],
+  "p8-settings.jpg": [
+    1265,
+    712
+  ],
+  "p8-import.jpg": [
+    1280,
+    720
+  ],
+  "p8-work-settings.jpg": [
+    1280,
+    720
+  ],
+  "p8-import-ready.jpg": [
+    1280,
+    720
+  ],
+  "p8-transcript-options.jpg": [
+    1265,
+    712
+  ],
+  "p8-transcript.jpg": [
+    1265,
+    712
+  ],
+  "p8-speaker-tools.jpg": [
+    1280,
+    720
+  ],
+  "p8-clip-candidates.jpg": [
+    1265,
+    712
+  ],
+  "p8-ai-settings.jpg": [
+    1265,
+    712
+  ],
+  "p8-summary.jpg": [
+    1265,
+    712
+  ],
+  "p8-comment-time.jpg": [
+    1265,
+    712
+  ],
+  "p8-external.jpg": [
+    1265,
+    1719
+  ],
+  "p8-studio.jpg": [
+    1280,
+    720
+  ],
+  "p8-frame.jpg": [
+    1280,
+    720
+  ],
+  "p8-caption-overview.jpg": [
+    1280,
+    720
+  ],
+  "p8-fonts.jpg": [
+    1280,
+    720
+  ],
+  "p8-caption-design.jpg": [
+    1280,
+    720
+  ],
+  "p8-export.jpg": [
+    1280,
+    720
+  ],
+  "p8-split.jpg": [
+    1265,
+    712
+  ],
+  "p8-split-save.jpg": [
+    1265,
+    712
+  ],
+  "p8-errors.jpg": [
+    1265,
+    1097
   ]
 }

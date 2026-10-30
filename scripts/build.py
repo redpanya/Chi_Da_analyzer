@@ -66,24 +66,24 @@ versioned_assets = {name: f'{name}?v={hashlib.sha256((OUT/name).read_bytes()).he
 page = f'''<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>치다 분석기 사용설명서 — 다시보기, 빠르게 이해하기</title>
-<meta name="description" content="치다 분석기 0.20.0 사용설명서. VOD 순차 작업, 전사, 화자 선택, 빠른 타임스탬프와 외부 AI ZIP 사용법.">
+<meta name="description" content="치다 분석기 preview.8 사용설명서. 구간 다운로드, 전사, AI 세 모드, 댓글, 클립 편집, 자막과 PNG, 영상 나누기, 오류 기록 사용법.">
 <meta name="color-scheme" content="light"><link rel="stylesheet" href="{versioned_assets['styles.css']}"><link rel="stylesheet" href="{versioned_assets['pattern-background.css']}"><script src="{versioned_assets['pattern-background.js']}" defer></script><script src="manual.js" defer></script></head>
 <body><a class="skip" href="#content">본문으로 바로가기</a>
-<header class="masthead"><a class="brand" href="#top" aria-label="치다 분석기 사용설명서 처음으로"><span class="brand-icon" aria-hidden="true">↙</span><span>치<small>(지직)</small> 다<small>(시보기)</small> 분석기</span></a><span class="masthead-label">사용설명서 <span class="edition">0.20.0</span></span></header>
+<header class="masthead"><a class="brand" href="#top" aria-label="치다 분석기 사용설명서 처음으로"><span class="brand-icon" aria-hidden="true">↙</span><span>치<small>(지직)</small> 다<small>(시보기)</small> 분석기</span></a><span class="masthead-label">사용설명서 <span class="edition">preview.8</span></span></header>
 <div class="layout">
 <main id="content"><div id="top" class="hero"><div class="hero-topline"><span class="eyebrow">★ 치다 분석기 사용설명서 ★</span><span class="hero-edition">※ 나름 진지한 설명서입니다</span></div>
 <div class="flyer-strip" aria-hidden="true"><span>설치!</span><span>전사!</span><span>요약!</span><span>암튼 다 알려줌 →</span></div>
-<div class="hero-grid"><div class="hero-copy"><h1>다시보기<br><em>언제 다 봄?</em></h1><p>영상 가져오기부터 AI 요약, 댓글용 타임스탬프까지.<br>누를 버튼은 아래에 다 적어놨어요. 진짜로.</p>
+<div class="hero-grid"><div class="hero-copy"><h1>다시보기<br><em>언제 다 봄?</em></h1><p>영상 가져오기부터 AI 요약, 댓글 정리와 클립 제작까지.<br>누를 버튼은 아래에 다 적어놨어요. 진짜로.</p>
 <div class="hero-actions"><a class="primary" href="#setup">설치부터 시작하기 <span aria-hidden="true">↗</span></a><a class="text-link" href="#summary">요약부터 볼래요 →</a></div></div>
 <div class="hero-art" aria-hidden="true"><span class="art-note">아~ 사용법?<br>여기 있잖아.</span><span class="art-spark">★</span><div class="smile-sticker"><span class="cheap-face">(ง •̀_•́)ง</span><strong>야 르.</strong><small>멋은 덜 챙김<br>설명은 챙김</small></div><span class="art-arrow">↙</span></div></div>
 <div class="quick-route" aria-label="간단한 사용 순서"><a href="#import"><span>01</span>영상 가져오기</a><b aria-hidden="true">→</b><a href="#transcribe"><span>02</span>말을 글로</a><b aria-hidden="true">→</b><a href="#summary"><span>03</span>AI로 요약</a><b aria-hidden="true">→</b><a href="#comments"><span>04</span>댓글로 공유</a></div>
-<p class="edition-update"><strong>★ 0.20.0 개정판 왔다 ★</strong><br>빠른 타임스탬프 · 외부 AI ZIP 왕복 · 전사/화자 버전 선택 · 시간순 댓글 목록 · 선택 구간 이어 재생<br><a href="https://github.com/redpanya/Chi_Da_analyzer/releases/tag/v0.20.0-preview.4" target="_blank" rel="noopener noreferrer">앱 다운로드 ↗</a> · <a href="#external">외부 AI 사용법</a> · <a href="#reports">리포트 안내</a></p><p class="hero-footnote">채팅 반응도 보고 싶다면 <a href="#explore">통합 분석</a>을 함께 사용하세요. 화자 구분은 건너뛰어도 됩니다.</p></div>
+<p class="edition-update"><strong>★ preview.8 사용법까지 챙겼다 ★</strong><br>구간 다운로드 · AI 세 모드 · 댓글 시각 편집 · 자막·PNG 클립 제작 · 무인코딩 영상 나누기<br><a href="https://github.com/redpanya/Chi_Da_analyzer/releases/tag/v0.20.0-preview.8" target="_blank" rel="noopener noreferrer">앱 다운로드 ↗</a> · <a href="#external">외부 AI 사용법</a> · <a href="#clips">클립 만들기</a> · <a href="#split">영상 나누기</a> · <a href="#reports">오류·문의</a></p><p class="hero-footnote">채팅 반응도 보고 싶다면 <a href="#explore">통합 분석</a>을 함께 사용하세요. 화자 구분은 건너뛰어도 됩니다.</p></div>
 <div class="tools" id="manual-tools"><div class="search-box"><label for="manual-search">설명서 검색</label><input id="manual-search" type="search" placeholder="예: 모델 준비, 요약 실패, 댓글" autocomplete="off"><button id="clear-search" type="button" hidden>검색 지우기</button></div><button class="quiet" id="expand-all" type="button" aria-expanded="true">모두 접기</button></div>
 <p id="search-status" class="search-status" role="status" aria-live="polite">{len(chapters)}개 주제 · {count}개 안내 · 설명 바로 아래 화면 참고</p>
 <div id="empty-state" hidden><h2>찾는 안내가 없어요.</h2><p>‘전사’, ‘모델’, ‘댓글’처럼 짧은 단어로 다시 검색해 보세요.</p><button type="button" id="empty-clear">전체 안내 보기</button></div>
 <noscript><p class="noscript">검색·화면 확대는 자바스크립트가 필요합니다. 설명은 모두 펼쳐져 있고, 이미지는 브라우저 확대 기능으로 확인할 수 있어요.</p></noscript>
 {''.join(sections)}
-<footer><span class="footer-sticker" aria-hidden="true">☆ 설명서 엔딩 ☆</span><strong>여기까지 읽음?<br>당신… 제법인데.</strong><p>막히면 다시 와요. 설명서는 도망 안 갑니다.</p><p>2026.10.26 · v0.20.0-preview.4 기준. 새 버전에서는 메뉴와 지원 범위가 달라질 수 있습니다.</p><p>화면은 가상의 설명용 자료입니다. 실제 분석 품질·성능 측정 결과가 아닙니다.<br>이 페이지는 사용설명서이며 방송 자료를 읽거나 처리하지 않습니다.</p><a href="#top">처음으로 한 번 더 ↑</a></footer></main></div>
+<footer><span class="footer-sticker" aria-hidden="true">☆ 설명서 엔딩 ☆</span><strong>여기까지 읽음?<br>당신… 제법인데.</strong><p>막히면 다시 와요. 설명서는 도망 안 갑니다.</p><p>2026.10.31 · v0.20.0-preview.8 기준. 새 버전에서는 메뉴와 지원 범위가 달라질 수 있습니다.</p><p>화면은 가상의 설명용 자료입니다. 실제 분석 품질·성능 측정 결과가 아닙니다.<br>이 페이지는 사용설명서이며 방송 자료를 읽거나 처리하지 않습니다.</p><a href="#top">처음으로 한 번 더 ↑</a></footer></main></div>
 <dialog id="image-dialog" aria-labelledby="image-caption"><div class="dialog-top"><p id="image-caption"></p><button type="button" id="close-image" autofocus>닫기 ×</button></div><div class="dialog-image" id="enlarged-shot"></div><p class="dialog-tip"><a id="original-shot" target="_blank" rel="noopener">전체 원본 화면 보기 ↗</a> · Esc로 닫기</p></dialog>
 </body></html>'''
 OUT.mkdir(exist_ok=True)
