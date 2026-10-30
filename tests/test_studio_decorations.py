@@ -90,6 +90,13 @@ class Decorations(unittest.TestCase):
             self.assertAlmostEqual(result['clip-001']['verification']['duration'],1,delta=.15)
             frame=folder/'frame.png';subprocess.run(['ffmpeg','-v','error','-ss','0.5','-i',str(folder/'clip-001.mp4'),'-frames:v','1',str(frame)],check=True)
             pixel=Image.open(frame).convert('RGB').getpixel((320,180))
+            if pixel[0]<=35:
+                # 실패 시 가상 자료의 입력/출력 픽셀과 합성 로그로 OS 차이를 확인한다.
+                layer=folder/'clip-001-final-working-captions'
+                details={p.name:Image.open(p).convert('RGBA').getpixel((320,180)) for p in layer.glob('*.png')}
+                print('PNG 합성 진단:',key,'출력 크기',Image.open(frame).size,'픽셀',pixel,'입력',details,flush=True)
+                print((layer/'captions.ffconcat').read_text(),flush=True)
+                print((folder/'clip-001-final-working.log').read_text(errors='replace')[-6000:],flush=True)
             self.assertGreater(pixel[0],35) # 반투명 빨강 PNG가 실제 영상에 합성됨
         self.assertEqual(before,hashlib.sha256(source.read_bytes()).hexdigest())
 

@@ -53,7 +53,8 @@ def protect_process_tree():
 def exclusive_file(path):
     if path.exists() and path.lstat().st_file_attributes & 0x400:
         raise ValueError('연결된 잠금 파일은 사용할 수 없습니다')
-    handle = k.CreateFileW(str(path), 0xC0000000, 4, None, 4, 0x80, None)
+    # 쓰기 핸들은 계속 배타적으로 유지하되, 휴지통 이동의 읽기 접근은 허용한다.
+    handle = k.CreateFileW(str(path), 0xC0000000, 5, None, 4, 0x80, None)
     if handle == w.HANDLE(-1).value:
         error = ctypes.get_last_error()
         if error in (32, 33):

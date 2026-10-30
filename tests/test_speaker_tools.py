@@ -92,7 +92,7 @@ class ToolTests(unittest.TestCase):
                 info=zipfile.ZipInfo(name);info.filename=name
                 info.external_attr=(kind|0o755)<<16;archive.writestr(info,'../escape')
             target=self.root/f'out{index}';target.mkdir()
-            with self.assertRaises(ValueError):installer.extract(file,target,self.stop)
+            with self.subTest(name=name),self.assertRaises(ValueError):installer.extract(file,target,self.stop)
         with patch.object(tools,'platform_id',return_value='Windows-x64'),ProjectLock(self.root/'작업') as lock:
             self.assertFalse(tools.supported('fluid'));self.assertTrue(tools.supported('pyannote'))
             with self.assertRaisesRegex(ValueError,'지원'):installer.install('fluid',self.stop,lock,lambda **v:None)

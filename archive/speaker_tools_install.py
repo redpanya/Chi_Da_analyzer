@@ -94,7 +94,7 @@ def extract(archive, folder, stop):
             # Windows 드라이브/ADS·대소문자 충돌과 macOS/Unix 연결 파일을 함께 거부한다.
             if (not path.parts or path.is_absolute() or any(p in ('.','..') or ':' in p or p.endswith((' ','.')) or
                     re.fullmatch(r'(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(?:\..*)?',p,re.I) for p in path.parts)
-                    or '\\' in info.filename or '\x00' in info.filename or
+                    or '\\' in info.orig_filename or '\x00' in info.orig_filename or
                     stat.S_IFMT(mode) not in (0, stat.S_IFREG, stat.S_IFDIR)):
                 raise ValueError('실행 도구 압축 파일의 경로 또는 연결 파일이 안전하지 않습니다')
             key = str(path).casefold()
