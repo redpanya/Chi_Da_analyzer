@@ -32,11 +32,12 @@ export function studioDecorations({api,identity,video,read,onChange}){
     if(valid()){target.width=bitmap.width;target.height=bitmap.height;target.getContext('2d').drawImage(bitmap,0,0);}
     bitmap.close();
   }
+  const captionOptions=o=>Object.fromEntries(['caption','style','caption_design','font','caption_language','font_size','position','caption_x','caption_y'].map(k=>[k,o[k]]));
   function payload(o=read()){
-    return {options:{...o,image:null},text:o.caption?$('caption-text').textContent:'',size:size(o)};
+    return {options:{...captionOptions(o),image:null},text:o.caption?$('caption-text').textContent:'',size:size(o)};
   }
   function example(o=read()){
-    return {options:{...o,caption:true,image:null,font_size:40,caption_x:0,caption_y:0,position:'center'},text:fonts.sample(),size:[660,180]};
+    return {options:{...captionOptions(o),caption:true,image:null,font_size:40,caption_x:0,caption_y:0,position:'center'},text:fonts.sample(),size:[660,180]};
   }
   async function preview(){
     if(!ready)return;
@@ -55,9 +56,11 @@ export function studioDecorations({api,identity,video,read,onChange}){
       const serial=++sampleWanted;
       sampleLast=sampleKey;sampleChecked='';
       sample.getContext('2d').clearRect(0,0,sample.width,sample.height);
+      $('caption-sample-status').textContent='자막 예시 확인 중…';
+      $('caption-sample-status').classList.toggle('error',false);
       pending.push(draw(sample,samplePayload,()=>serial===sampleWanted)
-        .then(()=>{if(serial===sampleWanted)sampleChecked=sampleKey;})
-        .catch(e=>{if(serial===sampleWanted)$('caption-font-note').textContent='자막 예시 렌더링 실패 · '+e.message;}).finally(onChange));
+        .then(()=>{if(serial===sampleWanted){sampleChecked=sampleKey;$('caption-sample-status').textContent='';}})
+        .catch(e=>{if(serial===sampleWanted){$('caption-sample-status').classList.toggle('error',true);$('caption-sample-status').textContent='자막 예시 렌더링 실패 · '+e.message;}}).finally(onChange));
     }
     await Promise.all(pending);
   }

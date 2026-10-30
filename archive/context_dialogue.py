@@ -1,4 +1,5 @@
 """형식 7: 대사 중심 단일 문맥, 독립 채팅 후처리와 원자적 복구 상태."""
+from . import error_log
 import copy
 from . import analysis, context_evidence as ev, context_dialogue_input as di
 from . import context_dialogue_model as model, context_tokens as tokens
@@ -88,6 +89,7 @@ def chat(job, folder, source, state, policy=None):
                 item['summary']['relation']=[{'text':row['relation'],'evidence':speech+refs[:2]}] if row['relation'].strip() and speech else []
                 item['chat_state']='complete';item.pop('chat_error',None)
         except (ev.ModelResponseError,model.SplitRequired) as error:
+            error_log.record('context-chat-partial',error,path=job.path)
             for item in group:item.update(chat_state='failed',chat_error=str(error))
         check_cancel(job.stop)
         pending=pending[len(group):];done+=len(group)
@@ -152,6 +154,7 @@ def process(job, saved, source, policy=None):
                     except model.SplitRequired as error:group=rows[cursor:cursor+1];plan_error=error
                     continue
                 error=caught
+            error_log.record('context-dialogue-partial',error,path=job.path)
             close(state,group[0]);state['items'].append(failed(source,group,error));state['consecutive_failures']+=1
             break
         check_cancel(job.stop)

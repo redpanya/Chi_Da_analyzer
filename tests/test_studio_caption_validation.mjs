@@ -27,10 +27,12 @@ await settle(pending.splice(0));assert.equal(ui.blocked(),false);assert.match($(
 // 새 설정은 응답 전부터 막고, 실패해도 기존 선택은 지우지 않는다.
 $('caption-font').value='b';document.dispatchEvent(new Event('change'));assert.equal(ui.blocked(),true);await tick();
 await settle(pending.splice(0),true);assert.equal(ui.blocked(),true);assert.equal($('caption-font').value,'b');
+assert.match($('caption-sample-status').textContent,/실패/);
 enabled=false;assert.equal(ui.blocked(),false);enabled=true;
 // A -> B -> A로 빠르게 변경해도 이전 A 응답으로 최신 검사를 통과시키지 않는다.
 for(const font of ['a','b','a']){$('caption-font').value=font;document.dispatchEvent(new Event('change'));await tick();}
 assert.equal(pending.length,6);await settle(pending.splice(0,4));assert.equal(ui.blocked(),true);
 await settle(pending.splice(0));assert.equal(ui.blocked(),false);assert.ok(changed>4);
+assert.equal($('caption-sample-status').textContent,'');
 window.dispatchEvent(new Event('pagehide'));
 console.log('실제 자막 검사 대기·실패 차단, 자막 해제, 빠른 글꼴 변경의 오래된 응답 무시 검사 통과');

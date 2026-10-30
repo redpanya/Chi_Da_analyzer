@@ -14,6 +14,8 @@ from archive import runtime
 
 def main():
     runtime.configure()
+    from archive import error_log
+    error_log.install_hooks()
     if sys.argv[1:] == ['--speaker-tool-check']:
         from workers.sherpa_tool import check
         check();return

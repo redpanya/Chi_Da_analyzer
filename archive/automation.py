@@ -1,5 +1,6 @@
 """영속 순차 목록. 앱 재시작 시 자동 실행하지 않으며 기존 작업 잠금을 공유한다."""
 import copy
+from . import error_log
 import threading
 import uuid
 
@@ -193,6 +194,7 @@ class Automation:
                 self.change(root, append)
                 added.append(vod)
             except ValueError as error:
+                error_log.record('queue-register', error, vod=vod)
                 errors.append({'vod': vod, 'message': str(error)})
         return self.status(root) | {'added': added, 'errors': errors}
 
@@ -306,6 +308,7 @@ class Automation:
                         except Exception as error:
                             if stage != 'diarize' or not entry['options']['continue_voice_error']:
                                 raise
+                            error_log.record('queue-'+stage,error,path=path)
                             outcomes[stage] = 'partial'
                             self.update_item(entry['id'], message='화자 구분 오류 · 화자 불명 상태로 요약을 계속합니다')
                         self.update_item(entry['id'], stages=dict(outcomes))
@@ -313,6 +316,7 @@ class Automation:
                 except (steps.Paused, steps.Prerequisite, OSError):
                     raise
                 except Exception as error:
+                    error_log.record('queue-stage',error,path=path)
                     from .source import safe_error
                     self.update_item(entry['id'], state='error', message=safe_error(error))
                     # 사전 조건·검증 오류처럼 작업자가 생성되기 전의 실패도 기록한다.
@@ -322,6 +326,7 @@ class Automation:
                 self.report_id = None
             self.change(self.root, lambda data: data.update(state='paused' if self.stop.is_set() else 'complete', message=completion_message(data['items'],self.stop.is_set())))
         except (steps.Paused, steps.Prerequisite, OSError) as error:
+            if not isinstance(error,steps.Paused): error_log.record('queue-prerequisite',error)
             if entry:
                 self.update_item(entry['id'], state='paused', message=str(error) or '중단했습니다. 완료 자료는 유지합니다')
                 try:
@@ -331,7 +336,8 @@ class Automation:
                 except (OSError, ValueError, UnboundLocalError):
                     pass
             self.change(self.root, lambda data: data.update(state='paused', message=str(error) or '일시정지했습니다'))
-        except Exception:
+        except Exception as error:
+            error_log.record('queue-worker',error)
             # 예상하지 못한 오류도 실행 중 상태로 방치하지 않는다.
             try:
                 if entry:

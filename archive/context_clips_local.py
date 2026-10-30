@@ -1,4 +1,5 @@
 """Gemma 클립 작업·복구. 원문과 기존 결과는 읽기만 한다."""
+from . import error_log
 import copy
 import time
 import uuid
@@ -79,7 +80,8 @@ def run(job):
                     if review_key not in work['reviews']:
                         try:work['reviews'][review_key]=policy.review(job,folder,source,seed)
                         except FatalEngineError:raise
-                        except (ValueError,TypeError,KeyError) as error:work['reviews'][review_key]={'error':safe_error(error)}
+                        except (ValueError,TypeError,KeyError) as error:
+                            work['reviews'][review_key]={'error':safe_error(error)};error_log.record('clip-review-partial',error,path=job.path)
                     checked=work['reviews'][review_key]
                     if 'error' in checked:errors.append(checked['error'])
                     else:accepted.extend(checked['clips'])
@@ -95,7 +97,8 @@ def run(job):
                     work['chunks'][index:index+1]=[dict(id=f'{first}-{end}',first=first,last=end),dict(id=f'{end}-{chunk["last"]}',first=end,last=chunk['last'])]
                     save_json(folder/'work.json',work);continue
                 chunk['error']=safe_error(error)
-            except (ValueError,TypeError,KeyError) as error:chunk['error']=safe_error(error)
+            except (ValueError,TypeError,KeyError) as error:
+                chunk['error']=safe_error(error);error_log.record('context-partial',error,path=job.path)
             save_json(folder/'work.json',work)
             job.update(progress={'stage':'clips-review','done':sum(c['last']-c['first'] for c in work['chunks'] if c.get('processed') or c.get('error')),'total':len(rows),'seconds':0})
             index+=1

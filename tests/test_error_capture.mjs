@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {installErrorCapture} from '../web/error-capture.js';
+const sent=[];const host=new EventTarget();host.location={href:'http://127.0.0.1:1234/session/clip-studio.html?vod_id=123'};
+host.fetch=async(url,options)=>{if(String(url).includes('error-log-client')){sent.push(JSON.parse(options.body));return {};};throw new TypeError('네트워크 끊김');};
+const log=installErrorCapture(host);
+await assert.rejects(host.fetch('api/studio-fonts'),/네트워크/);assert.equal(sent.length,1);assert.equal(sent[0].kind,'network');
+await assert.rejects(host.fetch('https://example.com'),/네트워크/);assert.equal(sent.length,1);
+log.report('script','검사');log.report('script','검사');assert.equal(sent.length,2);assert.equal(sent[1].page,'clip-studio');
+for(let i=0;i<30;i++)log.report('script','검사'+i);assert.equal(sent.length,20);
+console.log('로컬 요청 오류·중복 제한·외부 요청 제외 통과');

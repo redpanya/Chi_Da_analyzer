@@ -1,4 +1,5 @@
 """VOD별 로컬 요약 작업·버전·취소. 전사와 채팅에는 쓰지 않는다."""
+from . import error_log
 import json
 import re
 import shutil
@@ -176,12 +177,14 @@ class ContextJob:
                 from . import context_full
                 problems=context_full.run(self) or 0
             else:self.infer()
+            if problems: error_log.record('context-review',f'확인 필요 항목 {problems}개',path=self.path)
             self.update(state='review' if problems else 'complete',message=f'문맥 처리 종료 · 확인 필요 {problems}개. 완료 요약은 사용 가능하며 이어하기로 재검토하세요' if problems else '요약 모델 준비 완료' if self.action=='model' else '문맥 정리 완료 · 원문과 근거를 확인하세요')
             if self.action in ('clips','clips-resume'):
                 self.update(message=f'클립 후보 처리 종료 · 실패 범위 {problems}개 · 완료 후보는 사용할 수 있습니다. 이어하기로 재검토하세요' if problems else '클립 후보 처리 완료 · 추천 이유와 실제 영상을 확인하세요')
             if problems and (self.input or {}).get('version') in (8,9,10):
                 self.update(message=f'문맥 처리 종료 · 확인 필요 {problems}개. 근거 확인 표시는 원문에서 검토하세요. 실패 범위만 이어하기로 재검토합니다.')
         except Exception as error:
+            if not self.stop.is_set() and not isinstance(error,Cancelled): error_log.record('context-'+self.action,error,path=self.path)
             try:self.update(state='paused' if self.stop.is_set() or isinstance(error,Cancelled) else 'error',message='요약 작업 중단 · 완료 결과는 유지합니다' if self.stop.is_set() or isinstance(error,Cancelled) else safe_error(error))
             except OSError:pass
         finally:

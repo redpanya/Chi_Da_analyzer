@@ -9,6 +9,7 @@ import shutil
 from urllib.parse import parse_qs, urlsplit, quote
 
 from .source import safe_error
+from . import error_log
 from .speech_media import local as speech_file
 from . import voice_store, explore, runtime, context_job
 from .storage import Conflict, asset_path, project_path
@@ -75,6 +76,8 @@ def make_server(manager, port=0, *, annotation_preview=False):
         def do_POST(self):
             if not self.allowed():
                 return
+            action = urlsplit(self.path).path[len(prefix):]
+            data = {}
             try:
                 length = int(self.headers.get('Content-Length', 0))
                 if urlsplit(self.path).path[len(prefix):].startswith('/api/import-'):
@@ -88,7 +91,9 @@ def make_server(manager, port=0, *, annotation_preview=False):
                 if not isinstance(data, dict):
                     raise ValueError('요청 값이 올바르지 않습니다')
                 action = urlsplit(self.path).path[len(prefix):]
-                if action.startswith('/api/split-'):
+                if action.startswith('/api/error-log-'):
+                    result = error_log.dispatch(action.removeprefix('/api/error-log-'), data)
+                elif action.startswith('/api/split-'):
                     result = manager.splitter.dispatch(action.removeprefix('/api/split-'), data)
                 elif action.startswith('/api/studio-'):
                     result = manager.studio.dispatch(action.removeprefix('/api/studio-'), data)
@@ -188,8 +193,12 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     return
                 self.reply(200, result)
             except Conflict as error:
+                if not action.startswith('/api/error-log-'): error_log.record(action, error, vod=data.get('vod_id') if isinstance(data,dict) else None)
                 self.reply(409, {'error': str(error)})
+            except (BrokenPipeError, ConnectionResetError):
+                pass
             except Exception as error:
+                if not action.startswith('/api/error-log-'): error_log.record(action, error, vod=data.get('vod_id') if isinstance(data,dict) else None)
                 self.reply(400, {'error': safe_error(error)})
 
         def do_GET(self):
@@ -199,6 +208,13 @@ def make_server(manager, port=0, *, annotation_preview=False):
             self.get(False)
 
         def get(self, body):
+            try: self.get_content(body)
+            except (BrokenPipeError, ConnectionResetError): pass
+            except Exception as error:
+                error_log.record('http-read', error)
+                self.reply(500, {'error':safe_error(error)})
+
+        def get_content(self, body):
             if not self.allowed():
                 return
             path = urlsplit(self.path).path[len(prefix):]
@@ -208,6 +224,7 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     with manager.splitter.audio_preview.borrow(query.get('id', [None])[0]) as target:
                         self.send_file(target, body, download=False)
                 except (ValueError, KeyError, OSError) as error:
+                    error_log.record(path, error)
                     self.reply(404, {'error': safe_error(error)})
                 return
             if path == '/split-file':
@@ -217,6 +234,7 @@ def make_server(manager, port=0, *, annotation_preview=False):
                                                          run=query.get('run', [None])[0], index=query.get('index', [None])[0])
                     self.send_file(target, body, download='source' not in query)
                 except (ValueError, KeyError, OSError) as error:
+                    error_log.record(path, error)
                     self.reply(404, {'error': safe_error(error)})
                 return
             if path == '/api/config':
@@ -245,7 +263,7 @@ def make_server(manager, port=0, *, annotation_preview=False):
             files['/video-split-model.js'] = ('video-split-model.js', 'text/javascript; charset=utf-8')
             files['/video-split-delete.js'] = ('video-split-delete.js', 'text/javascript; charset=utf-8')
             files['/video-split-audio.js'] = ('video-split-audio.js', 'text/javascript; charset=utf-8')
-            for name in ('clip-studio-tools','clip-studio-preview','studio-decorations','studio-fonts-ui','studio-inspector', 'studio-caption-size','studio-caption-design','studio-caption-templates','studio-image-editor','studio-image-geometry','page-lifecycle','edit-session','studio-captions-ui','studio-export-check','result-browser','reaction-times','studio-history'):
+            for name in ('error-capture','error-log-ui','studio-frame-validation','clip-studio-tools','clip-studio-preview','studio-decorations','studio-fonts-ui','studio-inspector', 'studio-caption-size','studio-caption-design','studio-caption-templates','studio-image-editor','studio-image-geometry','page-lifecycle','edit-session','studio-captions-ui','studio-export-check','result-browser','reaction-times','studio-history'):
                 files[f'/{name}.js'] = (f'{name}.js', 'text/javascript; charset=utf-8')
             files['/clip-studio-model.js'] = ('clip-studio-model.js', 'text/javascript; charset=utf-8')
             files['/analysis-scope-preview.js'] = ('analysis-scope-preview.js', 'text/javascript; charset=utf-8')
@@ -290,6 +308,7 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     target = asset_path(project_path(root, vod), task['assets'][key])
                 self.send_file(target, body, download=(key not in ('playback', 'audio', 'sam') and not (kind == 'voices' and key in ('original','vocals','background'))))
             except (ValueError, KeyError, OSError) as error:
+                error_log.record('media-file', error, vod=query.get('vod_id',[None])[0])
                 self.reply(404, {'error': safe_error(error)})
 
         def send_file(self, path, body, download):

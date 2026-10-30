@@ -1,4 +1,5 @@
 """편집 초안·출력 이력·범위 작업. 원본 결과와 별도의 저장소와 프로젝트 잠금."""
+from . import error_log
 from contextlib import ExitStack
 import copy
 import re
@@ -167,6 +168,7 @@ class Work:
                 execute(self)
             self.update(state='complete',message='처리와 출력 검사 완료',progress=1)
         except Exception as error:
+            if not self.stop.is_set() and not isinstance(error,Cancelled): error_log.record('studio-'+self.value['kind'],error,path=self.path)
             try:self.update(state='paused' if self.stop.is_set() or isinstance(error,Cancelled) else 'error',message='중단했습니다. 완료 자료를 보존했습니다' if self.stop.is_set() else safe_error(error))
             except OSError:pass
         finally:self.lock.close();self.closed=True

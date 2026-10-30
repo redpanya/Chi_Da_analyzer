@@ -1,4 +1,5 @@
 """Gemma의 대사 경계 판정만 실행한다. 상세 요약의 체크포인트와 섞지 않는다."""
+from . import error_log
 import uuid
 import time
 from . import context_exchange_data as data, context_boundary, context_dialogue_model as model
@@ -110,7 +111,8 @@ def run(job):
                 mid=(start+chunk['last'])//2
                 work['chunks'][index:index+1]=[dict(id=f'{start}-{mid}',first=start,last=mid),dict(id=f'{mid}-{chunk["last"]}',first=mid,last=chunk['last'])]
             else:chunk['error']=safe_error(error)
-        except (ValueError,TypeError,KeyError) as error:chunk['error']=safe_error(error)
+        except (ValueError,TypeError,KeyError) as error:
+            chunk['error']=safe_error(error);error_log.record('context-partial',error,path=job.path)
         check_cancel(job.stop)
         save_json(folder/'work.json',work)
         job.update(progress={'stage':'timestamps','done':sum(c['last']-c['first'] for c in work['chunks'] if c['id'] in work['replies'] or c.get('error')),'total':len(rows),'seconds':0})

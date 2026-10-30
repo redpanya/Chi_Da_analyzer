@@ -1,4 +1,5 @@
 """추출·모델 준비·전사를 실행하고 완료 조각을 체크포인트로 유지한다."""
+from . import error_log
 
 import shutil
 import threading
@@ -137,6 +138,7 @@ class SpeechJob:
             self.update(state='complete', message={'model': '모델 준비 완료', 'audio': '음성 추출 완료',
                         'transcribe': '전체 범위 전사 처리 완료 · 자동 인식 내용은 원음으로 확인하세요'}[self.action])
         except Exception as error:
+            if not self.stop.is_set() and not isinstance(error,Cancelled): error_log.record('speech-'+self.action,error,path=self.path)
             try:
                 paused = isinstance(error, Cancelled) or self.stop.is_set()
                 self.update(state='paused' if paused else 'error',

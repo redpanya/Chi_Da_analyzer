@@ -1,4 +1,5 @@
 """화면 수명과 분리된 작업, 개별 중단, 재시작 복구."""
+from . import error_log
 
 import threading
 import time
@@ -44,6 +45,7 @@ class Job:
             (video.download if kind == 'video' else chat.collect)(self.project, self.stops[kind])
         except Exception as error:
             paused = isinstance(error, source.Cancelled) or self.stops[kind].is_set()
+            if not paused: error_log.record('download-'+kind,error,path=self.project.path)
             try:
                 self.project.update(kind, state='paused' if paused else 'error',
                                     message='중단했습니다. 저장된 자료에서 이어받을 수 있습니다' if paused else source.safe_error(error))

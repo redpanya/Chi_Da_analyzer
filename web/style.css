@@ -126,3 +126,5 @@ button{touch-action:manipulation;user-select:none;-webkit-user-select:none}butto
 /* 편집 복구와 큰 결과 목록의 공통 도구 */
 .edit-leave-dialog{max-width:520px;border:1px solid var(--line);border-radius:12px;padding:24px}.edit-leave-dialog button{margin:4px}.edit-leave-dialog::backdrop{background:#0006}.result-browser{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}.result-browser input[type=search]{flex:1;min-width:180px}.result-browser input:not([type=search]){width:120px}[data-state=changed]{color:#925119}[data-state=error]{color:#b42318}
 .result-pagination{display:flex;flex:0 0 100%;align-items:center;gap:8px}.result-pagination span{flex:1;text-align:center}.result-browser>[role=status]:empty{display:none}
+
+#error-log-rows{max-height:380px;overflow:auto} .error-log-message{white-space:pre-wrap;overflow-wrap:anywhere} #error-export-preview{width:100%}

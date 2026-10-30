@@ -1,3 +1,4 @@
+import {createErrorLogUI} from './error-log-ui.js';
 import {showPreviewToast} from './preview-toast.js';
 import {createAnalysisScopePreview} from './analysis-scope-preview.js';
 import {createWorkspaceLayout} from './workspace-layout.js';
@@ -36,6 +37,7 @@ const reactions=createReactions({api,onDone:()=>{explorer.refresh();context.refr
 const voices=createVoices({api,player,showExplore,showVideo:()=>go(5),onProject:value=>{current=value;render();}});
 const speech=createSpeech({api,player,showPreview:row=>miniPlayer.open(row),showVoices:range=>{voices.chooseRange(range);go(4);},onProject:value=>{current=value;render();}});
 const folders=createFolders({api,onApplied:async()=>{if(current){current=await api('state',{root:current.root,vod_id:current.vod_id});render();}}});
+const errorLogs=createErrorLogUI({api});
 const reports=createReports({api,getProject:()=>current});
 const queue=createQueue({api,onStatus:workspace.setQueue,getRoot:()=>$('root').value,onOpen:(root,vod)=>perform(async()=>{current=await api('state',{root,vod_id:vod});render();go(2);}),onChanged:()=>list().catch(()=>{}),onLock:locked=>{for(const id of ['root','load-library'])$(id).disabled=locked;}});
 $('open-clip-studio').onclick=()=>{
@@ -56,6 +58,7 @@ function duration(seconds){if(!Number.isFinite(seconds))return '길이 미확인
 function go(step){step=Math.min(9,Math.max(1,step));if(page!==step){miniPlayer.close(false);player.clearRange();voices.stopPreview();}page=step;['import-panel','download-panel','speech-panel','voices-panel','explore-panel','context-panel','report-panel','external-panel','settings-page'].forEach((id,i)=>$(id).hidden=i===0?step>2:i===1?!current:i+1!==step);[1,2,3,4,5,6,7,8,9].forEach(n=>$(`step${n}`).classList.toggle('current',(n===1&&step===2)||step===n));workspace.navigate(step);$('heading').textContent=['가져오기','가져오기','음성 전사','화자 구분 · 선택','분석·재생','AI 문맥 정리','작업 기록','외부 AI 파일 분석','설정'][step-1];
  player.previewMode(step===6);help.setPage(step);if(step!==7)reports.clear();
  if(step===5||step===6){const target=$(step===5?'explore-video':context.videoTarget());for(const id of ['video-result','video-unready'])if($(id).parentElement!==target)target.append($(id));}
+ if(step===7||step===9)errorLogs.refresh();
  explorer.open(step===5);if(step===6)context.refresh();if(step===7)reports.refresh();if(step===8)external.refresh();if(step===9)folders.refresh();}
 async function list(){const requested=$('root').value,projects=await api('projects',{root:requested});if(requested!==$('root').value)return;$('projects').replaceChildren();if(!projects.length){const p=document.createElement('p');p.className='muted';p.textContent='이 폴더에 저장한 VOD가 없습니다.';$('projects').append(p);}for(const project of projects){const button=document.createElement('button');button.dataset.path=project.path;button.className='project-item'+(current?.path===project.path?' selected':'');const title=document.createElement('strong'),summary=document.createElement('small');title.textContent=vodLabel(project);summary.textContent=`영상 ${labels[project.tasks.video.state]} · 채팅 ${labels[project.tasks.chat.state]}`;button.append(title,summary);button.onclick=()=>perform(async()=>{current=await api('state',{root:project.root,vod_id:project.vod_id});render();go(2);});const row=document.createElement('div');row.className='project-row';row.append(button);$('projects').append(row);}}
 async function perform(fn){if(busy)return;busy=true;notice();try{await fn();}catch(error){notice(error.message);}finally{busy=false;}}

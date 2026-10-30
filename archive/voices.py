@@ -1,4 +1,5 @@
 """M4 작업은 새 폴더에 완성한 뒤 현재 결과만 전환한다."""
+from . import error_log
 from pathlib import Path
 import threading
 import uuid
@@ -126,6 +127,7 @@ class VoiceJob:
             self.update(state='complete', message=message, progress={})
         except Exception as error:
             paused = isinstance(error, Cancelled) or self.stop.is_set()
+            if not paused: error_log.record('voices-'+self.action,error,path=self.path)
             try:
                 self.update(state='paused' if paused else 'error', message='중단했습니다. 기존 완료 결과는 유지됩니다' if paused else safe_error(error))
             except OSError: pass

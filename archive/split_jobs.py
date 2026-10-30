@@ -1,4 +1,5 @@
 """독립 영상 분할 작업·기록. 보관함 프로젝트나 모델이 필요하지 않다."""
+from . import error_log
 import copy
 import os
 from pathlib import Path
@@ -182,6 +183,7 @@ class Work:
                 split_render.render(self)
                 self.update(state='complete', progress=1, message='분할 저장과 트랙·길이·시작/끝 검사 완료')
         except Exception as error:
+            if not self.stop.is_set() and not isinstance(error,Cancelled): error_log.record('video-split',error)
             try:
                 self.update(state='paused' if self.stop.is_set() or isinstance(error, Cancelled) else 'error',
                             message='중단했습니다. 완료 파일을 보존했습니다' if self.stop.is_set() else safe_error(error))

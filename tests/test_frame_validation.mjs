@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {frameErrors,showFrameErrors} from '../web/studio-frame-validation.js';
+const invalid={layout:'split',game:[0,0,100,100],face:[80,50,30,50]},before=JSON.stringify(invalid);
+assert.match(frameErrors(invalid).face,/가로/);assert.equal(JSON.stringify(invalid),before);
+assert.deepEqual(frameErrors({...invalid,layout:'single'}),{});
+assert.deepEqual(frameErrors({...invalid,face:[70,50,30,50]}),{});
+const nodes=new Map();globalThis.document={getElementById(id){if(!nodes.has(id))nodes.set(id,{textContent:'',setAttribute(k,v){this[k]=v;}});return nodes.get(id);}};
+showFrameErrors(frameErrors(invalid));assert.ok(nodes.get('face-error').textContent);assert.equal(nodes.get('face-x')['aria-invalid'],'true');
+showFrameErrors({});assert.equal(nodes.get('face-error').textContent,'');assert.equal(nodes.get('face-x')['aria-invalid'],'false');
+console.log('영역별 안내, 사용하지 않는 영역 보존, 복구 시 안내 제거 통과');

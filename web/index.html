@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>치(지직) 다(시보기) 분석기</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="pattern-background.css"><link rel="stylesheet" href="workspace.css">
-<link rel="stylesheet" href="mini-player.css"><script src="pattern-background.js" defer></script><script src="app.js" type="module"></script></head>
+<link rel="stylesheet" href="mini-player.css"><script src="pattern-background.js" defer></script><script src="app.js" type="module"></script><script src="error-capture.js" type="module"></script></head>
 <body>
 <aside>
   <a class="brand" href="./" aria-label="치(지직) 다(시보기) 분석기"><span class="mark" aria-hidden="true">↙</span><span class="brand-name" aria-hidden="true"><span class="brand-term">치<small>(지직)</small></span><span class="brand-term">다<small>(시보기)</small></span><span>분석기</span></span></a>
@@ -77,7 +77,7 @@
       <p id="compute-status" class="hint" role="status"></p><p id="compute-notice" role="status" aria-live="polite"></p>
     </div>
   </section>
-  <section id="settings-page" class="panel" hidden></section>
+  <section id="settings-page" class="panel" hidden><section><h2>오류 진단 로그</h2><label><input id="error-log-enabled" type="checkbox" checked> 오류 진단 로그 저장</label><button id="error-log-apply">설정 적용</button><p id="error-log-setting-state" role="status"></p><p class="hint">이 컴퓨터에만 저장합니다. 끄면 새 진단 오류를 저장하지 않으며 기존 기록은 유지합니다. 작업 이어하기에 필요한 상태·결과와 실행 도구 자체 로그는 별도로 유지됩니다.</p></section></section>
   <section id="download-panel" hidden>
     <div class="project-heading"><h2 id="project-title"></h2><p id="project-meta" class="muted"></p><p id="project-path" class="path"></p></div>
     <p id="lock-note" class="hint"></p>
@@ -315,6 +315,8 @@
   </section>
 
   <section id="report-panel" class="panel" hidden>
+<section aria-label="전체 기능 오류 기록"><h2>오류 기록</h2><p>모든 VOD·클립 만들기·영상 나누기의 작업 오류와 화면 오류를 모아 봅니다. 과거 버전의 오류는 소급 수집하지 않습니다.</p><button id="error-log-refresh">오류 기록 새로고침</button><p id="error-log-state" role="status"></p><div id="error-log-rows"></div>
+<details><summary>오류 제보용 JSON 저장·이메일 안내</summary><p>첨부용 JSON에는 앱 버전, 운영체제·구조, VOD 번호, 발생 시각·기능, 오류 종류·종료 코드·발생 코드 위치·반복 횟수가 포함됩니다. 파일 경로, 인증 정보, 영상·전사·채팅 원문과 자유 형식 오류 메시지는 첨부용 사본에서 제외합니다.</p><p>로컬 상세 메시지에는 입력 내용 일부가 남을 수 있습니다. 첨부용 JSON을 확인하고 개인정보가 추가되지 않도록 주의하세요. 보내주신 자료는 분석기 오류 확인과 개선에 사용합니다. 자동 전송은 하지 않습니다.</p><button id="error-export-check">첨부할 JSON 미리보기</button><textarea id="error-export-preview" rows="8" readonly aria-label="이메일 첨부용 오류 JSON"></textarea><button id="error-export-save" disabled>오류 JSON 저장</button><label><input id="error-email-consent" type="checkbox"> 내용을 확인했으며 분석기 개선을 위한 자료 제공에 동의합니다.</label><a id="error-email" hidden>이메일 작성</a><p>받는 주소: redpanyaday@gmail.com · 저장한 JSON을 이메일에 직접 첨부해 주세요. 영상·원본 로그 전체를 첨부할 필요는 없습니다.</p></details></section>
     <h2 data-help="report">분석기 리포트</h2>
     <h3>현재 PC</h3>
     <pre id="report-hardware"></pre>

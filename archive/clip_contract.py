@@ -65,8 +65,11 @@ def validate(value, src, *, draft=False):
         r=options[k]
         if not isinstance(r,list) or len(r)!=4:raise ValueError('게임·얼굴 영역을 확인하세요')
         for i,v in enumerate(r):number(v,0 if i<2 else 1,100,k)
-        if r[0]+r[2]>100.001 or r[1]+r[3]>100.001:raise ValueError('선택 영역이 원본 화면을 벗어납니다')
-        if r[2]*src['width']/100<2 or r[3]*src['height']/100<2:raise ValueError('선택 영역의 너비·높이는 원본 기준 최소 2픽셀이어야 합니다')
+        if options['layout']=='split':
+            label='게임 영역' if k=='game' else '얼굴 영역'
+            if r[0]+r[2]>100.001:raise ValueError(label+'의 가로 위치 + 너비가 100%를 넘습니다. 화면 설정에서 조절하세요')
+            if r[1]+r[3]>100.001:raise ValueError(label+'의 세로 위치 + 높이가 100%를 넘습니다. 화면 설정에서 조절하세요')
+            if r[2]*src['width']/100<2 or r[3]*src['height']/100<2:raise ValueError(label+'의 너비·높이는 원본 기준 최소 2픽셀이어야 합니다')
     if options['layout']=='split':options['ratio']='9:16'
     if not draft and options['speed']=='fast' and (options['mode']!='separate' or options['ratio']!='original' or options['caption'] or options['image'] or
         options['layout']!='single' or options['size']!='source' or options['volume']!=100 or options['brightness']!=0 or

@@ -1,3 +1,4 @@
+import {frameErrors, showFrameErrors} from './studio-frame-validation.js';
 import {studioHistory} from './studio-history.js';
 import {pagePolling} from './page-lifecycle.js';
 import {createEditSession} from './edit-session.js';
@@ -24,15 +25,17 @@ export function createStudioTools({api,identity,video,selection,getRatio,setRati
     caption:$('caption-enabled').checked,style:captionDesign.style(),caption_design:captionDesign.read(),font:$('caption-font').value,caption_language:$('caption-language').value,font_size:Number($('caption-size').value),position:$('caption-position').value,caption_x:Number($('caption-x').value),caption_y:Number($('caption-y').value),image:decorations.imageOptions(),sidecar:$('sidecar').checked,speed:$('render-speed').value};}
   const input=()=>$('caption-version').value?{transcript_run:$('caption-version').value,speaker_run:null}:null;
   const request=()=>({clips:selection().map(r=>({id:r.id,title:r.title,start_ms:r.start_ms,end_ms:r.end_ms})),options:options(),selection:input(),caption_edits:captions.edits(),caption_versions:captions.versions(),range_drafts:rangeDrafts()});
-  const session=createEditSession({read:request,status:$('studio-save-state'),save:async value=>{if(!captionSize.valid())throw Error($('caption-size-error').textContent);if(!captionDesign.valid())throw Error($('caption-design-error').textContent);const saved=await api('studio-draft',{...identity(),revision,request:value});revision=saved.revision;}});
+  const session=createEditSession({read:request,status:$('studio-save-state'),save:async value=>{if(!captionSize.valid())throw Error($('caption-size-error').textContent);if(!captionDesign.valid())throw Error($('caption-design-error').textContent);const issues=frameErrors(options(),video.videoWidth,video.videoHeight);if(Object.keys(issues).length)throw Error(Object.values(issues)[0]);const saved=await api('studio-draft',{...identity(),revision,request:value});revision=saved.revision;}});
   function buttons(){
     if(!ready)return;
     if(spaceKey&&spaceKey!==JSON.stringify(request())){$('render-space').textContent='설정이 변경됐습니다. 저장 공간을 다시 확인하세요.';spaceKey='';}
+    const frameProblems=frameErrors(options(),video.videoWidth,video.videoHeight);
+    showFrameErrors(frameProblems);
     const conflicts=fastConflicts(options(),input());
     $('render-conflicts').textContent=conflicts.length?'빠른 저장 전 확인: '+conflicts.join(' · '):'';
-    $('render-start').disabled=!captionDesign.valid()||!captionSize.valid()||!selection().length||running||decorations.blocked()||conflicts.length>0||((options().caption||options().sidecar)&&!!input()&&captions.blocked());
+    $('render-start').disabled=Object.keys(frameProblems).length>0||!captionDesign.valid()||!captionSize.valid()||!selection().length||running||decorations.blocked()||conflicts.length>0||((options().caption||options().sidecar)&&!!input()&&captions.blocked());
     decorations.busy(running);
-    $('draft-save').disabled=running||!captionSize.valid()||!captionDesign.valid();session.changed();
+    $('draft-save').disabled=Object.keys(frameProblems).length>0||running||!captionSize.valid()||!captionDesign.valid();session.changed();
   }
   const captions=studioCaptions({api,identity,video,selection,onPreview:onCaptionPreview,onChange:()=>{if(ready)session.changed();},onState:buttons});
   const decorations=studioDecorations({api,identity,video,read:options,onChange:buttons});
