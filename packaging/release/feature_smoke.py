@@ -78,6 +78,14 @@ def check(http, url, work, ffmpeg, ffprobe, fixture):
     png = post('studio-decoration-preview', **fixture, size=[320, 180],
                text='한글 자막  공백 유지 123', options={'caption': True, 'font': font['id'], 'style': 'box'})
     assert base64.b64decode(png['png']).startswith(b'\x89PNG\r\n\x1a\n')
+    invalid_frame = post('studio-decoration-preview', **fixture, size=[320, 180],
+                         text='한글 자막  공백 유지 123',
+                         options={'caption': True, 'font': font['id'], 'style': 'box',
+                                  'layout': 'split', 'face': [99, 0, 22, 100]})
+    assert invalid_frame['png'] == png['png'], '화면 영역 오류가 패키지 자막 미리보기에 영향을 줍니다'
+    diagnostic = post('error-log-export')
+    assert diagnostic['schema'] == 1 and isinstance(diagnostic['enabled'], bool)
+    assert all('message' not in event for event in diagnostic['events'])
     asset = post('studio-image-add', **fixture, png=png['png'], name='검사 자막.png')
     image = {k: asset[k] for k in ('asset', 'name')} | {'x': 50, 'y': 50, 'width': 100, 'opacity': 100}
     job = post('studio-start', **fixture, request={'clips': [{'title': '자막 PNG 검사', 'start_ms': 0, 'end_ms': 1000}],
@@ -92,4 +100,5 @@ def check(http, url, work, ffmpeg, ffprobe, fixture):
     assert state['outputs']['clip-001']['verification']['bytes'] > 0
     return {'split_audio_counts': split_counts, 'all_video_and_selected_audio_packets_identical': True,
             'aac_preview_packets_identical': True, 'source_preserved': True,
-            'packaged_korean_font_and_png_render': True, 'packaged_png_clip_encode': True}
+            'packaged_korean_font_and_png_render': True, 'packaged_png_clip_encode': True,
+            'caption_independent_of_invalid_frame': True, 'diagnostic_export_api': True}

@@ -16,8 +16,10 @@ class ClipRender(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):cls.temp.cleanup()
     def test_validate(self):
-        for req in [{'clips':[]},{'clips':[{'title':'x','start_ms':-1,'end_ms':12}]},{'clips':[{'title':'x','start_ms':10000,'end_ms':12000}],'options':{'face':[99,0,5,5]}},{'clips':[{'title':'x','start_ms':10000,'end_ms':12000}],'options':{'caption':True,'speed':'fast'}}]:
+        for req in [{'clips':[]},{'clips':[{'title':'x','start_ms':-1,'end_ms':12}]},{'clips':[{'title':'x','start_ms':10000,'end_ms':12000}],'options':{'layout':'split','face':[99,0,5,5]}},{'clips':[{'title':'x','start_ms':10000,'end_ms':12000}],'options':{'caption':True,'speed':'fast'}}]:
             with self.assertRaises(ValueError):c.validate(req,self.src)
+        unused={'clips':[{'title':'x','start_ms':10000,'end_ms':12000}],'options':{'layout':'single','face':[99,0,5,5]}}
+        self.assertEqual(c.validate(unused,self.src)['options']['face'],[99,0,5,5])
     def test_caption_offsets(self):
         clips=[{'start_ms':10000,'end_ms':12000},{'start_ms':12500,'end_ms':14000}]
         rows=[{'start_ms':9000,'end_ms':10500,'text':'시작'},{'start_ms':13000,'end_ms':15000,'text':'끝'}]
