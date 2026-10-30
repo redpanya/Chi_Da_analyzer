@@ -19,6 +19,7 @@ def main():
     ffmpeg = ROOT/'build/native/ffmpeg'/('ffmpeg.exe' if os.name == 'nt' else 'ffmpeg')
     decoders = subprocess.check_output([str(ffmpeg), '-hide_banner', '-decoders'], env=env, text=True)
     assert any(' png ' in line for line in decoders.splitlines()), '배포 FFmpeg에 자막·이미지용 PNG 디코더가 없습니다'
+    subprocess.run([sys.executable, str(ROOT/'packaging/release/check_media_colors.py')], cwd=ROOT, env=env, check=True)
     modules = (
         'test_annotation_preview', 'test_automation_selection', 'test_automation_summary',
         'test_download_scope', 'test_context_guidance', 'test_context_clip_chat',
