@@ -1,0 +1,38 @@
+[
+  {
+    "file": "jua/Jua-Regular.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/6157dfaa640ca5738b4d1a7070fe389c3036d7fc/ofl/jua/Jua-Regular.ttf",
+    "bytes": 2119352,
+    "sha256": "769677aef240bfc3b9965f2b50748075bff885e6c6992fc591a3fb268279f898"
+  },
+  {
+    "file": "jua/OFL.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/6157dfaa640ca5738b4d1a7070fe389c3036d7fc/ofl/jua/OFL.txt",
+    "bytes": 4342,
+    "sha256": "44a7c6e4c5572392ae122d3b1d8c6ba6fd640a7797e675384585d947f2773e3c"
+  },
+  {
+    "file": "gaegu/Gaegu-Bold.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/6157dfaa640ca5738b4d1a7070fe389c3036d7fc/ofl/gaegu/Gaegu-Bold.ttf",
+    "bytes": 2962664,
+    "sha256": "cc38a4af9506a45254d1ce07c589ec473d9e5f0be319e5a77b17c214903f8c1c"
+  },
+  {
+    "file": "gaegu/OFL.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/6157dfaa640ca5738b4d1a7070fe389c3036d7fc/ofl/gaegu/OFL.txt",
+    "bytes": 4344,
+    "sha256": "53a9ce47085d9fef613c7ecb3730dc80d25962510bbea231b89564f58240f251"
+  },
+  {
+    "file": "blackandwhitepicture/BlackAndWhitePicture-Regular.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/6157dfaa640ca5738b4d1a7070fe389c3036d7fc/ofl/blackandwhitepicture/BlackAndWhitePicture-Regular.ttf",
+    "bytes": 9606352,
+    "sha256": "4d72cd6de1f210b446c86f06b4e13d7641cbcfb1b375c6927341388aa8e08056"
+  },
+  {
+    "file": "blackandwhitepicture/OFL.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/6157dfaa640ca5738b4d1a7070fe389c3036d7fc/ofl/blackandwhitepicture/OFL.txt",
+    "bytes": 4374,
+    "sha256": "a9b3e7e1cf5735dc49d802b88b1858a2a50307ba2a877ddf3f0b27d8b1d0abc5"
+  }
+]

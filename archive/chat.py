@@ -9,7 +9,7 @@ import uuid
 
 from .source import Cancelled, check_cancel, request_json
 from .storage import save_json, read_json
-from . import chat_boundary, chat_workdb
+from . import chat_boundary, chat_workdb, chat_scope
 
 
 def validate(payload, cursor):
@@ -66,6 +66,7 @@ def safe_csv(value):
 
 
 def export(project, paths, label, stop, extras=None, index=None):
+    scope = chat_scope.bounds(project.data)
     generation = project.path / 'exports' / uuid.uuid4().hex
     generation.mkdir(parents=True)
     if index is not None:
@@ -75,27 +76,30 @@ def export(project, paths, label, stop, extras=None, index=None):
     extra_iterator = chat_boundary.extra_messages(extras) if extras else None
     try:
         with (generation / 'chat.json').open('w', encoding='utf-8') as js, (generation / 'chat.jsonl').open('w', encoding='utf-8') as jl, (generation / 'chat.csv').open('w', encoding='utf-8-sig', newline='') as cs, (generation / 'chat.txt').open('w', encoding='utf-8') as tx:
-            js.write(json.dumps({'vod_id': vod, 'collection_status': label, 'time_basis': 'VOD 경과 밀리초'}, ensure_ascii=False)[:-1] + ',"messages":[\n')
+            js.write(json.dumps({'vod_id': vod, 'collection_status': label, 'time_basis': 'VOD 경과 밀리초', **({'range_ms':[scope['start_ms'],scope['end_ms']]} if scope else {})}, ensure_ascii=False)[:-1] + ',"messages":[\n')
             tx.write(f'VOD {vod} / {label} / 영상 경과시간 기준\n')
-            writer = csv.DictWriter(cs, fieldnames=list(row({'playerMessageTime': 0}, vod, 0, label)))
+            writer = csv.DictWriter(cs, fieldnames=list(chat_scope.timing(row({'playerMessageTime': scope['start_ms'] if scope else 0}, vod, 0, label),scope)))
             writer.writeheader()
             def original_messages():
                 for sequence, path in enumerate(paths):
                     check_cancel(stop)
                     wrapper = read_json(path)
-                    for message in wrapper['response']['content']['videoChats']:
+                    for message in chat_scope.select(wrapper['response']['content']['videoChats'], scope):
                         yield message, sequence
             messages = original_messages()
             if extras:
                 messages = heapq.merge(messages, extra_iterator, key=lambda item: item[0]['playerMessageTime'])
             for message, sequence in messages:
                 check_cancel(stop)
-                item = row(message, vod, sequence, label)
+                if scope and not scope['start_ms'] <= message['playerMessageTime'] < scope['end_ms']:
+                    continue
+                item = chat_scope.timing(row(message, vod, sequence, label),scope)
                 encoded = json.dumps(item, ensure_ascii=False)
                 js.write((',' if count else '') + encoded + '\n')
                 jl.write(encoded + '\n')
                 writer.writerow({key: safe_csv(value) for key, value in item.items()})
-                tx.write(f"[{item['timecode']}] {json.dumps(item['nickname'], ensure_ascii=False)}: {json.dumps(item['text'], ensure_ascii=False)}\n")
+                clock = item['timecode'] + (' / 구간 '+item['clip_timecode'] if scope else '')
+                tx.write(f"[{clock}] {json.dumps(item['nickname'], ensure_ascii=False)}: {json.dumps(item['text'], ensure_ascii=False)}\n")
                 if index is not None:
                     index.execute('INSERT INTO counts VALUES (?, 1) ON CONFLICT(fingerprint) DO UPDATE SET amount=amount+1', (fingerprint(message),))
                 count += 1
@@ -110,6 +114,7 @@ def export(project, paths, label, stop, extras=None, index=None):
 
 def collect(project, stop):
     vod = project.data['vod_id']
+    scope = chat_scope.bounds(project.data)
     pages = project.path / 'chat-pages'
     pages.mkdir(exist_ok=True)
     if project.data['metadata'].get('chat_enabled') is False:
@@ -117,8 +122,8 @@ def collect(project, stop):
         project.update('chat', state='unavailable', message='서비스에서 채팅을 제공하지 않는 VOD입니다',
                        progress={'messages': 0, 'pages': 0}, assets=export_assets(project, generation))
         return
-    cursor, count, previous, overlap = 0, 0, None, False
-    paths, cursors, boundaries = [], {0}, {}
+    cursor, count, previous, overlap = max(0,scope['start_ms']-1) if scope else 0, 0, None, False
+    paths, cursors, boundaries = [], ({cursor,scope['end_ms']-1} if scope else {0}), {}
     cached = sorted(p for p in pages.glob('*.json') if not p.name.startswith('._'))
     paused = False
     try:
@@ -129,7 +134,7 @@ def collect(project, stop):
                 if path != cached[sequence]:
                     raise ValueError('보존한 채팅 페이지 번호에 빈 구간이 있습니다')
                 wrapper = read_json(path)
-                if wrapper.get('vod_id') != vod or wrapper.get('cursor') != cursor:
+                if wrapper.get('vod_id') != vod or wrapper.get('cursor') != cursor or wrapper.get('download_range') != scope:
                     raise ValueError('보존한 채팅의 VOD·커서 식별 정보가 다릅니다')
                 payload = wrapper['response']
             else:
@@ -139,8 +144,9 @@ def collect(project, stop):
                 except ValueError:
                     save_json(project.path / 'diagnostics' / f'chat-error-{uuid.uuid4().hex}.json', payload)
                     raise
-                save_json(path, {'vod_id': vod, 'cursor': cursor, 'response': payload})
+                save_json(path, {'vod_id': vod, 'cursor': cursor, 'response': payload, **({'download_range':scope} if scope else {})})
             messages, following = validate(payload, cursor)
+            messages = chat_scope.select(messages,scope)
             if messages:
                 overlap |= previous is not None and messages[0]['playerMessageTime'] <= previous
                 previous = messages[-1]['playerMessageTime']
@@ -150,7 +156,7 @@ def collect(project, stop):
             progress = {'pages': len(paths), 'messages': count, 'last_ms': previous, 'next_cursor': cursor}
             save_json(project.path / 'chat-checkpoint.json', progress)
             project.update('chat', state='running', message='제공되는 채팅 범위를 순서대로 받고 있습니다', progress=progress)
-            if cursor is None:
+            if cursor is None or (scope and cursor >= scope['end_ms']):
                 if sequence + 1 < len(cached):
                     raise ValueError('종료 커서 뒤에 추가 보존 페이지가 있습니다')
                 break
@@ -189,6 +195,7 @@ def collect(project, stop):
                 save_json(saved, payload)
                 fetched += 1
             messages, _ = validate(payload, cursor)
+            messages = chat_scope.select(messages,scope)
             checks.append(chat_boundary.reconcile(db, messages, cursor, boundaries.get(cursor)))
             if stop.wait(.15): raise Cancelled()
         valid = not overlap and all(not c['missing'] and not c['single_timestamp_full_page'] for c in checks)
@@ -204,7 +211,7 @@ def collect(project, stop):
         final, count = export(project, paths, label, stop, extras=db)
         save_json(final/'boundary-recovery.json', audit | {'source_generation': str(generation.relative_to(project.path))})
     progress = project.snapshot()['tasks']['chat'].get('progress', {}) | {'messages': count}
-    message = label+(f' · 경계 누락 {recovered}건 보완' if recovered else '')
+    message = ('지정 구간 · ' if scope else '')+label+(f' · 경계 누락 {recovered}건 보완' if recovered else '')
     missing = sum(c['missing'] for c in checks)
     if not valid: message += f' · 미확인 {missing}건'+(' · 페이지 겹침' if overlap else '')+(' · 같은 시각의 응답 한도 도달' if any(c['single_timestamp_full_page'] for c in checks) else '')
     project.update('chat', state=('complete' if count else 'empty') if valid else 'review',

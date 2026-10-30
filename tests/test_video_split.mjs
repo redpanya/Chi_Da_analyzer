@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {clock,parseTime,validPoints,intervals} from '../web/video-split-model.js';
+assert.equal(parseTime('123:45:06.125'),445506.125);
+assert.equal(clock(445506.125),'123:45:06.125');
+assert.deepEqual(validPoints([9,2,7],10),[2,7,9]);
+assert.deepEqual(intervals(1,180),[60,120]);
+assert.throws(()=>parseTime('00:99:20'));
+assert.throws(()=>parseTime('02:14'));
+assert.throws(()=>validPoints([2,2],10));
+assert.throws(()=>validPoints([0],10));
+assert.throws(()=>intervals(.1,72000));
+console.log('영상 나누기 시간 입력·정렬·간격 검사 통과');

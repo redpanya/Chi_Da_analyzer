@@ -19,6 +19,7 @@ export function connectHelp() {
   }
   const buttons = new Map();
   for (const target of document.querySelectorAll('[data-help]')) {
+    if (target.hidden || target.closest('.section-heading[hidden]')) continue;
     const wrapper = document.createElement('div'), button = document.createElement('button');
     wrapper.className = target.tagName === 'DETAILS' ? 'help-details' : 'help-heading';
     button.type = 'button'; button.className = 'help-button';
@@ -31,21 +32,25 @@ export function connectHelp() {
   document.addEventListener('click', event => {
     const origin = event.target?.nodeType === 3 ? event.target.parentElement : event.target;
     const button = origin?.closest?.('[data-help-open]');
-    if (!button || document.querySelector('dialog[open]')) return;
+    const settings = button?.closest('.settings-panel[open]');
+    if (!button || (document.querySelector('dialog[open]') && !settings)) return;
     const content = getHelpContent(button.dataset.helpOpen, read);
     $('help-title').textContent = content.title + ' 도움말';
-    body.replaceChildren();
+    const contentBody = settings ? document.createElement('section') : body;
+    contentBody.replaceChildren();
+    if (settings) { const title = document.createElement('h3'); title.textContent = content.title + ' 도움말'; contentBody.append(title); }
     for (const [index, text] of [content.current, ...content.paragraphs].entries()) {
       if (!text) continue;
       const p = document.createElement('p'); p.textContent = text;
       if (index === 0) p.className = 'help-current';
-      body.append(p);
+      contentBody.append(p);
     }
     for (const link of content.links||[]) {
       const p=document.createElement('p'),a=document.createElement('a');
       a.href=link.url;a.textContent=link.label;a.target='_blank';a.rel='noopener noreferrer';
-      p.append(a);body.append(p);
+      p.append(a);contentBody.append(p);
     }
+    if (settings) {settings.dispatchEvent(new CustomEvent('settings-help', {detail:contentBody})); return;}
     opener = button; backdropStart = false; dialog.showModal();
     body.scrollTop = 0; $('help-close').focus({preventScroll:true});
   });
@@ -71,7 +76,7 @@ export function connectHelp() {
     close,
     setPage(step) {
       close();
-      const id = ['import','download','speech','voices','explore','context','report','external'][step-1];
+      const id = ['import','download','speech','voices','explore','context','report','external','settings'][step-1];
       $('heading').dataset.help = id; label(buttons.get($('heading')), id);
     },
     setProject(path) { if (path !== project) {close(); project = path;} },

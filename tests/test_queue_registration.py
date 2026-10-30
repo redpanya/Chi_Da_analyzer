@@ -58,9 +58,9 @@ class QueueRegistrationTests(unittest.TestCase):
         b=self.register('2',{'background':'노래 방송'})
         result=self.queue.update_settings(self.root,[a['id'],b['id']],{'mode':'analysis'})
         self.assertEqual([i['options']['background'] for i in result['items']],['게임 방송','노래 방송'])
-        self.assertEqual(self.manager.context_background(self.root,'1'),{'text':''})
+        self.assertEqual(self.manager.context_background(self.root,'1')['text'],'')
         self.manager.context_background(self.root,'1','저장 설명')
-        self.assertEqual(self.manager.context_background(self.root,'1'),{'text':'저장 설명'})
+        self.assertEqual(self.manager.context_background(self.root,'1')['text'],'저장 설명')
         with ProjectLock(project_path(self.root,'1')):
             with self.assertRaises(Conflict):self.manager.context_background(self.root,'1','동시 변경')
 
@@ -84,6 +84,32 @@ class QueueRegistrationTests(unittest.TestCase):
         self.assertEqual(result['errors'][0]['vod'], '999')
         self.assertFalse(project_path(self.root, '999').exists())
         self.assertIsNone(self.queue.thread)
+
+    def test_download_quality_selection_default_and_ceiling(self):
+        for height in (1080, 720, 480):
+            self.assertEqual(options({'height':height})['height'],height)
+        self.assertEqual(options({})['height'],480)
+        self.assertEqual(options({'height':0})['height'],1080)
+        for invalid in (2160,360,'1080',True,None):
+            with self.assertRaises(ValueError): options({'height':invalid})
+        for vod,settings,expected in [('1',{},480),('2',{'height':720},720),('3',{'height':1080},1080),('4',{'height':0},1080)]:
+            source=meta(vod)
+            source['formats']=[{'id':f'{h}p','height':h} for h in (2160,1080,720,480)]
+            with patch.object(self.manager,'inspect',return_value=source):
+                item=self.queue.add(self.root,'https://naver.me/test',settings)['items'][-1]
+            self.assertEqual(item['format'],f'{expected}p')
+            self.assertEqual(load_project(project_path(self.root,vod),vod)['format_id'],f'{expected}p')
+
+    def test_quality_uses_available_lower_format_and_rejects_only_higher(self):
+        with patch.object(self.manager,'inspect',return_value=meta('1')):
+            item=self.queue.add(self.root,'https://naver.me/test',{'height':1080})['items'][0]
+        self.assertEqual(item['format'],'720p')
+        missing=meta('2');missing['formats']=[{'id':'720p','height':720},{'id':'unknown','height':None}]
+        with patch.object(self.manager,'inspect',return_value=missing):
+            with self.assertRaisesRegex(ValueError,'480p'):
+                self.queue.add(self.root,'https://naver.me/test',{})
+        self.assertEqual(len(self.queue.read(self.root)['items']),1)
+        self.assertFalse((project_path(self.root,'2')/'project.json').exists())
 
     def test_url_then_saved_identity_dedup_and_quality_preserved(self):
         self.project()

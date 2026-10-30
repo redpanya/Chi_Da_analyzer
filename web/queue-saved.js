@@ -1,4 +1,5 @@
 import {vodLabel} from './vod-label.js';
+export const savedKey=project=>project.path||`${project.root}|${project.vod_id}`;
 const names={complete:'완료',idle:'준비 전',error:'확인 필요',paused:'중단',review:'검토 필요',empty:'제공 없음',unavailable:'미제공'};
 export function savedDescription(project){
  const state=task=>names[task?.state]||task?.state||'준비 전';
@@ -19,9 +20,9 @@ export function createSavedPicker({api,getRoot,getSelected,onSelect}){
      if(!projects.length){$('queue-saved-status').textContent='이 보관함에 저장한 VOD가 없습니다';return;}
      count();const selected=new Set(getSelected());
      for(const project of projects){
-       const label=document.createElement('label');label.className='saved-vod-choice';const check=document.createElement('input');check.type='checkbox';check.disabled=selected.has(project.vod_id);check.checked=check.disabled;
+       const label=document.createElement('label');label.className='saved-vod-choice';const check=document.createElement('input');check.type='checkbox';check.disabled=selected.has(savedKey(project));check.checked=check.disabled;
        const text=document.createElement('span'),title=document.createElement('strong'),detail=document.createElement('small');title.textContent=vodLabel(project);detail.textContent=savedDescription(project)+(check.disabled?' · 등록할 자료에 선택됨':'');text.append(title,detail);
-       check.onchange=()=>{if(check.checked)chosen.set(project.vod_id,project);else chosen.delete(project.vod_id);count();};label.append(check,text);$('queue-saved-list').append(label);
+       check.onchange=()=>{if(check.checked)chosen.set(savedKey(project),project);else chosen.delete(savedKey(project));count();};label.append(check,text);$('queue-saved-list').append(label);
      }
    }catch(error){if(ticket===generation)$('queue-saved-status').textContent=error.message;}
  }};

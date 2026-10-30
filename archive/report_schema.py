@@ -40,7 +40,7 @@ def validate(value):
                'compute_actual': {'unknown', 'cpu', 'vulkan', 'metal'}, 'summary_model': {'gemma-4-E4B-it-Q4_K_M', 'unknown'}, 'speech_model': {'large-v3-turbo-q5_0'}}
     if not isinstance(options, dict) or set(options)-{'summary_mode'} != set(allowed) | {'thinking', 'hint_characters'}:
         raise ValueError('설정 정보 필드를 확인하세요')
-    if options.get('summary_mode','detail') not in ('detail','timestamps'):
+    if options.get('summary_mode','detail') not in ('detail','timestamps','clips'):
         raise ValueError('문맥 모드를 확인하세요')
     for key, choices in allowed.items():
         if not isinstance(options[key], str) or options[key] not in choices:
@@ -53,7 +53,7 @@ def validate(value):
     for stage in value['stages']:
         if not isinstance(stage, dict) or set(stage)-{'summary_mode'} != {'stage', 'state', 'seconds', 'error_code'}:
             raise ValueError('단계 정보 필드를 확인하세요')
-        if 'summary_mode' in stage and (stage['stage']!='summary' or stage['summary_mode'] not in ('detail','timestamps')):
+        if 'summary_mode' in stage and (stage['stage']!='summary' or stage['summary_mode'] not in ('detail','timestamps','clips')):
             raise ValueError('단계의 문맥 모드를 확인하세요')
         if stage['stage'] not in STAGES or stage['state'] not in STATES or stage['error_code'] not in ERRORS:
             raise ValueError('단계 상태를 확인하세요')

@@ -1,19 +1,20 @@
 import {timecode} from './player.js';
 
 
-export function createSpeech({api, player, showVideo, showVoices, showExplore, onProject}) {
+export function createSpeech({api, player, showVoices, showPreview, onProject}) {
   const $ = id => document.getElementById(id);
   let project = null, generation = 0, infoGeneration = 0, rowGeneration = 0, details = null, fingerprint = '', rowsKey = '', next = null, cursor = 0, requesting = false;
   const selected = () => ({root: project.root, vod_id: project.vod_id});
   const message = text => { $('speech-notice').textContent = text; };
   const fileURL = key => `file?${new URLSearchParams({...selected(), kind:'speech', key, revision:project.speech.updated_at||''})}`;
-  function button(text, action, className = 'subtle') {
+  function button(text, action, className = 'secondary') {
     const b = document.createElement('button'); b.textContent = text; b.className = className; b.onclick = action; return b;
   }
   async function info() {
     if (!project) return;
     const token = generation, requestId = ++infoGeneration;
     details = null;
+    $('speech-model').dataset.ready='pending'; $('speech-model').dataset.engine='pending';
     $('speech-track').replaceChildren();
     const ready = project.tasks?.video?.state === 'complete';
     $('speech-source').textContent = ready ? '영상의 오디오 정보를 확인하고 있습니다…' : '영상 다운로드·검증 완료 후 오디오 정보를 확인합니다.';
@@ -33,9 +34,10 @@ export function createSpeech({api, player, showVideo, showVoices, showExplore, o
       if (raw) $('speech-track').value = raw.track;
       $('speech-source').textContent = value.tracks.length ? `재생용 영상 기준 ${timecode(value.duration_ms)} · WAV 예상 ${(value.estimated_bytes / 1e6).toFixed(1)} MB · 16kHz 모노` : '오디오 트랙이 없는 영상입니다.';
       const m = value.model;
+      Object.assign($('speech-model').dataset,{ready:String(!!m.ready),engine:String(!!m.engine)});
       $('speech-model').textContent = `${m.name} · ${(m.bytes / 1024**2).toFixed(0)} MiB · ${m.ready ? '준비됨' : '준비 필요'} · ${m.engine ? '전사 엔진 감지됨' : 'whisper-cli 설치 필요'} · 남은 공간 ${(m.free_bytes / 1e9).toFixed(1)} GB`;
       render();
-    } catch (error) { if (token === generation && requestId === infoGeneration) { details = null; $('speech-source').textContent = error.message; render(); } }
+    } catch (error) { if (token === generation && requestId === infoGeneration) { details = null; $('speech-source').textContent = error.message; message(error.message); render(); } }
   }
   function render() {
     if (!project) return;
@@ -103,17 +105,19 @@ export function createSpeech({api, player, showVideo, showVoices, showExplore, o
       for (const row of result.items) {
         const card = document.createElement('article'); card.className = 'transcript-row';
         const actions = document.createElement('div'); actions.className = 'play-actions';
-        actions.append(button(`${timecode(row.start_ms)} → ${timecode(row.end_ms)} · 영상`, () => {
-          if (project.speech.stale) return message('이전 입력의 전사입니다. 입력 상태를 먼저 확인하세요.');
-          $('speech-audio').pause(); showVideo(); player.seek(row.start_ms);
-        }, 'candidate-jump'));
+        const time = document.createElement('span'); time.className = 'transcript-time';
+        time.textContent = `${timecode(row.start_ms)} → ${timecode(row.end_ms)}`;
+        actions.append(time);
         actions.append(button('음성 듣기', async () => {
           const audio = $('speech-audio');
           if (project.speech.stale || !Number.isFinite(audio.duration)) return message('추출 음성이 준비되지 않았거나 이전 입력입니다.');
           player.reset(); audio.currentTime = Math.min(row.start_ms / 1000, audio.duration);
           try { await audio.play(); } catch { message('음성 재생을 시작하지 못했습니다.'); }
         }));
-        actions.append(button('화자 검토 (선택)', () => showVoices(row)), button('같은 순간 함께 보기', () => showExplore(row)));
+        actions.append(button('화자 검토 (선택)', () => showVoices(row)), button('해당 영상보기', () => {
+          if (project.speech.stale) return message('이전 입력의 전사입니다. 입력 상태를 먼저 확인하세요.');
+          showPreview(row);
+        }));
         const text = document.createElement('p'); text.textContent = row.text || '(교정 후 빈 텍스트)';
         const hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = `${row.corrected ? '사용자 교정 · 원문 별도 보존' : '자동 전사 · 원음 확인 필요'}${row.boundary_review ? ' · 조각 경계 검토' : ''}${row.timing_adjusted ? ' · 종료 시각 범위 제한 · 시각 검토 필요' : ''}${row.repeat_review ? ' · 같은 문장 반복 · 인식 내용 검토' : ''}${row.repeat_candidate ? ' · 유사 반복 발화 · 원문·요약 입력 유지' : ''}${row.quality_review ? ' · '+row.quality_notes.join(' · ')+(row.corrected?' · 사용자 교정 반영':' · 요약에서 제외, 원음 확인 후 교정 가능') : ''}${row.encoding_review ? (row.corrected ? ' · 원출력 문자 오류 · 교정 반영' : ' · 문자 인식 오류 · 원음 확인 후 교정 필요') : ''}`;
         const edit = document.createElement('details'), summary = document.createElement('summary'); summary.textContent = '텍스트 교정';
@@ -161,12 +165,12 @@ export function createSpeech({api, player, showVideo, showVoices, showExplore, o
     const modelChanged = value?.model_root !== project?.model_root;
     const videoChanged = value?.tasks?.video?.state !== project?.tasks?.video?.state
       || value?.tasks?.video?.assets?.playback !== project?.tasks?.video?.assets?.playback;
-    if (modelChanged && !changed) {generation++; details=null; fingerprint=''; $('speech-model').textContent='모델 상태 확인 중';}
+    if (modelChanged && !changed) {generation++; details=null; fingerprint=''; $('speech-model').textContent='모델 상태 확인 중'; $('speech-model').dataset.ready='false'; $('speech-model').dataset.engine='false';}
     if (changed) {
       generation++; details=null; fingerprint=''; rowsKey=''; cursor=0; next=null;
       $('sam-audio').pause();$('sam-audio').removeAttribute('src');$('sam-audio').load();$('sam-audio').dataset.file='';
       $('speech-audio').pause(); $('speech-audio').removeAttribute('src'); $('speech-audio').load(); $('speech-audio').dataset.file='';
-      $('transcript-rows').replaceChildren(); $('speech-query').value=''; message(''); $('speech-model').textContent='모델 상태 확인 중';
+      $('transcript-rows').replaceChildren(); $('speech-query').value=''; message(''); $('speech-model').textContent='모델 상태 확인 중'; $('speech-model').dataset.ready='false'; $('speech-model').dataset.engine='false';
     }
     const previous = project?.speech;
     project=value;

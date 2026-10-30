@@ -1,7 +1,7 @@
-"""한 전사·화자 실행 폴더만 휴지통으로 이동한다. 참조 결과는 함께 삭제하지 않는다."""
+"""선택한 실행 폴더만 휴지통으로 이동한다. 참조 결과는 함께 삭제하지 않는다."""
 from . import speech_store, voice_store, deletion
 from .analysis_inputs import run_id, transcripts
-from .storage import Conflict, read_json, save_json, stamp
+from .storage import Conflict, ProjectLock, read_json, save_json, stamp
 
 
 def _trash(path, store, id, changes):
@@ -67,3 +67,23 @@ def voices(path, id):
     if (value.get('pending_diarization') or {}).get('id') == id:
         changes['pending_diarization'] = None
     _trash(path, voice_store, id, changes)
+
+
+def context(path, id):
+    from . import context_job as store
+    run_id(id)
+    value = store.state(path)
+    if id not in {r['id'] for r in value.get('runs', [])}:
+        raise ValueError('삭제할 문맥 결과 버전을 목록에서 선택하세요')
+    changes = {'runs': [r for r in value['runs'] if r['id'] != id]}
+    for key in ('run', 'full_run', 'clip_run'):
+        if value.get(key) == id:
+            changes[key] = None
+    action = value.get('action') or ''
+    task_key = 'clip_run' if action.startswith('clips') else 'full_run' if action in ('whole', 'resume') else 'run'
+    if value.get(task_key) == id and action != 'model':
+        changes.update(state='idle', action=None, progress={}, timing=None, compute=None,
+                       message='선택한 결과를 휴지통으로 이동했습니다. 다른 버전을 선택하거나 새로 분석하세요')
+    # 다른 창의 댓글 저장과 삭제를 직렬화한다. 댓글 초안은 원래 경로에 보존한다.
+    with ProjectLock(store.local(path, 'comments')):
+        _trash(path, store, id, changes)

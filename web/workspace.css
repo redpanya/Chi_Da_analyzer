@@ -1,0 +1,166 @@
+/* 결과 중심 화면의 공통 간격·표면. 데스크톱 열 배치와 패턴 농도는 유지한다. */
+.clip-studio-launch{display:flex;justify-content:flex-end;margin:0 0 10px}
+#analysis-scope-fields .inline-check{margin:4px 0;min-height:32px}
+#analysis-scope-fields input[type=checkbox],#analysis-scope-fields input[type=radio]{min-height:16px;margin:0}
+.analysis-scope-preview{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:16px 0;padding:12px 14px;background:#f8f6f3;border:1px solid var(--line);border-radius:8px}.analysis-scope-preview small{font-size:11px;color:var(--muted)}.analysis-scope-preview h3{margin:3px 0 0;font-size:14px}.analysis-scope-preview button{flex-shrink:0}.scope-flow{font-size:12px;color:var(--muted);padding:10px 0 16px}.scope-flow span{font-weight:700;color:var(--green)}#analysis-scope-range{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#analysis-scope-fields fieldset{border:1px solid var(--line);border-radius:8px;margin:12px 0;padding:8px 14px}#analysis-scope-fields legend{font-size:12px;padding:0 6px}#scope-project-title{font-size:14px;flex:1;min-width:0;overflow-wrap:anywhere}
+.result-first{--space-main:clamp(12px,1.4vw,24px);--space-panel:16px;--space-grid:16px;--space-control:8px;font-size:14px;line-height:1.55}
+.result-first main{max-width:1550px}
+.result-first main>header{padding:12px 16px;margin:0;background:#fff;border:1px solid var(--line);border-radius:10px 10px 0 0;gap:16px}
+.result-first h1{font-size:23px;margin:0;letter-spacing:-.5px}
+.workspace-subtitle{font-size:13px;color:var(--muted);margin:4px 0 0;max-width:760px}
+.result-first main>nav{background:#fff;border:1px solid var(--line);border-top:0;border-radius:0 0 10px 10px;margin:0 0 16px;padding:0 8px}
+.result-first nav>.step{padding:10px 8px;font-size:13px}
+.workspace-utilities{display:flex;gap:4px;align-items:center}
+.workspace-utilities .current{background:#FFF1E8;color:var(--green)}
+.header-more{position:relative;padding:6px 8px;border:0}
+.header-more-actions{position:absolute;right:0;top:100%;z-index:20;min-width:170px;display:grid;gap:6px;padding:8px;background:white;border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 16px #0002}
+.header-more-actions button{text-align:left;white-space:nowrap;width:100%}
+.result-first h2{font-size:18px}.result-first h3{font-size:15px}.result-first h4{font-size:14px}
+.result-first p{line-height:1.55;margin:8px 0}
+.result-first label,.result-first .hint{font-size:13px}
+.result-first button,.result-first select,.result-first input{min-height:36px}
+.result-first .primary{min-height:38px}
+.result-first .panel{border-radius:10px}
+.result-toolbar{position:relative;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px}
+.result-toolbar>div,.result-toolbar>article,.result-toolbar label{margin:0;padding:0;border:0;min-width:0}
+.result-toolbar>.play-actions,.result-toolbar>.input-row,.result-toolbar>div:has(>label>select){flex:1 1 260px}
+.result-toolbar select{width:100%;max-width:100%;min-width:0;text-overflow:ellipsis}
+.result-toolbar>article{flex:1 1 260px;display:flex;align-items:center;gap:8px}
+.result-toolbar>article>label{display:none}
+.result-toolbar>article .play-actions{flex-wrap:nowrap}
+.result-toolbar label:has(select){flex:1;min-width:0}
+.result-toolbar .context-list-toolbar{flex:1 1 280px;gap:8px}
+.result-toolbar .context-list-toolbar select{width:90px}
+.version-details{padding:5px 8px;border:0;position:static;flex:0 0 auto;max-width:100%}
+.result-toolbar .version-details p{position:absolute;inset:100% 0 auto;z-index:20;margin:4px 0 0;padding:12px 16px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 6px 20px #0002;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}
+.readiness{color:var(--muted);font-size:12px!important;padding:0 0 4px;margin:2px 0 6px!important}
+.job-status{background:#f8f7f5;border-left:3px solid #c5c0b8;border-radius:4px;padding:8px 12px;margin:8px 0 12px}
+.job-status p{font-size:13px;margin:2px 0}.job-status progress{display:block;margin:6px 0}
+.job-status .task-elapsed{font-size:12px}.job-status>button{margin-top:6px}
+.job-status[data-idle=true]{border:0;padding:0;background:none;margin:0 0 8px}
+.job-status[data-idle=true]>:not(details){display:none}
+.result-toolbar label:has(#context-version){font-size:0}
+.result-toolbar label:has(#context-version) select{font-size:13px}
+.job-status details{background:#fff;margin:8px 0 0;padding:8px;border:0}
+.needs-review{border-color:#b42318!important}.needs-review [role=status]{color:#9c3028}
+.global-jobs{border:1px solid #ddc7b8;border-radius:8px;background:#fffaf6;padding:8px 12px;margin-bottom:12px}
+.global-job-row{display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0}
+.global-job-row>span{flex:1;min-width:0;overflow-wrap:anywhere}.global-job-row.needs-review>span{color:#a12b20}
+.result-first [role=status]:empty{display:none}
+.result-first .context-workspace{grid-template-columns:minmax(0,1.22fr) minmax(0,1fr);gap:16px;margin-top:12px}
+.result-first #context-result,.result-first #context-clips-result{max-height:none;overflow:visible;padding:0}
+.result-first .context-preview{position:sticky;top:12px;max-height:none;overflow:visible;padding:0}
+.result-first #context-clips-panel .result-browser{position:sticky;top:12px;z-index:2;padding:8px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 3px 8px #0000000d}
+.result-first #context-video video,.result-first #context-clips-video video{margin-top:0;max-height:34dvh}
+.result-first #context-result .context-item,.result-first #context-clips-result .clip-item{border:0;border-bottom:1px solid var(--line);border-radius:0;padding:12px 10px;margin:0;background:white}
+.result-first #context-result .context-item.selected,.result-first #context-clips-result .clip-item.selected{background:#fff7f1;box-shadow:inset 3px 0 var(--green)}
+.result-first #context-result .context-failed-item{border-left:3px solid #b42318}
+.result-first #context-result h3,.result-first #context-clips-result h3{font-size:16px;line-height:1.5;margin:5px 0}
+.result-first #context-result p,.result-first #context-clips-result p{font-size:14px;line-height:1.55}
+.result-first .context-check{font-size:12px;padding:0}
+.result-first .context-reaction-index{display:block;margin:4px 0;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+.result-first .context-section details{padding:8px 10px;margin:8px 0;border-color:#eeeae5}
+.result-first .context-comment{margin-top:8px;padding-top:8px}
+.result-first .context-comment-list{max-height:22dvh}
+.context-comment:has(.context-comment-list:empty)>:not(h3):not(.help-heading):not(#context-copy-count):not([role=status]){display:none}
+.result-first .context-comment h3{font-size:14px}.result-first .context-comment .play-actions{gap:4px}
+.result-first .context-comment .play-actions>button{font-size:12px;padding:5px 8px}
+.context-comment-row .comment-remove{min-width:32px;min-height:32px}
+.result-first #voice-rows,.result-first #voice-failed-rows,.result-first #voice-cards,.result-first #transcript-rows{max-height:none;overflow:visible}
+.result-first .transcript-row{border:0;border-bottom:1px solid var(--line);border-radius:0;margin:0;padding:10px}
+.transcript-time{font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--muted)}
+/* 실행·이동·저장·접기 동작의 공통 버튼 표면. 탭과 보관함 선택 표시는 유지한다. */
+.result-first :is(button.subtle,button.secondary,button.candidate-jump,button:not([class]):not([role=tab]),a:not(.brand),summary){
+  box-sizing:border-box;border:1px solid #CEC8C0;border-radius:8px;background:#fff;color:#18181B;
+  padding:7px 12px;font-size:13px;line-height:1.4;text-decoration:none;
+}
+.result-first a:not(.brand){display:inline-flex;align-items:center;min-height:36px;margin:3px 4px 3px 0;max-width:100%;overflow-wrap:anywhere}
+.result-first summary{width:fit-content;max-width:100%;min-height:36px;cursor:pointer}
+.result-first .help-details>details>summary{max-width:calc(100% - 36px)}
+.result-first .context-comment-row{grid-template-columns:96px minmax(0,1fr) 32px 32px}
+.context-comment-row .comment-time-edit{grid-column:3;grid-row:1;padding:4px!important;font-size:18px!important}
+.context-comment-row .comment-remove{grid-column:4;grid-row:1}
+.comment-time-editor{box-sizing:border-box;width:min(480px,calc(100vw - 32px));max-height:85dvh;overflow:auto;padding:20px}
+.comment-time-editor label{display:block;margin:12px 0 4px}
+.comment-time-editor input,.comment-time-editor select{box-sizing:border-box;width:100%;margin-top:4px}
+.comment-time-editor #comment-time-title{overflow-wrap:anywhere;font-weight:600}
+.comment-time-editor #comment-time-error{color:#9c3028}
+.result-first .context-comment-row :is(.comment-time,.comment-remove){padding:6px;font-size:12px}
+.result-first .context-comment-row .comment-remove{font-size:18px}
+.result-first .workspace-utilities .current{background:#FFF1E8;border-color:#C87A59;color:var(--green)}
+.result-first :where(button,a[href]:not(.brand),summary):not(:disabled):not([aria-disabled=true]):is(:hover,:focus-visible){
+  background:#FFE1CD;border-color:#B7481F;color:#8D3819;
+}
+.result-first button.primary:not(:disabled):not([aria-disabled=true]):is(:hover,:focus-visible){background:#B7481F;border-color:#8D3819;color:#fff}
+.result-first button.danger:not(:disabled):not([aria-disabled=true]):is(:hover,:focus-visible){background:#FEE4E2;border-color:#B42318;color:#912018}
+.result-first a:not(.brand):not([href]),.result-first [aria-disabled=true]{opacity:.5;cursor:not-allowed}
+/* 결과 탭과 이전 분리본 전환에 같은 선택 영역을 사용한다. */
+.result-first .review-tabs{position:static;gap:4px;padding:4px;margin:0 0 18px;background:#F0EEEA;border:1px solid #DED9D2;border-radius:10px}
+.result-first .review-tabs>button:is([role=tab],[aria-pressed]){flex:1;min-width:0;min-height:40px;padding:8px 12px;border:1px solid transparent;border-radius:7px;background:transparent;color:#54504A;font-weight:600}
+.result-first .review-tabs>button:is([aria-selected=true],[aria-pressed=true]){background:#18181B;border-color:#18181B;color:#fff;box-shadow:0 1px 3px #0002}
+.result-first .review-tabs>button:not(:disabled):not([aria-disabled=true]):is(:hover,:focus-visible){background:#FFE1CD;border-color:#B7481F;color:#8D3819}
+.result-first .review-tabs>button:is([aria-selected=true],[aria-pressed=true]):not(:disabled):not([aria-disabled=true]):is(:hover,:focus-visible){background:#343434;border-color:#343434;color:#fff}
+.result-first .voice-card{padding:10px}
+.result-first .workspace-details{margin:12px 0;padding:10px 12px;background:#fff}
+.download-details{border-left:3px solid var(--green)}
+.download-content{padding-top:12px}
+.download-content .project-heading>h2,.download-content .project-heading>p.muted{display:none}
+.download-content .cards{margin:12px 0}.download-content .task{border:0;border-radius:0;background:#f8f7f5}
+.download-content .task-message,.download-content .detail{min-height:0;margin:8px 0}
+.download-content .action-row{flex-wrap:wrap}.download-content #lock-note{margin:0 0 8px}
+.result-first .queue-section>h3{font-size:14px;margin-top:16px}
+.result-first .queue-settings{padding-top:0;margin:8px 0;align-items:end}
+.result-first #queue-list{max-height:none;overflow:visible}
+.result-first #queue-list article{border:0;border-bottom:1px solid var(--line);border-radius:0;padding:10px 0;margin:0}
+.result-first #queue-list article>p{font-size:13px}
+.result-first .folder-settings{border:0;margin:12px 0;padding:0}
+.external-workspace{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:12px}
+.external-task{min-width:0}.external-task>h3{margin-top:0}
+.external-task .context-inputs{margin-top:8px}.external-task>p{font-size:13px}
+.result-first .report-export-box{padding:0;margin:0;border:0}
+.settings-panel{box-sizing:border-box;position:fixed;inset:0 0 0 auto;margin:0;width:min(580px,80vw);max-width:none;height:100dvh;max-height:100dvh;padding:0;border:0;border-radius:12px 0 0 12px;overflow:hidden;box-shadow:-8px 0 32px #0002}
+.settings-panel[open]{display:flex;flex-direction:column}
+.settings-panel::backdrop{background:#14100b66}
+.settings-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;padding:16px 20px;border-bottom:1px solid var(--line)}
+.settings-heading h2{font-size:18px;margin:0}
+.settings-body{flex:1;min-height:0;padding:16px 20px;overflow:auto;overscroll-behavior:contain}
+.settings-body>.hint:first-child{margin-top:0}.settings-body fieldset{padding:12px;margin:16px 0}
+.settings-body select,.settings-body textarea{width:100%;max-width:100%;min-width:0}
+.settings-body .speech-steps{display:block;margin:0}.settings-body .speech-steps>article{padding:12px 0;border:0;border-bottom:1px solid var(--line);border-radius:0}
+.settings-body .speech-steps label{margin-top:10px}.settings-body .speech-steps button{margin-top:8px}
+.settings-body .context-inputs{border:0;padding:0}.settings-body .context-inputs legend{padding:0}
+.settings-body #voices-setup{padding:0;border:0}.settings-body #voices-setup>summary{display:none}
+.settings-body .help-details{margin:12px 0}.settings-body .play-actions:empty{display:none}
+.settings-footer{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;padding:12px 20px;border-top:1px solid var(--line);background:#fff;flex:none}
+.settings-footer button{white-space:normal}.settings-notice{white-space:pre-wrap;overflow-wrap:anywhere;max-height:18dvh;overflow:auto;padding:0 20px;color:var(--muted);font-size:13px}
+.settings-notice:empty{display:none}.settings-help:focus-visible{outline:2px solid var(--green);outline-offset:-4px}
+@media(max-width:1200px){.result-first{--space-main:12px;--space-panel:12px}.result-toolbar{gap:6px}.workspace-utilities button{padding:6px 8px}.workspace-subtitle{font-size:12px}.result-first .context-workspace{gap:12px}}
+
+.result-first .context-failed{color:#b42318;font-weight:800}
+.result-first .result-time{padding:0;min-height:32px;font-size:12px;color:var(--muted)}
+
+.result-first .play-actions[aria-label="화자 결과 선택"]:not(:has(#stem-tab:not([hidden]))){display:none}
+
+.result-toolbar>.play-actions{flex-wrap:nowrap}
+.result-toolbar>.play-actions>select,.result-toolbar>article>select{flex:1;width:0;max-width:none!important}
+.result-first main>header{padding:8px 16px}
+.result-first main>header .play-actions{margin:0}
+.result-first .workspace-subtitle{margin:2px 0 0;line-height:1.4}
+.result-first .help-button{min-height:32px}
+.result-first .context-section{padding-top:16px}
+/* 짧은 개발 안내는 문서 흐름을 밀지 않는다. */
+.preview-toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 32px);padding:6px 12px;background:#fff6e8;border:1px solid #e8d6b6;border-radius:8px;color:#6a4a17;box-shadow:0 4px 18px #0002;font-size:12px}
+.preview-toast button{padding:0 8px}
+.result-first #download-details{border:0;padding:0;margin:0;background:none}
+.result-first #download-panel .project-heading{display:none}
+.result-first #download-panel .cards{margin-top:0}
+.result-first aside footer>button{margin-bottom:16px;text-align:left}
+.result-first #step9.current{border-color:var(--green);color:var(--green)}
+.result-first #settings-page>.folder-settings{margin:0 0 16px}
+.result-first #settings-page .folder:first-of-type{margin-top:12px}
+.result-first #queue-summary-modes,.result-first #queue-steps{padding:12px;margin:12px 0;border:1px solid var(--line);border-radius:8px}
+.result-first #queue-work-options .inline-check{margin:4px 0;min-height:32px}
+.result-first #queue-work-options input[type=checkbox]{min-height:16px;margin:0}
+.result-first #queue-work-options .hint{margin:8px 0 0;font-size:12px}
+
+.scope-history article{border:1px solid var(--line);padding:10px;border-radius:8px;margin:8px 0}.scope-history button{margin-right:6px}.scope-history p{margin:6px 0}.scope-history progress{display:block;width:100%;margin:8px 0}

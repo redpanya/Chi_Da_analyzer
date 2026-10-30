@@ -4,7 +4,7 @@ from . import context_evidence as ev, context_dialogue_input as di, context_dial
 from . import context_adaptive_input as inp
 from .context_topic_summary import prompt
 
-REVISION=2
+REVISION=3
 fit=bounded.fit
 rows=inp.rows
 

@@ -7,7 +7,7 @@ class Element{
 const nodes=new Map();
 globalThis.document={createElement:()=>new Element(),getElementById(id){if(!nodes.has(id))nodes.set(id,new Element());return nodes.get(id);}};
 const $=id=>document.getElementById(id),calls=[];let next,opened=null;
-const api=async(action,args)=>{calls.push({action,args});if(action.endsWith('-list'))return [];if(next instanceof Error)throw next;return next;};
+const api=async(action,args)=>{calls.push({action,args});if(action.endsWith('-list'))return [];if(action.endsWith('-prompt'))return {prompt:'요청문'};if(next instanceof Error)throw next;return next;};
 const view=createExternal({api,onResult:async run=>{opened=run;}});
 const project={path:'/vod-1',root:'/test',vod_id:'1',metadata:{title:'가상 VOD'},context:{inputs:{transcripts:[{id:'a',label:'검증 전사',complete:true}]}}};
 view.setProject(project);

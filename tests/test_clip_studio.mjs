@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import {collectRanges,editRange,rangeError,sortedRanges,totalLength} from '../web/clip-studio-model.js';
+const original={items:[{start_ms:1123,end_ms:5222,summary:{title:'<img src=x>',context:['첫 대화','뒤 대화']}},{start_ms:0,end_ms:0},{start_ms:1},{start_ms:0,end_ms:999999},{start_ms:6000,end_ms:8000,failed:true,summary:{title:'요약 실패',context:'문자열 근거'}}]};
+const before=JSON.stringify(original),value=collectRanges(original,'run-a',10000,20000);
+assert.equal(value.rows.length,2);assert.equal(value.invalid,3);
+assert.equal(value.rows[0].start_ms,11123);assert.equal(value.rows[0].end_ms,15222);assert.equal(value.rows[0].title,'<img src=x>');
+assert.equal(value.rows[1].description,'문자열 근거');assert.equal(value.rows[1].failed,true);
+assert.equal(collectRanges({items:[{start_ms:0,end_ms:1000,summary:{context:[{text:'구조화된 요약 문장'}]}}]},'other',0,2000).rows[0].description,'구조화된 요약 문장');
+value.rows[0].title='미리보기 수정';assert.equal(JSON.stringify(original),before);
+assert.deepEqual(editRange('00:00:11.123','00:00:15.222',10000,20000),{start_ms:11123,end_ms:15222});
+for(const [start,end] of [['00:00:20','00:00:10'],['00:00:09','00:00:11'],['00:00:10','00:00:31'],['00:00:10',''],['00:99:10','00:00:20']])assert.throws(()=>editRange(start,end,10000,20000));
+assert.match(rangeError(NaN,10,0,100),/시각/);
+const rows=[{id:'b',start_ms:7000,end_ms:10000},{id:'a',start_ms:0,end_ms:5000}];assert.equal(sortedRanges(rows)[0].id,'a');assert.equal(rows[0].id,'b');assert.equal(totalLength(rows),8000);
+assert.deepEqual(editRange('19:59:00','20:00:00',0,72000000),{start_ms:71940000,end_ms:72000000});
+console.log('클립 UI 구간: 원본 불변·오프셋·밀리초·20시간·범위 거절·실패 항목·시간순 정렬 검사 통과');
+
+const {captionPreviewTarget}=await import('../web/clip-studio-model.js');
+const picked=[{id:'first',start_ms:15000,end_ms:20000},{id:'second',start_ms:25000,end_ms:35000}],copy=JSON.stringify(picked);
+assert.deepEqual(captionPreviewTarget({start_ms:26025,end_ms:27000},picked,picked[0],10000,40000),{clip:picked[1],seconds:16.025});
+assert.equal(captionPreviewTarget({start_ms:14000,end_ms:16000},picked,null,10000,40000).seconds,5);
+assert.equal(captionPreviewTarget({start_ms:20000,end_ms:21000},picked,picked[0],10000,40000),null);
+assert.equal(captionPreviewTarget({start_ms:NaN,end_ms:27000},picked,null,10000,40000),null);
+assert.equal(captionPreviewTarget({start_ms:34000,end_ms:36000},picked,null,10000,23000),null);
+const overlap={id:'overlap',start_ms:25000,end_ms:30000};
+assert.equal(captionPreviewTarget({start_ms:26000,end_ms:27000},[...picked,overlap],overlap,10000,40000).clip,overlap);
+assert.equal(JSON.stringify(picked),copy);
+console.log('자막 재생 대상: 다른 담은 구간·부분 영상 오프셋·경계 교차·범위 밖·겹침·원본 불변 검사 통과');

@@ -88,8 +88,11 @@ class Server:
 
     def body(self,text):
         from .context_background import contextual_messages
-        background=getattr(self.job,'input',{}).get('source',{}).get('broadcast_background','')
-        return {'messages':contextual_messages(messages(text),background),'chat_template_kwargs':{'enable_thinking':self.profile['thinking']},'reasoning_format':'deepseek'}
+        from . import context_guidance
+        source=getattr(self.job,'input',{}).get('source',{})
+        guidance=source.get('analysis_guidance')
+        prepared=context_guidance.messages(messages(text),guidance) if guidance else contextual_messages(messages(text),source.get('broadcast_background',''))
+        return {'messages':prepared,'chat_template_kwargs':{'enable_thinking':self.profile['thinking']},'reasoning_format':'deepseek'}
 
     def count(self,text):
         check_cancel(self.job.stop)

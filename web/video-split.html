@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>영상 나누기 · 치다 분석기</title>
+<link rel="stylesheet" href="style.css"><link rel="stylesheet" href="workspace.css"><link rel="stylesheet" href="pattern-background.css"><link rel="stylesheet" href="video-split.css">
+<script src="pattern-background.js" defer></script><script src="video-split.js" type="module"></script></head>
+<body class="result-first split-page">
+<aside><a class="brand" href="./"><span class="mark">↙</span>치 다 분석기</a><p class="tagline">다시보기를 AI로 요약</p><a class="secondary" href="./">← 보관함으로 돌아가기</a><h2>영상 나누기</h2><button id="split-select-video" class="primary wide">비디오 선택</button><h3>최근 작업</h3><div id="split-history" aria-label="영상 나누기 최근 작업"></div><footer>이 컴퓨터에서만 처리<br>원본 파일은 그대로 보존</footer></aside>
+<main>
+  <header><div class="play-actions"><h1>영상 나누기</h1><button id="split-help-open" class="help-button" aria-label="영상 나누기 도움말" aria-haspopup="dialog">💡</button></div><div class="play-actions"><span class="local-badge">재인코딩 없음</span><button id="split-delete" class="danger" aria-haspopup="dialog" hidden>작업 삭제</button></div></header>
+  <p id="split-notice" role="status" hidden></p>
+  <p id="split-error" role="alert" hidden></p>
+  <section class="panel source-panel" aria-labelledby="source-heading"><h2 id="source-heading">1. 비디오 선택</h2>
+    <div class="play-actions"><button id="split-pick" class="secondary">MP4 파일 선택</button><span class="hint">H.264 영상 · AAC 오디오 · 재인코딩 없이 저장</span></div>
+    <form id="split-source-form" class="input-row"><input id="split-path" placeholder="또는 비디오 파일의 전체 경로 입력" aria-label="비디오 파일 전체 경로" required><button id="split-load" class="primary">파일 열기</button></form>
+    <p id="split-source-info" class="hint">선택한 파일을 업로드하거나 복제하지 않습니다.</p>
+  </section>
+  <div id="split-workspace" hidden>
+    <div class="split-grid">
+      <section class="panel preview-panel" aria-label="원본 영상 미리보기">
+        <video id="split-video" controls preload="metadata" playsinline></video>
+        <p id="split-preview-note" class="hint"></p>
+        <div class="split-audio-preview">
+          <label for="split-audio-listen">미리듣기 트랙</label><select id="split-audio-listen" aria-label="미리듣기 트랙"></select>
+          <button id="split-audio-toggle" class="secondary" aria-pressed="false">선택 트랙으로 미리보기</button>
+          <label id="split-audio-volume-row" class="inline-control" hidden>미리듣기 음량<input id="split-audio-volume" type="range" min="0" max="100" value="100"></label>
+          <p id="split-audio-status" class="hint" role="status"></p>
+        </div>
+        <div class="play-actions"><button id="split-back" class="secondary">−3초</button><button id="split-play" class="primary">재생</button><button id="split-forward" class="secondary">+3초</button><output id="split-clock">00:00:00.000</output></div>
+        <div class="play-actions"><label class="inline-control">타임라인 확대<select id="split-zoom"><option value="1">전체</option><option value="4">4배</option><option value="16">16배</option><option value="64">64배</option></select></label><button id="split-follow" class="secondary">현재 위치 보기</button></div>
+        <div id="split-timeline" tabindex="0" aria-label="확대 가능한 영상 타임라인"><canvas id="split-canvas" height="72"></canvas></div>
+        <form id="split-seek-form" class="input-row"><input id="split-seek-time" value="00:00:00.000" aria-label="이동할 영상 시각"><button class="secondary">시각 이동</button><button id="split-add-current" type="button" class="secondary">현재 위치에 분할점 추가</button></form>
+      </section>
+      <section class="panel boundaries-panel" aria-labelledby="split-boundary-heading"><h2 id="split-boundary-heading">2. 어디서 나눌까요?</h2>
+        <form id="split-point-form" class="input-row"><input id="split-time" placeholder="00:10:00.000" aria-label="분할할 시각" required><button class="secondary">분할점 추가</button></form>
+        <div class="play-actions"><label class="inline-control">간격 (분)<input id="split-minutes" type="number" min="0.1" step="0.1" value="30"></label><button id="split-interval" class="secondary">간격으로 설정</button><button id="split-clear" class="secondary">초기화</button></div>
+        <p class="hint">키프레임을 기준으로 지정 시각 뒤에서 나눕니다. 최대 200개 분할점을 지정할 수 있어요.</p>
+        <div id="split-points"></div>
+        <fieldset class="split-audio-options"><legend>저장할 오디오</legend>
+          <select id="split-audio-mode" aria-label="오디오 유지 방식"><option value="all">전체 오디오 유지</option><option value="selected">선택한 오디오 트랙들 유지</option></select>
+          <div id="split-audio-tracks" hidden></div><p id="split-audio-summary" class="hint" role="status"></p>
+          <p class="hint">체크한 트랙만 새 파일에 저장합니다. 원본에는 모든 트랙이 그대로 남습니다.</p>
+        </fieldset>
+        <button id="split-plan" class="primary wide" disabled>실제 분할 시각 확인</button>
+      </section>
+    </div>
+    <section id="split-plan-panel" class="panel" hidden><h2>3. 확인하고 저장</h2><p>원본 전체를 순서대로 나눕니다. 조정된 경계를 앞뒤 파일이 함께 사용합니다.</p>
+      <div class="table-scroll"><table><thead><tr><th>분할점</th><th>지정 시각</th><th>실제 시각</th><th>차이</th></tr></thead><tbody id="split-boundaries"></tbody></table></div>
+      <div id="split-parts" class="split-parts"></div>
+      <p id="split-plan-audio" class="hint"></p>
+      <label for="split-folder">저장할 상위 폴더</label><div class="input-row"><input id="split-folder" aria-label="저장할 상위 폴더"><button id="split-folder-pick" class="secondary">폴더 선택</button></div>
+      <p id="split-space" class="hint"></p><button id="split-start" class="primary">영상 나누기 시작</button>
+    </section>
+  </div>
+  <section id="split-job-panel" class="panel" hidden aria-labelledby="split-job-heading"><h2 id="split-job-heading">작업 상태</h2><p id="split-state" role="status" aria-live="polite"></p><progress id="split-progress" max="1" value="0"></progress><p id="split-elapsed" class="hint"></p>
+    <div class="play-actions"><button id="split-stop" class="secondary" hidden>작업 중단</button><button id="split-resume" class="secondary" hidden>완료 파일 유지하고 다시 시도</button><button id="split-open-folder" class="secondary" hidden>출력 폴더 열기</button></div>
+    <p id="split-resume-note" class="hint" hidden>다시 시도는 처음부터 같은 경계를 재현합니다. 완료 파일은 바꾸지 않고 나머지 파일을 저장하므로 다시 읽는 시간이 필요합니다.</p><div id="split-outputs"></div>
+  </section>
+</main>
+<dialog id="split-delete-dialog" aria-labelledby="split-delete-title" aria-describedby="split-delete-description">
+  <h2 id="split-delete-title">작업을 삭제하시겠습니까?</h2>
+  <p id="split-delete-name" class="path"></p><p id="split-delete-scope" class="path"></p>
+  <p id="split-delete-description">이 작업의 기록과 생성 파일을 모두 휴지통으로 이동합니다. <strong>원본 영상은 삭제하지 않습니다.</strong></p>
+  <p id="split-delete-error" role="alert"></p>
+  <div class="play-actions"><button id="split-delete-cancel" class="secondary" autofocus>취소</button><button id="split-delete-confirm" class="danger" disabled>삭제</button></div>
+</dialog>
+<dialog id="split-help" aria-labelledby="split-help-title"><h2 id="split-help-title">영상 나누기 도움말</h2><p>비디오를 열고 원하는 시각을 분할점으로 추가하세요. ‘실제 분할 시각 확인’을 누르면 영상 구조에 맞는 경계를 보여줍니다. 확인 후 저장 폴더를 정하고 시작하세요.</p><p>영상과 유지할 오디오 트랙을 다시 압축하지 않습니다. 전체 유지 또는 여러 트랙 선택이 가능합니다. 선택을 바꾸면 경계를 다시 확인해 새 작업으로 저장합니다. 이전 작업을 이어받을 때는 그 작업의 트랙 선택을 유지합니다.</p><p>각 출력은 원본 일부를 담은 새 파일입니다. 원본은 삭제하지 않습니다. 완료 파일은 중단해도 유지하며, 결과 검사는 선택 트랙·길이와 시작/끝의 재생 가능한 구조를 확인합니다. 전체 프레임을 검사한 것은 아닙니다.</p><p>미리듣기는 유지할 트랙 중 하나씩 전환합니다. 현재 시각 주변 1분 오디오를 임시 폴더에 스트림 복사하므로 처음 듣거나 시각을 옮기면 잠시 준비할 수 있습니다. 여러 트랙을 합쳐 듣지는 않습니다. 임시 음원은 앱 종료 시 정리합니다.</p><button id="split-help-close" class="primary">확인</button></dialog>
+</body></html>

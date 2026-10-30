@@ -18,7 +18,7 @@ HARDWARE = dict(os='Darwin', os_version='25', architecture='arm64', cpu='Apple M
 
 def meta(vod):
     return {'id': vod, 'title': '비공개 제목', 'channel': '채널 이름', 'duration': 5,
-            'chat_enabled': True, 'formats': [{'id': '720p', 'height': 720, 'estimated_bytes': 10}],
+            'chat_enabled': True, 'formats': [{'id': '720p', 'height': 720, 'estimated_bytes': 10}, {'id': '480p', 'height': 480, 'estimated_bytes': 5}],
             'url': 'https://chzzk.naver.com/video/' + vod}
 
 
@@ -67,6 +67,46 @@ class AutomationTests(unittest.TestCase):
         self.manager.automation.remove_or_retry(self.root, item['id'])
         self.assertEqual(file.read_bytes(), b'keep original')
         self.assertTrue((file.parent/'project.json').exists())
+
+    def test_summary_modes_validation(self):
+        self.assertEqual(options({})['summary_modes'], ['detail'])
+        self.assertEqual(options({'mode':'analysis','summary_modes':['clips','timestamps','detail']})['summary_modes'], ['timestamps','detail','clips'])
+        for value in ([], ['other'], ['detail','detail'], 'detail', [None], [{}]):
+            with self.assertRaises(ValueError): options({'mode':'analysis','summary_modes':value})
+        self.assertEqual(options({'summary_modes':[]})['summary_modes'], [])
+
+    def test_all_modes_partial_then_next_and_download_only(self):
+        self.add('1', {'mode':'analysis','summary_modes':['clips','detail','timestamps']})
+        self.add('2', {'summary_modes':['clips']})
+        calls=[]
+        def execute(q,e,s):
+            calls.append((e['vod'],s))
+            return 'partial' if s=='timestamps' else 'complete'
+        with patch('archive.automation.steps.execute', side_effect=execute):
+            self.manager.automation.start(self.root); result=self.finish()
+        self.assertEqual(calls, [('1',s) for s in ['download','audio','transcribe','reactions','timestamps','summary','clips']]+[('2','download')])
+        self.assertEqual([i['state'] for i in result['items']], ['partial','complete'])
+
+    def test_single_clip_and_legacy_queue(self):
+        self.add('1', {'mode':'analysis','summary_modes':['clips']})
+        self.add('2', {'mode':'analysis'})
+        self.manager.automation.change(self.root, lambda d:d['items'][1]['options'].pop('summary_modes'))
+        calls=[]
+        with patch('archive.automation.steps.execute', side_effect=lambda q,e,s:calls.append((e['vod'],s)) or 'complete'):
+            self.manager.automation.start(self.root); result=self.finish()
+        self.assertEqual(calls,[(vod,s) for vod,last in [('1','clips'),('2','summary')] for s in ['download','audio','transcribe','reactions',last]])
+        self.assertTrue(all(i['state']=='complete' for i in result['items']))
+
+    def test_clip_error_report_mode(self):
+        self.add('1', {'mode':'analysis','summary_modes':['clips']})
+        def execute(q,e,s):
+            if s=='clips':raise ValueError('모의 입력 오류')
+            return 'complete'
+        with patch('archive.automation.steps.execute',side_effect=execute):
+            self.manager.automation.start(self.root);result=self.finish()
+        payload=self.manager.reports.snapshot(self.root,'1',result['items'][0]['report'])['payload']
+        self.assertEqual(payload['stages'][-1]['summary_mode'],'clips')
+        report_schema.validate(payload)
 
     def test_error_does_not_block_next_vod(self):
         self.add('1'); self.add('2')
@@ -123,11 +163,11 @@ class AutomationTests(unittest.TestCase):
                 Manager(self.root).automation.remove_or_retry(self.root,item['id'])
 
     def test_watch_manual_download_records_and_preserves_existing(self):
-        self.add()
+        item = self.add()
         def done(project,stop):project.update('video',state='complete',message='검증 완료')
         def chat(project,stop):project.update('chat',state='empty',message='제공 없음')
         with patch('archive.jobs.video.download',done), patch('archive.jobs.chat.collect',chat):
-            self.manager.start(self.root,'1','720p','all')
+            self.manager.start(self.root,'1',item['format'],'all')
             self.manager.job.thread.join(3);self.manager.job.report_thread.join(3)
         ids=self.manager.reports.list(self.root,'1')
         value=self.manager.reports.snapshot(self.root,'1',ids[0]['id'])

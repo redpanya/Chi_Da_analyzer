@@ -66,6 +66,19 @@ class ExchangeTests(unittest.TestCase):
         entries[0]['topics'][0]['evidence_ids']=['C0']
         with self.assertRaises(ValueError):exchange.preview(self.path,'1',json.dumps(entries[0]))
 
+    def test_deleted_external_result_can_be_imported_again_without_changing_export(self):
+        from archive.result_deletion import context as delete
+        bundle=self.create();entries=self.responses(bundle);first=self.receive(entries)
+        manifest=exchange.folder(self.path,bundle['id'])/'manifest.json';before=manifest.read_bytes()
+        with patch('archive.deletion.trash_path',side_effect=lambda folder:folder.rename(self.path/'trashed-result')):
+            delete(self.path,first['run'])
+        self.assertEqual(manifest.read_bytes(),before)
+        self.assertIsNone(exchange.listing(self.path)[0]['latest_run'])
+        second=self.receive(entries)
+        self.assertFalse(second['duplicate']);self.assertNotEqual(first['run'],second['run'])
+        self.assertEqual(exchange.listing(self.path)[0]['latest_run'],second['run'])
+        self.assertEqual(self.before,self.old.read_bytes())
+
     def test_wrong_scope_ids_order_and_stale_inputs_are_rejected(self):
         bundle=self.create();entry=self.responses(bundle)[0]
         for mutation in [dict(export_id='f'*32),dict(mode='detail'),dict(coverage={'first_id':'S0','last_id':'S999'}),dict(schema_version=True)]:

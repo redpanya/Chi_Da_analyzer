@@ -111,6 +111,9 @@ def validate_playback(project, original, original_info, playback, playback_info,
 
 
 def download(project, stop):
+    from . import download_scope, range_download
+    if download_scope.remote(project.data):
+        return range_download.download(project, stop)
     if not shutil.which('ffmpeg') or not shutil.which('ffprobe'):
         raise ValueError('FFmpeg와 ffprobe 설치 경로를 확인한 뒤 다시 실행하세요')
     data = project.snapshot()

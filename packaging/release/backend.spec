@@ -1,14 +1,14 @@
 from pathlib import Path
 import certifi
 import sys
-from PyInstaller.utils.hooks import copy_metadata
+from PyInstaller.utils.hooks import copy_metadata, collect_submodules
 root = Path(SPECPATH).parents[1]
 data = [(str(root/'web'),'web'),
         (str(root/'archive/diarization_catalog.json'),'archive'), (certifi.where(),'certs')]
-for package in ('sherpa-onnx','sherpa-onnx-core','soundfile','numpy','yt-dlp'):
+for package in ('sherpa-onnx','sherpa-onnx-core','soundfile','numpy','yt-dlp','fonttools'):
     data += copy_metadata(package)
 a = Analysis([str(root/'app.py')], pathex=[str(root)], binaries=[], datas=data,
-             hiddenimports=['workers.voices','workers.voice_candidates','sherpa_onnx','send2trash'],
+             hiddenimports=['workers.voices','workers.voice_candidates','sherpa_onnx','send2trash']+collect_submodules('fontTools.ttLib.tables'),
              excludes=['torch','torchaudio','demucs','tkinter','matplotlib','IPython','pytest'],noarchive=False)
 pyz = PYZ(a.pure)
 exe = EXE(pyz,a.scripts,[],exclude_binaries=True,name='archive-backend',console=True,

@@ -4,7 +4,7 @@ import threading
 import time
 
 from . import analysis_store, chat, source, video, speech, speech_store, speech_media, speech_model
-from . import task_timing, local_import, speech_options, compute
+from . import task_timing, local_import, speech_options, compute, download_scope
 from . import voices, voice_store, voice_models, deletion, context_job, context_input, model_paths, context_model
 from .storage import (Project, ProjectLock, Conflict, FINISHED, ACTIVE, create_or_load,
                       library, load_project, project_path, recover)
@@ -85,6 +85,10 @@ class Manager:
         from .reports import Reports
         self.automation = Automation(self)
         self.reports = Reports(self)
+        from .studio_jobs import Studio
+        self.studio = Studio(self)
+        from .split_jobs import Splitter
+        self.splitter = Splitter(self)
 
     def folders(self):
         with self.guard:
@@ -187,7 +191,7 @@ class Manager:
             try: context = context_job.view(path, locked, context_own)
             except (ValueError, KeyError, OSError, TypeError): context = {'state':'error','message':'문맥 상태를 읽지 못했습니다','owned':context_own}
             if context_own and self.context_job.stop.is_set(): context = context | {'state':'stopping'}
-            return data | {'model_root': str(model_paths.root()), 'context': context, 'root': str(path.parent), 'path': str(path), 'locked': locked, 'owned': bool(own or (self.import_job and not self.import_job.closed and self.import_job.path==path)),
+            return data | {'model_root': str(model_paths.root()), 'context': context, 'root': str(path.parent), 'library_root': str(download_scope.base_root(path.parent)), 'path': str(path), 'locked': locked, 'owned': bool(own or (self.import_job and not self.import_job.closed and self.import_job.path==path)),
                            'analysis_running': self.analysis_path == path, 'speech': voice, 'voices': m4}
 
     def projects(self, root):
@@ -197,11 +201,11 @@ class Manager:
         if not root.is_dir():
             raise ValueError('저장 경로가 폴더가 아닙니다')
         results = []
-        for path in root.glob('vod-*'):
+        for path in download_scope.project_paths(root):
             if path.is_symlink() or not (path / 'project.json').is_file():
                 continue
             try:
-                results.append(self.view(str(root), path.name[4:]))
+                results.append(self.view(str(path.parent), path.name[4:]) | {'library_root':str(root)})
             except (ValueError, OSError):
                 continue
         return sorted(results, key=lambda x: x['updated_at'], reverse=True)
@@ -214,6 +218,8 @@ class Manager:
         path = project_path(root, vod)
         with self.guard:
             self.automation.idle()
+            self.studio.idle()
+            self.splitter.idle()
             if (self.speech_job and not self.speech_job.closed) or (self.voice_job and not self.voice_job.closed) or (self.context_job and not self.context_job.closed):
                 raise Conflict('음성 작업 중입니다. 완료 또는 중단 후 다운로드하세요')
             if self.analysis_path is not None:
@@ -230,8 +236,10 @@ class Manager:
                     raise Conflict('이미 진행 중이거나 완료된 작업입니다')
                 self.job.add(kinds)
                 return self.view(root, vod)
-            if (path/'project.json').exists() and load_project(path,vod).get('input') and kind!='chat' and load_project(path,vod)['tasks']['video']['state']!='complete':
-                raise ValueError('가져오기에서 같은 비디오를 다시 첨부하세요. 채팅만 이어받기는 따로 사용할 수 있습니다')
+            if (path/'project.json').exists():
+                saved = load_project(path,vod)
+                if saved.get('input') and not download_scope.remote(saved) and kind!='chat' and saved['tasks']['video']['state']!='complete':
+                    raise ValueError('가져오기에서 같은 비디오를 다시 첨부하세요. 채팅만 이어받기는 따로 사용할 수 있습니다')
             lock = ProjectLock(path)
             job = None
             try:
@@ -280,6 +288,8 @@ class Manager:
         return self.view(root, vod)
 
     def close(self):
+        self.splitter.close()
+        self.studio.close()
         self.automation.close()
         if self.import_job:
             self.import_job.cancel()
@@ -309,6 +319,7 @@ class Manager:
         with self.guard:self.speech_idle()
         path = project_path(root, vod)
         with self.guard:
+            self.splitter.idle()
             if self.analysis_path is not None or (self.job and not self.job.closed) or (self.speech_job and not self.speech_job.closed) or (self.voice_job and not self.voice_job.closed) or (self.context_job and not self.context_job.closed):
                 raise Conflict('다른 작업이 진행 중입니다. 완료 또는 중단 후 분석하세요')
             lock = ProjectLock(path)
@@ -385,6 +396,8 @@ class Manager:
 
     def speech_idle(self):
         self.automation.idle()
+        self.studio.idle()
+        self.splitter.idle()
         if self.import_job and not self.import_job.closed:raise Conflict('파일 가져오기 중입니다. 완료 또는 중단 후 진행하세요')
         if self.analysis_path is not None or (self.job and not self.job.closed) or (self.speech_job and not self.speech_job.closed) or (self.voice_job and not self.voice_job.closed) or (self.context_job and not self.context_job.closed):
             raise Conflict('다른 작업이 진행 중입니다. 완료 또는 중단 후 진행하세요')
@@ -526,19 +539,20 @@ class Manager:
             load_project(path, vod)
             with ProjectLock(path): return deletion.trash(path, vod, token, confirmation)
 
-    def context_background(self, root, vod, text=None):
+    def context_background(self, root, vod, text=None, mode=None, custom_request=None):
         from . import context_background
         path = project_path(root, vod)
         with self.guard:
             load_project(path, vod)
             if text is None:
-                return {'text': context_background.read(path)}
+                return context_background.settings(path)
             self.speech_idle()
             with ProjectLock(path):
-                return {'text': context_background.save(path, text)}
+                context_background.save(path, text, mode, custom_request)
+                return context_background.settings(path)
 
     def context_start(self, root, vod, action, options=None):
-        if action not in ('model','summarize','whole','resume','timestamps','timestamps-resume'): raise ValueError('알 수 없는 문맥 작업입니다')
+        if action not in ('model','summarize','whole','resume','timestamps','timestamps-resume','clips','clips-resume'): raise ValueError('알 수 없는 문맥 작업입니다')
         if options is not None and not isinstance(options,dict):raise ValueError('문맥 작업 설정 형식이 올바르지 않습니다')
         if action=='model' and options and set(options)-{'model'}:raise ValueError('모델 설정을 확인하세요')
         if action in ('model','whole'):
@@ -549,7 +563,10 @@ class Manager:
         with self.guard:
             self.speech_idle();load_project(path,vod);lock=ProjectLock(path)
             try:
-                if action in ('timestamps','timestamps-resume'):
+                if action in ('clips','clips-resume'):
+                    from . import context_clips_local
+                    value=context_clips_local.prepare(path,vod,action,options or {})
+                elif action in ('timestamps','timestamps-resume'):
                     from . import context_timestamps
                     value=context_timestamps.prepare(path,vod,action,options or {})
                 elif action in ('whole','resume'):
@@ -560,8 +577,8 @@ class Manager:
                 self.context_job=context_job.ContextJob(path,vod,lock,action,value)
                 self.context_job.report_started = time.monotonic()
                 self.context_job.thread.start()
-                if action in ('whole', 'resume', 'timestamps', 'timestamps-resume'):
-                    self.reports.watch(self.context_job, 'summary', {'summary_mode':'timestamps' if action.startswith('timestamps') else 'detail', 'thinking': (value.get('inference') or {}).get('thinking', True), 'summary_model': context_model.DEFAULT_NAME if self.context_job.model_info['name'] == context_model.DEFAULT_NAME else 'unknown'})
+                if action in ('whole', 'resume', 'timestamps', 'timestamps-resume', 'clips', 'clips-resume'):
+                    self.reports.watch(self.context_job, 'summary', {'summary_mode':'clips' if action.startswith('clips') else 'timestamps' if action.startswith('timestamps') else 'detail', 'thinking': (value.get('inference') or {}).get('thinking', True), 'summary_model': context_model.DEFAULT_NAME if self.context_job.model_info['name'] == context_model.DEFAULT_NAME else 'unknown'})
             except Exception:
                 lock.close();self.context_job=None;raise
         return self.view(root,vod)
@@ -571,6 +588,9 @@ class Manager:
         path=project_path(values['root'],values['vod_id']);vod=values['vod_id']
         with self.guard:
             load_project(path,vod)
+            if action=='prompt':
+                mode=values.get('mode','timestamps');custom=exchange.custom_request(values.get('custom_request',''))
+                return {'prompt':zipper.work_order({'mode':mode,'request_prompt':exchange.prompt(mode,custom,values.get('background',''))})}
             if action=='list':return exchange.listing(path)
             if action=='bundle':return exchange.bundle(path,values.get('export_id'))
             if action=='archive':return zipper.pack(path,values.get('export_id'))
@@ -584,6 +604,14 @@ class Manager:
                 if action=='cancel':return exchange.cancel(path,values.get('export_id'))
                 if action=='resume':return exchange.resume(path,vod,values.get('export_id'))
                 raise ValueError('알 수 없는 외부 파일 작업입니다')
+
+    def context_delete(self, root, vod, run):
+        from .result_deletion import context as delete
+        path = project_path(root, vod)
+        with self.guard:
+            self.speech_idle();load_project(path, vod)
+            with ProjectLock(path):delete(path, run)
+        return self.view(root, vod)
 
     def context_stop(self, root, vod):
         with self.guard:

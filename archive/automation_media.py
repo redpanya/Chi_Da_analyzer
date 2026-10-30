@@ -1,7 +1,7 @@
 """목록의 영상·채팅 재사용 검사. 원본과 기존 검사 결과를 덮어쓰지 않는다."""
 import hashlib
 
-from . import media_timeline, video
+from . import media_timeline, video, download_scope
 from .source import check_cancel
 from .storage import asset_path, read_json, save_json, Project, ProjectLock, load_project, recover
 
@@ -67,7 +67,7 @@ def prepare(path, vod, allow_partial, stop):
         data = recover(path, load_project(path, vod))
         project = Project(path, data, lock)
         ready = {'video': video_ready(project, stop), 'chat': chat_ready(path, data['tasks']['chat'], allow_partial)}
-        if data.get('input') and not ready['video']:
+        if data.get('input') and not download_scope.remote(data) and not ready['video']:
             raise ValueError('내 비디오가 미완료이거나 검사 기록과 다릅니다. 가져오기에서 같은 파일을 다시 첨부해 확인하세요')
         for kind, valid in ready.items():
             if not valid and data['tasks'][kind]['state'] in ('complete', 'empty', 'unavailable'):

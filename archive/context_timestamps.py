@@ -4,6 +4,7 @@ import time
 from . import context_exchange_data as data, context_boundary, context_dialogue_model as model
 from . import context_evidence as ev, context_server
 from .context_job import local, state, FatalEngineError
+from . import context_guidance as guidance
 from .context_topic_summary import prompt
 from .source import check_cancel, safe_error
 from .storage import read_json, save_json, stamp
@@ -18,14 +19,14 @@ continues_previous는 첫 주제가 직전 주제와 같은 이야기일 때만 
 
 
 def prepare(path,vod,action,options):
-    if set(options)-{'run','selection','thinking','chat_offset_ms'}:raise ValueError('타임스탬프 설정을 확인하세요')
+    if set(options)-{'run','selection','thinking','chat_offset_ms','background','custom_request'}:raise ValueError('타임스탬프 설정을 확인하세요')
     recovery=None
     if action=='timestamps-resume':
         id=options.get('run');entry=next((r for r in state(path)['runs'] if r['id']==id and r.get('scope')=='timestamps'),None)
         if not entry:raise ValueError('이어갈 타임스탬프를 선택하세요')
         saved=read_json(local(path,f'runs/{id}/result.json'))
         if saved['complete']:raise ValueError('이미 완료된 타임스탬프입니다')
-        if saved['revision']!=data.REVISION or data.stale(path,vod,saved):raise ValueError('입력 또는 방식이 바뀌었습니다. 기존 결과를 보존하고 새로 시작하세요')
+        if saved['revision']!=data.REVISION or not guidance.current(saved,'timestamps') or data.stale(path,vod,saved):raise ValueError('입력 또는 방식이 바뀌었습니다. 기존 결과를 보존하고 새로 시작하세요')
         source=read_json(local(path,f'runs/{id}/source.json'))
         work=read_json(local(path,f'runs/{id}/work.json'))
         if any(c.get('error') for c in work['chunks']):
@@ -39,7 +40,8 @@ def prepare(path,vod,action,options):
         thinking=options.get('thinking',False)
         if type(thinking) is not bool:raise ValueError('사고 설정을 확인하세요')
         source=data.snapshot(path,vod,options.get('selection'),offset=options.get('chat_offset_ms',0))
-        saved={'id':uuid.uuid4().hex,'revision':data.REVISION,'scope':'timestamps','mode':'timestamps','origin':'local',
+        source=guidance.attach(source,guidance.prepare(path,'timestamps',options))
+        saved={'analysis_guidance':source['analysis_guidance'],'id':uuid.uuid4().hex,'revision':data.REVISION,'scope':'timestamps','mode':'timestamps','origin':'local',
             'created_at':stamp(),'complete':False,'model':'Gemma 4 E4B','inference':context_server.profile(thinking),
             'fingerprint':data.fingerprint(source),**{k:source[k] for k in ('input_selection','input_label','duration_ms','include_chat','chat_offset_ms')}}
     return {'saved':saved,'source':source,'inference':saved['inference'],'version':11,'recovery':recovery}

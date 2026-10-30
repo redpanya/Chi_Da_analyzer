@@ -1,0 +1,33 @@
+"""OS별로 빌드한 FFmpeg를 써서 최근 추가 기능을 검사한다."""
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def main():
+    env = os.environ | {'PYTHONPATH': os.pathsep.join((str(ROOT/'tests'), str(ROOT))),
+                        'PATH': str(ROOT/'build/native/ffmpeg')+os.pathsep+os.environ.get('PATH', '')}
+    decoders = subprocess.check_output(['ffmpeg', '-hide_banner', '-decoders'], env=env, text=True)
+    assert any(' png ' in line for line in decoders.splitlines()), '배포 FFmpeg에 자막·이미지용 PNG 디코더가 없습니다'
+    modules = (
+        'test_annotation_preview', 'test_automation_selection', 'test_automation_summary',
+        'test_download_scope', 'test_context_guidance', 'test_context_clip_chat',
+        'test_context_exchange_prompt', 'test_context_result_deletion', 'test_speaker_tools',
+        'test_polish', 'test_studio_jobs', 'test_clip_render', 'test_studio_decorations',
+        'test_caption_fonts', 'test_font_families', 'test_caption_rendering',
+        'test_caption_design', 'test_caption_templates',
+        'test_video_split', 'test_video_split_server', 'test_split_deletion',
+    )
+    subprocess.run([sys.executable, '-m', 'unittest', *modules, '-v'], cwd=ROOT, env=env, check=True)
+    for name in ('queue_options', 'workspace_ui', 'context_guidance', 'context_external_prompt', 'context_clip_evidence',
+                 'mini_player', 'polish', 'video_split', 'clip_studio',
+                 'studio_fonts', 'studio_caption_size', 'studio_caption_design',
+                 'studio_caption_validation', 'studio_image_geometry', 'studio_image_panel'):
+        subprocess.run(['node', str(ROOT/'tests'/f'test_{name}.mjs')], cwd=ROOT, check=True)
+
+
+if __name__ == '__main__':
+    main()

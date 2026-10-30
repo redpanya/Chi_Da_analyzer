@@ -54,6 +54,36 @@ class ExchangeHttpTests(unittest.TestCase):
             'topics':[{'start_id':rows[0]['id'],'title':'일반 기능 검증','evidence_ids':[rows[0]['id']],'review_needed':False}]}
         return reply
 
+    def test_request_preview_is_readonly_validates_modes_and_custom(self):
+        before={str(p):p.read_bytes() for p in self.path.rglob('*') if p.is_file()}
+        for mode in ('detail','timestamps','clips'):
+            code,value=self.post('context-exchange-prompt',{'mode':mode,'custom_request':'노래 제목을 포함해 주세요'})
+            self.assertEqual(code,200);self.assertIn('노래 제목을 포함해 주세요',value['prompt'])
+            self.assertIn('하나의 ZIP으로 압축',value['prompt'])
+        for args in ({'mode':'missing'},{'custom_request':None},{'custom_request':'가'*4001}):
+            code,_=self.post('context-exchange-prompt',args);self.assertEqual(code,400)
+        code,_=self.post('context-exchange-prompt',{},'https://example.invalid');self.assertEqual(code,403)
+        self.assertEqual(before,{str(p):p.read_bytes() for p in self.path.rglob('*') if p.is_file()})
+
+    def test_guidance_settings_and_export_snapshot_http(self):
+        for mode in ('detail','timestamps','clips'):
+            code,value=self.post('context-background-save',{'text':'시청자 대화와 노래·게임 합방','mode':mode,'custom_request':mode+' 요청'})
+            self.assertEqual(code,200);self.assertEqual(value['custom_requests'][mode],mode+' 요청')
+        code,bundle=self.post('context-exchange-create',{'options':{'mode':'clips','selection':{'transcript_run':self.run['id'],'speaker_run':None}}})
+        self.assertEqual(code,200);self.assertEqual(bundle['custom_request'],'clips 요청')
+        self.assertIn('시청자 대화와 노래·게임 합방',bundle['prompt'])
+        saved=(self.path/'context/exchange'/bundle['id']/'manifest.json').read_bytes()
+        code,_=self.post('context-background-save',{'text':'다른 상황','mode':'clips','custom_request':'다른 요청'})
+        self.assertEqual(code,200)
+        code,again=self.post('context-exchange-bundle',{'export_id':bundle['id']})
+        self.assertEqual(again['prompt'],bundle['prompt'])
+        self.assertEqual((self.path/'context/exchange'/bundle['id']/'manifest.json').read_bytes(),saved)
+        for args in ({'text':None},{'text':'상황','mode':'missing','custom_request':''},{'text':'상황','mode':'clips','custom_request':42}):
+            code,_=self.post('context-background-save',args);self.assertEqual(code,400)
+        for file,before in self.originals.items():
+            from pathlib import Path
+            self.assertEqual(Path(file).read_bytes(),before)
+
     def test_http_roundtrip_large_envelope_lock_origin_and_preservation(self):
         reply=self.prepare();text=json.dumps(reply)+' '*70000
         code,preview=self.post('context-exchange-preview',{'text':text});self.assertEqual(code,200)
@@ -84,6 +114,25 @@ class ExchangeHttpTests(unittest.TestCase):
         saved=self.manager.reports.snapshot(self.fixture.root,'1',token[0])['payload']
         self.assertEqual(saved['stages'][0]['summary_mode'],'timestamps')
         report_schema.validate(saved)
+
+    def test_clips_http_roundtrip_and_original_corrections_preserved(self):
+        from archive import context_exchange as exchange
+        old=self.prepare()
+        code,p=self.post('context-exchange-preview',{'text':json.dumps(old)})
+        code,existing=self.post('context-exchange-receive',{'text':json.dumps(old),'token':p['token']})
+        previous=self.path/'context/runs'/existing['run']/'result.json';before=previous.read_bytes()
+        code,bundle=self.post('context-exchange-create',{'options':{'mode':'clips',
+            'selection':{'transcript_run':self.run['id'],'speaker_run':None}}})
+        self.assertEqual(code,200)
+        folder=self.path/'context/exchange'/bundle['id'];saved=read_json(folder/'manifest.json');source=read_json(folder/'source.json')
+        _,doc=next(exchange.documents(saved,source));payload={'text':json.dumps(doc['output_example'])}
+        code,p=self.post('context-exchange-check-files',payload);self.assertEqual(code,200);self.assertEqual(len(p['clips']),1)
+        code,result=self.post('context-exchange-import-files',payload|{'token':p['token']});self.assertEqual(code,200)
+        code,value=self.post('context-result',{'run':result['run']});self.assertEqual(code,200);self.assertEqual(value['mode'],'clips')
+        self.assertEqual(value['items'][0]['peak_ms'],source['rows'][0]['start_ms'])
+        self.assertEqual(context_job.state(self.path)['run'],existing['run']);self.assertEqual(previous.read_bytes(),before)
+        from pathlib import Path
+        for file,original in self.originals.items():self.assertEqual(Path(file).read_bytes(),original)
 
     def test_zip_export_import_http_and_cancel_resume(self):
         reply=self.prepare()

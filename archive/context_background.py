@@ -10,13 +10,26 @@ def validate(text):
 
 
 def read(path):
+    return settings(path)['text']
+
+
+def settings(path):
+    from .context_guidance import MODES, custom_request
     file=local(path,'background.json')
-    return validate(read_json(file).get('text','')) if file.exists() else ''
+    value=read_json(file) if file.exists() else {}
+    requests=value.get('custom_requests',{})
+    if not isinstance(requests,dict):raise ValueError('저장한 추가 요청 형식을 확인하세요')
+    return {'text':validate(value.get('text','')),
+            'custom_requests':{mode:custom_request(requests.get(mode,'')) for mode in MODES}}
 
 
-def save(path,text):
+def save(path,text,mode=None,custom_request=None):
+    from . import context_guidance as guidance
     text=validate(text)
-    save_json(local(path,'background.json'),{'text':text,'updated_at':stamp()})
+    value=settings(path)
+    if mode is not None:value['custom_requests'][guidance.mode(mode)]=guidance.custom_request(custom_request)
+    elif custom_request is not None:raise ValueError('추가 요청을 저장할 모드를 선택하세요')
+    save_json(local(path,'background.json'),value|{'text':text,'updated_at':stamp()})
     return text
 
 

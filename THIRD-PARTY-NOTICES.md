@@ -6,6 +6,8 @@
 
 | 구성요소 | 조건 | 제공 위치 |
 |---|---|---|
+| Pillow 12.3.0 | MIT-CMU 및 wheel 내 제3자 조건. 클립 자막 렌더링에 사용 | 배포본 Python 고지의 Pillow LICENSE 및 bundled third-party 고지. OS 글꼴은 배포하지 않음 |
+| fontTools 4.68.0 | MIT. 설치 글꼴의 문자표를 읽어 언어 지원 확인 | 빌드 환경 고지에 원문 수집. [공식 소스](https://github.com/fonttools/fonttools) |
 | yt-dlp | Unlicense 및 포함 의존성 조건 | 배포본 Python 고지 |
 | llama.cpp·whisper.cpp | MIT 및 내부 구성요소 조건 | `licenses/llama.cpp`, 네이티브 도구의 LICENSE |
 | FFmpeg·x264 | GPL-2.0-or-later 구성 | 네이티브 도구 고지, 릴리스의 `native-corresponding-sources.zip` |
@@ -48,3 +50,9 @@ Windows의 Microsoft VC 런타임은 Microsoft의 재배포 조건을 따릅니�
 - `licenses/manifest.json`은 보존한 공식 자료의 출처·해시입니다. `python-packages.json`은 빌드 환경 목록이며 실제 제품에 모두 포함됐다는 뜻은 아닙니다. 알려지지 않은 새 의존성은 배포 전에 별도 확인해야 합니다.
 
 상표 사용·코덱 특허·치지직 서비스 약관·입력 콘텐츠의 권리는 별도입니다. 고지와 소스 제공은 이 권리들에 대한 포괄 허가가 아닙니다.
+
+## 자막 템플릿 글꼴
+
+Jua, Gaegu Bold, Black And White Picture 원본 글꼴을 SIL Open Font License 1.1에 따라 동봉합니다. 공식 Google Fonts 저장소의 고정 리비전 파일이며 글꼴 파일은 수정하지 않았습니다. 각 저작권·예약 글꼴 이름·OFL 원문은 `web/fonts/*/OFL.txt`, 출처 URL·리비전·SHA-256은 `web/fonts/sources.json`에 보존합니다. 배포 고지 묶음에도 해당 원문과 출처를 포함합니다.
+
+사용자가 운영체제에 설치한 글꼴은 조회·렌더링에만 사용하며 앱에 복사하거나 외부로 전송하지 않습니다. 설치 글꼴의 영상 제작·상업적 사용 조건은 해당 글꼴 라이선스를 확인해야 합니다. SRT·ASS에는 폰트 파일을 포함하지 않습니다.

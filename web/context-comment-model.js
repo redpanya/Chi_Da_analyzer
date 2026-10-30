@@ -1,7 +1,7 @@
 import {timecode} from './player.js';
 import {contextSummaryFailed} from './context-tree.js';
 
-export const contextCommentTitle=item=>contextSummaryFailed(item)?'요약 실패':item.gap?'사용 가능한 전사 없음':item.summary?.title||'제목 없음';
+export const contextCommentTitle=item=>contextSummaryFailed(item)?'요약 실패':item.gap?'사용 가능한 전사 없음':item.summary?.title||item.title||'제목 없음';
 export const contextKey=item=>item.id||JSON.stringify([item.start_ms,item.end_ms,item.summary?.title??contextCommentTitle(item)]);
 export const hasUsableContextSummary=item=>!item.provisional&&!item.time_review&&!item.gap&&!item.failed&&item.relation_status!=='failed'&&item.grounding_state!=='pending'&&item.grounding_state!=='review'&&item.copy_ready!==false;
 export const canCopyContext=item=>hasUsableContextSummary(item)||(
@@ -10,6 +10,24 @@ export const canCopyContext=item=>hasUsableContextSummary(item)||(
 export const validRange=row=>Number.isFinite(row.start_ms)&&row.start_ms>=0&&Number.isFinite(row.end_ms)&&row.end_ms>row.start_ms;
 export const orderedRows=rows=>[...rows].sort((a,b)=>(a.start_ms??Infinity)-(b.start_ms??Infinity)||(a.end_ms??Infinity)-(b.end_ms??Infinity)||a.id.localeCompare(b.id));
 export const commentText=(rows,offset=0)=>orderedRows(rows).map(row=>`${Number.isFinite(row.start_ms)?timecode(row.start_ms+offset)+' ':''}${row.title.replace(/\s+/g,' ').trim()}`).join('\n');
+export function commentTimeText(ms){
+  if(!Number.isFinite(ms))return '';
+  const rounded=Math.round(ms),fraction=rounded%1000;
+  return timecode(rounded)+(fraction?'.'+String(fraction).padStart(3,'0'):'');
+}
+export function editedCommentRange(startText,endText,offset=0,duration=null){
+  const parse=text=>{
+    const match=text.trim().match(/^(\d{1,3}):([0-5]\d):([0-5]\d)(?:\.(\d{1,3}))?$/);
+    if(!match)throw Error('시각은 HH:MM:SS 형식으로 입력하세요. 분·초는 00~59입니다.');
+    const ms=(+match[1]*3600 + +match[2]*60 + +match[3])*1000+Number((match[4]||'').padEnd(3,'0'))-offset;
+    if(!Number.isFinite(ms)||ms<0)throw Error('저장한 영상의 시작 이전 시각은 사용할 수 없습니다.');
+    return ms;
+  };
+  const start_ms=parse(startText),end_ms=endText.trim()?parse(endText):null;
+  if(end_ms!==null&&end_ms<=start_ms)throw Error('재생 끝 시각을 시작보다 뒤로 바꾸세요. 끝을 비우면 댓글 복사만 가능합니다.');
+  if(Number.isFinite(duration)&&duration>0&&(start_ms>=Math.round(duration)||(end_ms!==null&&end_ms>Math.round(duration))))throw Error('저장한 영상의 길이를 벗어난 시각입니다.');
+  return {start_ms,end_ms};
+}
 export function commentRow(item){
   const source_id=contextKey(item),start=Number.isFinite(item.start_ms)&&item.start_ms>=0?item.start_ms:null;
   return {id:source_id,source_id,start_ms:start,end_ms:start!==null&&Number.isFinite(item.end_ms)&&item.end_ms>start?item.end_ms:null,title:contextCommentTitle(item).replace(/\s+/g,' ').trim()};

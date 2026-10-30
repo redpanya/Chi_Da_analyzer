@@ -25,17 +25,18 @@ def checked(path,vod,values):
     saved,source=exchange.load_active(path,vod,export_ids.pop())
     counts=Counter(e['chunk_id'] for _,_,e in entries if isinstance(e,dict) and isinstance(e.get('chunk_id'),str))
     replies=dict(saved['replies']);accepted=0
+    chat_index=exchange.clip_chat.Index(source) if saved.get('clip_chat_revision') else None
     for name,index,entry in entries:
         chunk=entry.get('chunk_id') if isinstance(entry,dict) else None
         try:
             if isinstance(chunk,str) and counts[chunk]>1:raise ValueError('같은 묶음 결과가 여러 파일/항목에 있습니다. 사용할 결과 하나만 남기세요')
-            id,raw=exchange.validate_entry(saved,source,entry);replies[id]=raw;accepted+=1
+            id,raw=exchange.validate_entry(saved,source,entry,chat_index);replies[id]=raw;accepted+=1
         except (ValueError,TypeError) as ex:
             errors.append({'file':name,'chunk':chunk if isinstance(chunk,str) else str(index),'message':str(ex) if isinstance(ex,ValueError) else '결과 필드 형식을 확인하세요'})
     token=ev.digest([saved['fingerprint'],saved['replies'],replies,files])
     items=data.render_items(source,saved['chunks'],replies,saved['mode'])
     info={'token':token,'export_id':saved['id'],'accepted':accepted,'received':len(replies),'total':len(saved['chunks']),
-          'topics':[{'start_ms':r['start_ms'],'title':r['summary']['title']} for r in items],
+          **exchange.preview_items(items,saved['mode']),
           'complete':len(replies)==len(saved['chunks']),'errors':errors,'files':len(files),
           'missing':[c['id'] for c in saved['chunks'] if c['id'] not in replies]}
     return saved,source,replies,info

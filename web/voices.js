@@ -113,7 +113,7 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
     $('voice-rows').replaceChildren();
     failedReview.render(result);tabs.counts(result);
     const setupNext=project.path+':'+backend()+':'+m.ready+':'+m.engine;
-    if(setupNext!==setupKey){$('voices-setup').open=!result.run||!m.ready||!m.engine;setupKey=setupNext;}
+    if(setupNext!==setupKey){$('voices-setup').open=true;setupKey=setupNext;}
     suggestions.render(result,s);
     for(const row of result.items){
       const card=document.createElement('article');card.className='transcript-row';
@@ -205,7 +205,7 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
   return {chooseRange,stopPreview,setProject(value){
     const changed=value?.path!==project?.path;
     if(value?.voices.run!==project?.voices.run){failedReview.reset();suggestions.reset();$('voice-cards').replaceChildren();cursor=0;generation++;key='';result=null;}
-    if(changed){suggestions.reset();$('voices-backend').value=['sherpa','pyannote','fluid'].includes(value?.voices.backend)?value.voices.backend:'sherpa';}
+    if(changed){$('voices-number').value='0';suggestions.reset();$('voices-backend').value=['sherpa','pyannote','fluid'].includes(value?.voices.backend)?value.voices.backend:'sherpa';}
     project=value;
     const nextPreviewKey=value?`${value.path}:${value.voices.run}:${value.voices.revision}:${value.voices.stale}:${value.speech.audio?.file}:${value.speech.stale}`:'';
     if(nextPreviewKey!==previewKey){stopPreview();previewAudio.removeAttribute('src');previewAudio.load();previewKey=nextPreviewKey;$('voice-preview-status').textContent='이름 카드의 듣기 버튼으로 목소리를 확인하세요.';}

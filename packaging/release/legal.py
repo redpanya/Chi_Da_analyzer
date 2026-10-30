@@ -79,6 +79,13 @@ def copy_static(folder, root=ROOT):
     verify_materials(root)
     folder.mkdir(parents=True, exist_ok=True)
     shutil.copytree(root / "licenses", folder / "licenses", dirs_exist_ok=True)
+    # 자막 템플릿의 OFL 원문·출처는 앱 web 자산과 별도 고지 ZIP 모두에 보존한다.
+    fonts = root / "web/fonts"
+    if fonts.is_dir():
+        for source in [*fonts.glob('*/OFL.txt'), fonts/'sources.json']:
+            if source.is_file():
+                dest=folder/'fonts'/source.relative_to(fonts);dest.parent.mkdir(parents=True,exist_ok=True)
+                shutil.copy2(source,dest)
     for name in ("LICENSE", "THIRD-PARTY-NOTICES.md", "docs/third-party-source-guide.md"):
         dest = folder / name
         dest.parent.mkdir(parents=True, exist_ok=True)

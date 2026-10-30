@@ -12,6 +12,7 @@ from .source import safe_error
 from .speech_media import local as speech_file
 from . import voice_store, explore, runtime, context_job
 from .storage import Conflict, asset_path, project_path
+from .web_security import content_security_policy
 
 WEB = Path(__file__).resolve().parent.parent / 'web'
 
@@ -38,7 +39,8 @@ def byte_range(value, size):
     return start, end
 
 
-def make_server(manager, port=0):
+def make_server(manager, port=0, *, annotation_preview=False):
+    csp = content_security_policy(annotation_preview)
     prefix = '/' + secrets.token_urlsafe(24)
 
     class Handler(BaseHTTPRequestHandler):
@@ -62,7 +64,7 @@ def make_server(manager, port=0):
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Referrer-Policy', 'no-referrer')
-            self.send_header('Content-Security-Policy', "default-src 'self'; media-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+            self.send_header('Content-Security-Policy', csp)
 
         def reply(self, status, value):
             body = json.dumps(value, ensure_ascii=False).encode()
@@ -79,14 +81,18 @@ def make_server(manager, port=0):
                     self.close_connection = True
                     self.reply(410, {'error': '새 로컬 영상 가져오기는 제거되었습니다. 기존 완료 자료는 계속 사용할 수 있습니다'})
                     return
-                limit=22*1024**2 if self.path.endswith(('/api/context-exchange-preview','/api/context-exchange-receive','/api/context-exchange-check-files','/api/context-exchange-import-files')) else 1048576 if self.path.endswith('/api/context-comment-save') else 65536
+                limit=16*1024**2 if self.path.endswith('/api/studio-image-add') else 22*1024**2 if self.path.endswith(('/api/context-exchange-preview','/api/context-exchange-receive','/api/context-exchange-check-files','/api/context-exchange-import-files')) else 4*1048576 if '/api/studio-' in self.path else 1048576 if self.path.endswith('/api/context-comment-save') else 65536
                 if length <= 0 or length > limit or self.headers.get('Content-Type') != 'application/json':
                     raise ValueError('요청 형식이 올바르지 않습니다')
                 data = json.loads(self.rfile.read(length))
                 if not isinstance(data, dict):
                     raise ValueError('요청 값이 올바르지 않습니다')
                 action = urlsplit(self.path).path[len(prefix):]
-                if action.startswith('/api/queue-'):
+                if action.startswith('/api/split-'):
+                    result = manager.splitter.dispatch(action.removeprefix('/api/split-'), data)
+                elif action.startswith('/api/studio-'):
+                    result = manager.studio.dispatch(action.removeprefix('/api/studio-'), data)
+                elif action.startswith('/api/queue-'):
                     result = manager.automation.dispatch(action[len('/api/queue-'):], data)
                 elif action == '/api/report-config':
                     from .report_hardware import collect
@@ -117,11 +123,15 @@ def make_server(manager, port=0):
                     path = project_path(data['root'], data['vod_id'])
                     result = context_comments.save(path, data['run'], data['draft']) if action.endswith('-save') else context_comments.read(path, data['run'])
                 elif action in ('/api/context-background', '/api/context-background-save'):
-                    result = manager.context_background(data['root'], data['vod_id'], data.get('text') if action.endswith('-save') else None)
+                    from .context_background import validate
+                    text=validate(data.get('text')) if action.endswith('-save') else None
+                    result = manager.context_background(data['root'], data['vod_id'], text, data.get('mode'), data.get('custom_request'))
                 elif action == '/api/context-start':
                     result = manager.context_start(data['root'], data['vod_id'], data['action'], data.get('options'))
                 elif action == '/api/context-stop':
                     result = manager.context_stop(data['root'], data['vod_id'])
+                elif action == '/api/context-delete':
+                    result = manager.context_delete(data['root'], data['vod_id'], data.get('run'))
                 elif action == '/api/context-result':
                     result = context_job.result(project_path(data['root'], data['vod_id']), data['vod_id'], data.get('run'))
                 elif action == '/api/context-reject-interpretation':
@@ -192,20 +202,57 @@ def make_server(manager, port=0):
             if not self.allowed():
                 return
             path = urlsplit(self.path).path[len(prefix):]
+            if path == '/split-audio':
+                try:
+                    query = parse_qs(urlsplit(self.path).query)
+                    target = manager.splitter.audio_preview.file(query.get('id', [None])[0])
+                    self.send_file(target, body, download=False)
+                except (ValueError, KeyError, OSError) as error:
+                    self.reply(404, {'error': safe_error(error)})
+                return
+            if path == '/split-file':
+                try:
+                    query = parse_qs(urlsplit(self.path).query)
+                    target = manager.splitter.media_file(source_id=query.get('source', [None])[0],
+                                                         run=query.get('run', [None])[0], index=query.get('index', [None])[0])
+                    self.send_file(target, body, download='source' not in query)
+                except (ValueError, KeyError, OSError) as error:
+                    self.reply(404, {'error': safe_error(error)})
+                return
             if path == '/api/config':
                 self.reply(200, {'root': manager.default_root,
                                  'folders': manager.folders(),
+                                 'annotation_preview': bool(annotation_preview),
                                  'media_tools': bool(shutil.which('ffmpeg') and shutil.which('ffprobe'))})
                 return
             files = {'/': ('index.html', 'text/html; charset=utf-8'),
                      '/style.css': ('style.css', 'text/css; charset=utf-8'),
+                     '/workspace.css': ('workspace.css', 'text/css; charset=utf-8'),
+                     '/mini-player.css': ('mini-player.css', 'text/css; charset=utf-8'),
                      '/pattern-background.css': ('pattern-background.css', 'text/css; charset=utf-8'),
                      '/pattern-background.js': ('pattern-background.js', 'text/javascript; charset=utf-8'),
                      '/app.js': ('app.js', 'text/javascript; charset=utf-8')}
             files.update({f'/patterns/pattern-{i:02}.webp': (f'patterns/pattern-{i:02}.webp', 'image/webp')
                           for i in range(1, 9)})
+            files.update({f'/clip-studio.{ext}': (f'clip-studio.{ext}', mime)
+                          for ext, mime in [('html', 'text/html; charset=utf-8'),
+                                            ('css', 'text/css; charset=utf-8'),
+                                            ('js', 'text/javascript; charset=utf-8')]})
+            files.update({f'/video-split.{ext}': (f'video-split.{ext}', mime)
+                          for ext, mime in [('html', 'text/html; charset=utf-8'),
+                                            ('css', 'text/css; charset=utf-8'),
+                                            ('js', 'text/javascript; charset=utf-8')]})
+            files['/video-split-model.js'] = ('video-split-model.js', 'text/javascript; charset=utf-8')
+            files['/video-split-delete.js'] = ('video-split-delete.js', 'text/javascript; charset=utf-8')
+            files['/video-split-audio.js'] = ('video-split-audio.js', 'text/javascript; charset=utf-8')
+            for name in ('clip-studio-tools','clip-studio-preview','studio-decorations','studio-fonts-ui','studio-inspector', 'studio-caption-size','studio-caption-design','studio-caption-templates','studio-image-editor','studio-image-geometry','page-lifecycle','edit-session','studio-captions-ui','studio-export-check','result-browser','reaction-times','studio-history'):
+                files[f'/{name}.js'] = (f'{name}.js', 'text/javascript; charset=utf-8')
+            files['/clip-studio-model.js'] = ('clip-studio-model.js', 'text/javascript; charset=utf-8')
+            files['/analysis-scope-preview.js'] = ('analysis-scope-preview.js', 'text/javascript; charset=utf-8')
+            files['/context-clips.js']=('context-clips.js','text/javascript; charset=utf-8')
+            files['/context-clip-evidence.js']=('context-clip-evidence.js','text/javascript; charset=utf-8')
             files.update({f'/{name}.js': (f'{name}.js', 'text/javascript; charset=utf-8')
-                          for name in ('queue', 'queue-saved', 'vod-label', 'reports', 'help', 'help-content', 'voice-model-help', 'voice-tool-status', 'voice-tabs', 'context-background', 'context-inputs', 'context-external', 'context-fallback', 'reactions', 'player', 'speech', 'voices', 'voice-review', 'voice-suggestions', 'explore', 'timeline', 'context', 'project-delete', 'folders', 'compute', 'task-timing', 'audio-preview', 'context-reactions', 'context-copy', 'context-comment-model', 'player-sequence', 'context-tree', 'context-interpretations')})
+                          for name in ('preview-toast', 'mini-player', 'workspace-layout', 'workspace-status', 'settings-panel', 'version-picker', 'context-clip-controls', 'queue', 'queue-saved', 'queue-options', 'vod-label', 'reports', 'help', 'help-content', 'voice-model-help', 'voice-tool-status', 'voice-tabs', 'context-background', 'context-inputs', 'context-external', 'context-fallback', 'reactions', 'player', 'speech', 'voices', 'voice-review', 'voice-suggestions', 'explore', 'timeline', 'context', 'project-delete', 'folders', 'compute', 'task-timing', 'audio-preview', 'context-reactions', 'context-copy', 'context-comment-model', 'context-comment-time', 'player-sequence', 'context-tree', 'context-interpretations')})
             if path in files:
                 filename, mime = files[path]
                 content = (WEB / filename).read_bytes()
@@ -221,7 +268,9 @@ def make_server(manager, port=0):
                 query = parse_qs(urlsplit(self.path).query)
                 root, vod, kind, key = (query[name][0] for name in ('root', 'vod_id', 'kind', 'key'))
                 data = manager.view(root, vod)
-                if kind == 'voices':
+                if kind == 'studio':
+                    target = manager.studio.file(project_path(root, vod), query['run'][0], key)
+                elif kind == 'voices':
                     from .storage import read_json
                     project = project_path(root, vod)
                     value = voice_store.state(project)
@@ -255,7 +304,7 @@ def make_server(manager, port=0):
                     self.send_header('Content-Length', '0')
                     self.end_headers()
                     return
-                mime = {'.mp4': 'video/mp4', '.wav': 'audio/wav'}.get(path.suffix, 'application/octet-stream')
+                mime = {'.mp4': 'video/mp4', '.m4a': 'audio/mp4', '.wav': 'audio/wav'}.get(path.suffix, 'application/octet-stream')
                 self.send_headers(206 if requested else 200, mime, end - start + 1)
                 self.send_header('Accept-Ranges', 'bytes')
                 if requested:

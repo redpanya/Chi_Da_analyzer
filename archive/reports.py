@@ -187,8 +187,8 @@ class Reports:
         job.report_thread = threading.Thread(target=observe, daemon=True, name='report-observer')
         job.report_thread.start()
 
-    def skipped(self, path, stage, skipped=False):
-        token = self.begin(path, stage)
+    def skipped(self, path, stage, skipped=False, settings=None):
+        token = self.begin(path, stage, settings)
         self.finish(path, token, stage, 'skipped' if skipped else 'reused')
 
     def list(self, root, vod):

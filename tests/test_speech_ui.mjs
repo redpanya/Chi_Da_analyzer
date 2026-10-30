@@ -10,9 +10,9 @@ function node() {
 }
 globalThis.document = {
   getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},
-  createElement:node, querySelectorAll:()=>[],
+  createElement:tag=>({...node(),tagName:tag.toUpperCase()}), querySelectorAll:()=>[],
 };
-const $ = id=>document.getElementById(id), calls=[];let rowsRequests=0;
+const $ = id=>document.getElementById(id), calls=[];let rowsRequests=0, items=[], preview=null;
 let project={path:'/검증/vod-1',root:'/검증',vod_id:'1',metadata:{title:'검증'},locked:false,voices:{},
   tasks:{video:{state:'complete',assets:{playback:'media/original.mp4'}}},
   speech:{state:'idle',message:'',raw_audio:{track:1},options:{input_kind:'sam',sam_profile:'standard'},versions:[]}};
@@ -23,9 +23,9 @@ const details={tracks:[{index:1,channels:1}],duration_ms:10000,estimated_bytes:3
     {id:'balanced',label:'균형',description:'계산 절반'},
     {id:'fast',label:'빠름',description:'발음 손상 주의'}],speed_note:'10초 실측, 로딩 제외'}};
 let view;
-view=createSpeech({player:{reset(){}},api:async(action,data)=>{
+view=createSpeech({player:{reset(){}},showPreview:row=>preview=row,api:async(action,data)=>{
   if(action==='speech-info')return details;
-  if(action==='speech-result'){rowsRequests++;return {items:[],total:0,next_cursor:null};}
+  if(action==='speech-result'){rowsRequests++;return {items,total:items.length,next_cursor:null};}
   calls.push({action,data});return project;
 },onProject:value=>view.setProject(value)});
 const settle=async()=>{await Promise.resolve();await Promise.resolve();};
@@ -55,3 +55,15 @@ const beforeDelete=calls.length;await $('speech-delete').onclick();assert.equal(
 globalThis.confirm=()=>true;
 await $('speech-delete').onclick();assert.equal(calls.at(-1).data.action,'delete');assert.equal(calls.at(-1).data.run,'선택 전사');
 console.log('원음 전사·옵션·폴링 보존·잠금·VOD별 설정·선택 삭제 확인 통과');
+items=[{id:'발언1',start_ms:1000,end_ms:3000,text:'영상 확인',original_text:'영상 확인'}];
+await $('speech-search').onsubmit({preventDefault(){}});await settle();
+const actions=$('transcript-rows').children[0].children[0].children;
+assert.equal(actions[0].tagName,'SPAN');
+assert.equal(actions[0].textContent,'00:00:01 → 00:00:03');
+assert.equal(actions[0].onclick,undefined);
+assert.deepEqual(actions.filter(n=>n.tagName==='BUTTON').map(n=>n.textContent),['음성 듣기','화자 검토 (선택)','해당 영상보기']);
+const together=actions.find(n=>n.textContent==='해당 영상보기');
+together.onclick();assert.equal(preview,items[0]);
+preview=null;project={...project,speech:{...project.speech,stale:true}};view.setProject(project);together.onclick();
+assert.equal(preview,null);assert.match($('speech-notice').textContent,/이전 입력/);
+console.log('전사 시각 텍스트·영상 버튼 단일화·미니 플레이어 연결·이전 입력 차단 통과');

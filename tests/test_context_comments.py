@@ -41,4 +41,17 @@ class CommentListTests(unittest.TestCase):
         saved=comments.save(self.path,self.run,self.value|{'rows':[self.row|{'source_id':None,'start_ms':None,'end_ms':None,'title':'자유 문장'}]})
         self.assertIsNone(saved['rows'][0]['end_ms'])
 
+    def test_clip_and_summary_drafts_are_separate(self):
+        clip_run='b'*32
+        save_json(self.path/'context/state.json',{'runs':[{'id':self.run,'mode':'detail'},{'id':clip_run,'mode':'clips'}],'run':self.run,'clip_run':clip_run})
+        clip_result=self.path/f'context/runs/{clip_run}/result.json';save_json(clip_result,{'mode':'clips','원본':'보존'})
+        before={p:p.read_bytes() for p in (self.original,clip_result)}
+        detail=comments.save(self.path,self.run,self.value)
+        clip=comments.save(self.path,clip_run,self.value|{'rows':[self.row|{'id':'clip-a','source_id':'clip-a','title':'클립 제목'}]})
+        self.assertEqual(comments.read(self.path,self.run),detail)
+        self.assertEqual(comments.read(self.path,clip_run),clip)
+        comments.save(self.path,clip_run,clip|{'rows':[]})
+        self.assertEqual(comments.read(self.path,self.run),detail)
+        for p,raw in before.items():self.assertEqual(p.read_bytes(),raw)
+
 if __name__=='__main__':unittest.main()

@@ -2,9 +2,9 @@
 import shutil
 import threading
 
-from . import speech_store, speech_media, speech_model, context_model, context_job, context_full, voice_store
-from . import diarization_backends, analysis_store, automation_media
-from .storage import project_path, load_project, read_json
+from . import speech_store, speech_media, speech_model, context_model, context_job, voice_store
+from . import diarization_backends, analysis_store, automation_media, automation_summary, automation_plan, download_scope
+from .storage import project_path, load_project
 from .source import Cancelled
 
 
@@ -13,6 +13,10 @@ class Prerequisite(ValueError):
 
 
 class Paused(Exception):
+    pass
+
+
+class MissingInput(ValueError):
     pass
 
 
@@ -36,8 +40,36 @@ def ready(module):
         raise Prerequisite('전사·Gemma 모델과 실행 도구를 각 메뉴에서 준비한 뒤 대기열을 이어가세요')
 
 
+def check_inputs(path, data, settings, stage):
+    """미선택 단계의 자료만 확인한다. 다운로드·추출·전사를 대신 시작하지 않는다."""
+    chosen = automation_plan.selected(settings)
+    if stage == 'audio' and 'download' not in chosen:
+        try:
+            speech_media.source(path, data)
+        except (ValueError, OSError, KeyError) as error:
+            raise MissingInput('완료된 영상이 필요합니다. 영상·채팅 다운로드를 선택해 다시 등록하거나 먼저 다운로드를 완료하세요') from error
+    if stage == 'transcribe' and 'audio' not in chosen:
+        raw = speech_store.state(path).get('raw_audio') or speech_store.state(path).get('audio')
+        try:
+            valid = (raw and not raw.get('separation_run') and raw.get('input_kind', 'original') == 'original'
+                     and raw['source'] == speech_media.identity(speech_media.source(path, data), path)
+                     and speech_media.local(path, raw['file']).is_file())
+        except (ValueError, OSError, KeyError):
+            valid = False
+        if not valid:
+            raise MissingInput('현재 영상의 원음 오디오가 필요합니다. 원음 오디오 추출을 선택해 다시 등록하거나 먼저 추출하세요')
+    if stage in ('diarize', 'reactions', *automation_summary.STAGES.values()) and 'transcribe' not in chosen:
+        try:
+            run = speech_store.manifest(path)
+            valid = run and run['complete'] and not speech_store.view(path, data)['stale']
+        except (ValueError, OSError, KeyError):
+            valid = False
+        if not valid:
+            raise MissingInput('현재 영상의 완료된 전사가 필요합니다. 전사 진행을 선택해 다시 등록하거나 먼저 전사를 완료하세요')
+
+
 def execute(queue, entry, stage):
-    manager, root, vod, settings = queue.manager, queue.root, entry['vod'], entry['options']
+    manager, root, vod, settings = queue.manager, download_scope.entry_root(queue.root,entry), entry['vod'], entry['options']
     path = project_path(root, vod)
     if shutil.disk_usage(path).free < 256 * 1024**2:
         raise Prerequisite('저장 공간이 부족합니다. 공간 확보 후 이어가세요')
@@ -62,6 +94,7 @@ def execute(queue, entry, stage):
             raise ValueError('채팅 제공 범위 검증이 끝나지 않았습니다. 해당 VOD를 확인한 뒤 재시도하세요')
         return 'complete' if needed else 'reused'
     data = load_project(path, vod)
+    check_inputs(path, data, settings, stage)
     if stage == 'audio':
         raw = speech_store.state(path).get('raw_audio')
         if raw and raw.get('source') == speech_media.identity(speech_media.source(path, data), path) and speech_media.local(path, raw['file']).is_file():
@@ -100,7 +133,7 @@ def execute(queue, entry, stage):
         wait(queue, manager.voice_job)
         status = voice_store.state(path)
     elif stage == 'reactions':
-        if not data['tasks']['chat'].get('assets', {}).get('jsonl') and data['tasks']['chat']['state'] in ('empty', 'unavailable'):
+        if not data['tasks']['chat'].get('assets', {}).get('jsonl'):
             manager.reports.skipped(path, stage, skipped=True)
             return 'skipped'
         old = analysis_store.load(path, data)
@@ -109,28 +142,19 @@ def execute(queue, entry, stage):
             return 'reused'
         manager.analyze(root, vod, {}, settings['allow_partial_chat'])
         return 'complete'
-    elif stage == 'summary':
-        from . import context_background
-        background = settings['background'] if 'background' in settings else context_background.read(path)
-        state = context_job.state(path)
-        run = state.get('full_run')
-        action = 'whole'
-        if run:
-            saved = read_json(context_job.local(path, f'runs/{run}/result.json'))
-            matching = saved.get('version') == context_full.VERSION and saved.get('model') == context_model.DEFAULT_NAME and saved.get('fingerprint') == context_full.fingerprint(context_full.current_source(path, vod, saved.get('chat_offset_ms', 0), background))
-            thinking = (saved.get('inference') or {}).get('thinking', True)
-            if matching and thinking == settings['thinking']:
-                if saved.get('complete'):
-                    manager.reports.skipped(path, stage)
-                    return 'reused'
-                action = 'resume'
+    elif stage in automation_summary.STAGES.values():
+        action, values = automation_summary.request(path, vod, stage, settings)
+        if action is None:
+            report_stage, report_settings = automation_summary.report(stage)
+            manager.reports.skipped(path, report_stage, settings=report_settings)
+            return 'reused'
         ready(context_model)
-        manager.context_start(root, vod, action, {'thinking': settings['thinking'], 'background': background})
+        manager.context_start(root, vod, action, values)
         wait(queue, manager.context_job)
         status = context_job.state(path)
     else:
         raise ValueError('지원하지 않는 자동화 단계입니다')
-    if status['state'] == 'review' and stage == 'summary':
+    if status['state'] == 'review' and stage in automation_summary.STAGES.values():
         return 'partial'
     if status['state'] != 'complete':
         raise ValueError(status.get('message') or '작업을 완료하지 못했습니다')

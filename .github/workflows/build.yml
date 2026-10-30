@@ -64,6 +64,7 @@ jobs:
             diffutils
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-zlib
       - name: 고정 소스 다운로드·검증
         run: python packaging/release/fetch_sources.py
       - name: 라이선스 원문 검사
@@ -114,6 +115,8 @@ jobs:
         with:
           path: build/native/ffmpeg
           key: ${{ steps.media-cache.outputs.cache-primary-key }}
+      - name: 클립·글꼴·분할·다중 오디오 OS별 검사
+        run: python packaging/release/check_features.py
       - name: Python 실행기 패키징
         run: python -m PyInstaller --noconfirm --clean --distpath build/frozen --workpath build/pyinstaller packaging/release/backend.spec
       - name: 앱 구성

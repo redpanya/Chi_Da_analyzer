@@ -3,17 +3,20 @@ import copy
 import threading
 import uuid
 
-from . import automation_steps as steps, speech_options
+from . import automation_steps as steps, speech_options, automation_summary, automation_plan, download_scope
 from .storage import library, project_path, ProjectLock, Conflict, load_project, create_or_load, save_json, read_json, stamp
 
 
 def options(value):
-    if not isinstance(value, dict) or set(value) - {'mode', 'height', 'language', 'asr_options', 'speakers_enabled', 'backend', 'thinking', 'allow_partial_chat', 'continue_voice_error', 'background'}:
-        raise ValueError('자동화 설정을 확인하세요')
-    result = dict(mode='download', height=0, language='ko', asr_options=speech_options.validate(),
+    if not isinstance(value, dict) or set(value) - {'mode', 'steps', 'height', 'download_range', 'language', 'asr_options', 'speakers_enabled', 'backend', 'thinking', 'allow_partial_chat', 'continue_voice_error', 'background', 'summary_modes'}:
+        raise ValueError('작업 설정을 확인하세요')
+    result = dict(mode='download', height=480, language='ko', asr_options=speech_options.validate(),
                   speakers_enabled=False, backend='sherpa', thinking=True, allow_partial_chat=False, continue_voice_error=True) | value
     if result['mode'] not in ('download', 'analysis') or type(result['height']) is not int or result['height'] not in (0, 1080, 720, 480):
         raise ValueError('작업 범위와 화질을 확인하세요')
+    # 구버전의 '제공 최고 화질' 요청도 신규 등록에서는 1080p를 넘지 않는다.
+    if result['height'] == 0:
+        result['height'] = 1080
     if result['language'] not in ('ko', 'auto', 'ja', 'en') or result['backend'] not in ('sherpa', 'pyannote', 'fluid'):
         raise ValueError('언어·화자 모델 설정을 확인하세요')
     for key in ('speakers_enabled', 'thinking', 'allow_partial_chat', 'continue_voice_error'):
@@ -23,7 +26,21 @@ def options(value):
         from .context_background import validate
         result['background'] = validate(result['background'])
     result['asr_options'] = speech_options.validate(result['asr_options'])
+    result['steps'] = automation_plan.selected(result)
+    result['download_range'] = download_scope.validate(result.get('download_range'))
+    if result['download_range'] and 'download' not in result['steps']:
+        raise ValueError('구간 다운로드를 사용하려면 영상·채팅 다운로드를 선택하세요')
+    result['speakers_enabled'] = 'diarize' in result['steps']
+    result['mode'] = 'download' if result['steps'] == ['download'] else 'analysis'
+    result['summary_modes'] = automation_summary.validate(result.get('summary_modes', ['detail']), 'context' in result['steps'])
     return result
+
+
+def completion_message(items,paused=False):
+    labels={'complete':'완료','partial':'일부 완료','error':'오류','paused':'중단','queued':'대기'}
+    counts={key:sum(r.get('state')==key for r in items) for key in labels}
+    detail=' · '.join(f'{label} {counts[key]}개' for key,label in labels.items() if counts[key])
+    return ('일시정지' if paused else '목록 처리 종료')+' · '+(detail or '처리 항목 없음')
 
 
 class Automation:
@@ -47,7 +64,7 @@ class Automation:
         if action == 'add':
             return self.add(root, data['url'], data.get('options', {}))
         if action == 'add-saved':
-            return self.add_saved(root, data['vod_ids'], data.get('options', {}))
+            return self.add_saved(root, data['vod_ids'], data.get('options', {}), data.get('source_root'))
         if action == 'settings':
             return self.update_settings(root, data['ids'], data.get('options', {}))
         if action == 'start':
@@ -106,7 +123,9 @@ class Automation:
                     data = self.change(root, recover)
                 except Conflict:
                     foreign = True
-            return copy.deepcopy(data) | {'active': active or foreign, 'owned': active, 'root': str(library(root))}
+            view=copy.deepcopy(data)
+            if data['state']=='complete':view['message']=completion_message(data['items'])
+            return view | {'active': active or foreign, 'owned': active, 'root': str(library(root))}
 
     def add(self, root, url, settings):
         settings = options(settings)
@@ -115,19 +134,10 @@ class Automation:
         meta = self.manager.inspect(url)
         vod = meta['id']
         def append(data):
-            self.check_add(data, vod)
-            path = project_path(root, vod)
-            with ProjectLock(path):
-                if (path / 'project.json').exists():
-                    project = load_project(path, vod)
-                else:
-                    candidates = [f for f in meta['formats'] if not settings['height'] or (f.get('height') or 0) <= settings['height']]
-                    if not candidates:
-                        raise ValueError('선택한 최대 해상도에 맞는 영상이 없습니다')
-                    format_id = candidates[0]['id']
-                    project = create_or_load(path, meta, format_id)
-                data['items'].append(self.entry(project, settings, 'url'))
-                self.waiting(data)
+            target, project = download_scope.prepare(root, meta, settings)
+            self.check_add(data, vod, target, str(library(root)))
+            data['items'].append(self.entry(project, settings, 'url') | {'project_root':target, 'source_root':str(library(root))})
+            self.waiting(data)
         self.change(root, append)
         return self.status(root)
 
@@ -137,10 +147,10 @@ class Automation:
             data.update(state='idle', message='대기 항목이 있습니다. 순차 작업 시작·이어가기를 누르세요')
 
     @staticmethod
-    def check_add(data, vod):
+    def check_add(data, vod, target=None, base=None):
         if len(data['items']) >= 100:
             raise ValueError('작업 목록은 최대 100개입니다. 완료 항목을 목록에서 제거하세요')
-        if any(item['vod'] == vod and item['state'] != 'complete' for item in data['items']):
+        if any(item['vod'] == vod and (item.get('project_root') or base) == (target or base) and item['state'] != 'complete' for item in data['items']):
             raise Conflict('이미 미완료 목록에 있는 VOD입니다. 기존 항목의 설정 적용·이어가기 또는 목록 제거 후 다시 등록하세요')
 
     @staticmethod
@@ -148,30 +158,37 @@ class Automation:
         tasks = project['tasks']
         video_done = tasks['video']['state'] == 'complete'
         chat_done = tasks['chat']['state'] in ('complete', 'empty', 'unavailable')
-        preview = ('영상·채팅 확인 후 원음부터 필요한 단계 처리' if settings['mode'] == 'analysis' else '영상·채팅 확인 후 기존 자료 사용') if video_done and chat_done else '미완료 영상·채팅부터 준비'
-        if project.get('input') and not video_done:
+        preview = '선택한 단계만 처리 · 일치하는 완료 자료는 재사용'
+        if 'download' not in automation_plan.selected(settings):
+            preview += ' · 미선택 단계의 자료가 없으면 해당 항목에 안내'
+        elif not (video_done and chat_done):
+            preview += ' · 미완료 영상·채팅부터 준비'
+        if project.get('input') and not download_scope.remote(project) and not video_done:
             preview = '내 비디오 미완료 · 같은 파일을 먼저 다시 첨부하세요'
         selected = next((f for f in project['metadata'].get('formats', []) if f['id'] == project['format_id']), {})
-        quality = '내 비디오' if project.get('input') else selected.get('label') or (str(selected['height'])+'p' if selected.get('height') else '기존 등록 화질')
+        quality = '내 비디오' if project.get('input') and not download_scope.remote(project) else selected.get('label') or (str(selected['height'])+'p' if selected.get('height') else '기존 등록 화질')
         return dict(id=uuid.uuid4().hex, vod=project['vod_id'], title=project['metadata']['title'],
                     format=project['format_id'], quality=quality, options=copy.deepcopy(settings), source=source,
                     preview=preview, state='queued', stage='', message='등록 순서대로 대기 중 · 실행 직전 자료 재확인', stages={}, report=None)
 
-    def add_saved(self, root, vods, settings):
+    def add_saved(self, root, vods, settings, source_root=None):
         settings = options(settings)
+        source_root = str(download_scope.checked_root(root, source_root))
         if not isinstance(vods, list) or not 1 <= len(vods) <= 100:
             raise ValueError('등록할 저장 VOD를 1~100개 선택하세요')
         added, errors = [], []
         # 각 성공을 저장해 뒤 항목의 실패로 앞 등록이 사라지지 않게 한다.
         for vod in vods:
             def append(data):
-                path = project_path(root, vod)
-                self.check_add(data, vod)
+                path = project_path(source_root, vod)
                 if not (path / 'project.json').is_file():
                     raise ValueError('이 보관함에 등록된 VOD가 없습니다')
                 with ProjectLock(path):
-                    data['items'].append(self.entry(load_project(path, vod), settings, 'saved'))
-                    self.waiting(data)
+                    source = load_project(path, vod)
+                target, project = download_scope.prepare(root, source['metadata'], settings, source_root)
+                self.check_add(data, vod, target, str(library(root)))
+                data['items'].append(self.entry(project, settings, 'saved') | {'project_root':target, 'source_root':source_root})
+                self.waiting(data)
             try:
                 self.change(root, append)
                 added.append(vod)
@@ -189,12 +206,16 @@ class Automation:
                     i['state'] != 'queued' or i.get('report') or i.get('stages') or i.get('stage') for i in selected):
                 raise Conflict('실행 이력이 없는 대기 항목만 설정을 바꿀 수 있습니다. 순차 작업을 먼저 일시정지하세요')
             for item in selected:
-                project = load_project(project_path(root, item['vod']), item['vod'])
+                project = load_project(project_path(download_scope.entry_root(root,item), item['vod']), item['vod'])
                 updated = copy.deepcopy(settings)
                 if 'background' not in settings and 'background' in item['options']:
                     updated['background'] = item['options']['background']
-                item.update(options=updated, preview=self.entry(project, updated, 'saved')['preview'],
-                            message='선택한 설정 적용 완료 · 기존 영상·이어받기 화질 유지')
+                target, project = download_scope.prepare(root, project['metadata'], updated, item.get('source_root',root))
+                others = {'items':[v for v in data['items'] if v['id']!=item['id']]}
+                self.check_add(others,item['vod'],target,str(library(root)))
+                replacement = self.entry(project, updated, item['source'])
+                item.update({k:replacement[k] for k in ('title','format','quality','options','preview')}, project_root=target,
+                            message='선택한 작업 설정 적용 완료 · 기존 자료 보존')
             self.waiting(data)
         self.change(root, change)
         return self.status(root)
@@ -266,21 +287,21 @@ class Automation:
                 if not claimed:
                     break
                 entry = claimed[0]
-                path = project_path(self.root, entry['vod'])
-                self.report_id = entry.get('report') or self.manager.reports.new(self.root, entry['vod'], entry['options'])
+                target_root = download_scope.entry_root(self.root, entry)
+                path = project_path(target_root, entry['vod'])
+                self.report_id = entry.get('report') or self.manager.reports.new(target_root, entry['vod'], entry['options'])
                 self.update_item(entry['id'], state='running', report=self.report_id, message='기존 완료 자료부터 확인합니다')
-                stages = ['download']
-                if entry['options']['mode'] == 'analysis':
-                    stages += ['audio', 'transcribe'] + (['diarize'] if entry['options']['speakers_enabled'] else []) + ['reactions', 'summary']
                 outcomes = {}
+                stage = ''
                 try:
+                    stages = automation_plan.sequence(entry['options'])
                     for stage in stages:
                         if self.stop.is_set():
                             raise steps.Paused()
                         self.update_item(entry['id'], stage=stage, stages=outcomes)
                         try:
                             outcomes[stage] = steps.execute(self, entry, stage)
-                        except (steps.Paused, steps.Prerequisite, OSError):
+                        except (steps.Paused, steps.Prerequisite, steps.MissingInput, OSError):
                             raise
                         except Exception as error:
                             if stage != 'diarize' or not entry['options']['continue_voice_error']:
@@ -295,16 +316,18 @@ class Automation:
                     from .source import safe_error
                     self.update_item(entry['id'], state='error', message=safe_error(error))
                     # 사전 조건·검증 오류처럼 작업자가 생성되기 전의 실패도 기록한다.
-                    token = self.manager.reports.begin(path, stage)
-                    self.manager.reports.finish(path, token, stage, 'error', str(error))
+                    report_stage, report_settings = automation_summary.report(stage)
+                    token = self.manager.reports.begin(path, report_stage, report_settings)
+                    self.manager.reports.finish(path, token, report_stage, 'error', str(error))
                 self.report_id = None
-            self.change(self.root, lambda data: data.update(state='paused' if self.stop.is_set() else 'complete', message='일시정지했습니다' if self.stop.is_set() else '목록 처리 종료 · 오류·일부 완료 항목은 개별 확인하세요'))
+            self.change(self.root, lambda data: data.update(state='paused' if self.stop.is_set() else 'complete', message=completion_message(data['items'],self.stop.is_set())))
         except (steps.Paused, steps.Prerequisite, OSError) as error:
             if entry:
                 self.update_item(entry['id'], state='paused', message=str(error) or '중단했습니다. 완료 자료는 유지합니다')
                 try:
-                    token = self.manager.reports.begin(path, entry.get('stage') or stage)
-                    self.manager.reports.safe_finish(path, token, entry.get('stage') or stage, 'paused', str(error))
+                    report_stage, report_settings = automation_summary.report(stage)
+                    token = self.manager.reports.begin(path, report_stage, report_settings)
+                    self.manager.reports.safe_finish(path, token, report_stage, 'paused', str(error))
                 except (OSError, ValueError, UnboundLocalError):
                     pass
             self.change(self.root, lambda data: data.update(state='paused', message=str(error) or '일시정지했습니다'))

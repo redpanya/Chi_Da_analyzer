@@ -6,7 +6,7 @@ from .context_job import local
 from .storage import read_json
 
 REVISION = 1
-MODES = ('timestamps', 'detail')
+MODES = ('timestamps', 'detail', 'clips')
 MAX_RESULT_BYTES = 10 * 1024**2
 
 
@@ -32,7 +32,14 @@ def fingerprint(source):
 
 
 def stale(path,vod,saved):
-    try:return fingerprint(snapshot(path,vod,saved['input_selection'],saved['include_chat'],saved['chat_offset_ms']))!=saved['fingerprint']
+    from .context_guidance import attach
+    try:
+        source=snapshot(path,vod,saved['input_selection'],saved['include_chat'],saved['chat_offset_ms'])
+        if saved.get('clip_chat_revision'):
+            from . import context_clip_chat
+            if saved['clip_chat_revision']!=context_clip_chat.REVISION:return True
+            source=context_clip_chat.attach(source)
+        return fingerprint(attach(source,saved.get('analysis_guidance')))!=saved['fingerprint']
     except (ValueError,OSError,KeyError,TypeError):return True
 
 
@@ -86,6 +93,9 @@ def validate(raw, rows, chats=(), mode='timestamps', allow_continue=True):
 
 def render_items(source, chunks, replies, mode):
     """누락 묶음을 넘어 병합하지 않는다. 완료 묶음은 새 결과 버전에서 재구성한다."""
+    if mode=='clips':
+        from .context_clips import render_items as clip_items
+        return clip_items(source,chunks,replies)
     items=[];active=None;allrows=source['rows'];chats={r['id']:r for r in source['chat']}
     for index,chunk in enumerate(chunks):
         selected=allrows[chunk['first']:chunk['last']];raw=replies.get(chunk['id'])
@@ -148,8 +158,16 @@ def result(path,vod,id):
     source=read_json(local(path,f'runs/{id}/source.json'))
     work=read_json(local(path,f'runs/{id}/work.json'))
     chunks=work['chunks'];replies=work['replies'];items=render_items(source,chunks,replies,saved['mode'])
-    done=sum(c['last']-c['first'] for c in chunks if c['id'] in replies or c.get('error'))
-    return saved|{'scope':'full','version':11,'stale':stale(path,vod,saved),'items':items,'phase':'done' if saved['complete'] else 'timestamps',
-        'done':done,'total':len(source['rows']),'stats':{'speech_total':len(source['rows']),'speech_used':done,'chat_total':len(source['chat']),'chat_used':len(source['chat']) if saved['complete'] else 0},
-        'notes':['외부 결과의 형식만 검사했습니다. 원문을 확인하세요.' if saved['origin']=='external' else '전사로 주제 제목만 생성했습니다. 상세 근거 검토·채팅 요약은 생략했습니다.'],
+    local_clips=saved['origin']=='local' and saved['mode']=='clips'
+    done=sum(c['last']-c['first'] for c in chunks if c.get('error') or (c.get('processed') if local_clips else c['id'] in replies))
+    failures=[{'start_ms':source['rows'][c['first']]['start_ms'],'end_ms':max(r['end_ms'] for r in source['rows'][c['first']:c['last']]),'error':c['error']} for c in chunks if c.get('error')]
+    notes=['Gemma가 전사에서 후보를 고르고 후보 구간만 대조했습니다. 앞뒤 참고와 채팅은 제한된 표본입니다. 실제 영상·음성 확인이 필요합니다.'] if local_clips else ['외부 결과의 형식만 검사했습니다. 원문을 확인하세요.' if saved['origin']=='external' else '전사로 주제 제목만 생성했습니다. 상세 근거 검토·채팅 요약은 생략했습니다.']
+    discovery=source.get('clip_chat')
+    if discovery:
+        if local_clips and source['include_chat']:notes=['전사 전체와 채팅 단서·대표 표본을 함께 탐색했습니다. 채팅 전체 의미 검토나 영상 확인을 대신하지 않습니다.']
+        if discovery['unanchored']:notes.append(f"주변 전사가 없는 채팅 반응 {len(discovery['unanchored'])}구간은 후보 탐색에서 제외했습니다.")
+    return saved|{'scope':'full','version':12 if local_clips else 11,'stale':stale(path,vod,saved),'items':items,'phase':'done' if saved['complete'] else ('clips' if saved['mode']=='clips' else 'timestamps'),
+        'done':done,'total':len(source['rows']),'failure_ranges':failures,'stats':{'speech_total':len(source['rows']),'speech_used':done,'chat_total':len(source['chat']),'chat_used':len({id for item in items for id in item.get('chat_evidence_ids',[])}) if local_clips else len(source['chat']) if saved['complete'] else 0},
+        'notes':notes,
+        'chat_discovery':{'cues':len(discovery['cues']),'unanchored':discovery['unanchored'],'sample_policy':discovery['sample_policy']} if discovery else None,
         'input_rejections':source['rejected'],'item_failures':sum(bool(c.get('error')) for c in chunks),'boundary_failures':0}

@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from archive import context_guidance
 from archive import context_full as full, context_job as jobs, context_tokens as tokens, analysis
 from archive import context_adaptive as policy, context_adaptive_input as inp, context_adaptive_result as result
 from archive.storage import ProjectLock, read_json
@@ -21,7 +22,7 @@ class AdaptiveTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.path=Path(self.temp.name)
         self.source=source(9,270000);self.calls=[]
-        for p in [patch.object(full,'VERSION',10),patch.object(full,'current_source',side_effect=lambda *a:copy.deepcopy(self.source)),
+        for p in [patch.object(full,'VERSION',10),patch.object(full,'current_source',side_effect=lambda *a:context_guidance.attach(copy.deepcopy(self.source),a[5] if len(a)>5 else None)),
                   patch('archive.context_events.settings',return_value=analysis.settings({})),patch.object(tokens,'Tokenizer',FakeTokenizer)]:
             p.start();self.addCleanup(p.stop)
 

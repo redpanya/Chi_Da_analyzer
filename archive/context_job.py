@@ -48,7 +48,7 @@ def result(path, vod, id=None):
     saved=state(path);id=id or saved.get('run')
     if not id:return None
     if not isinstance(id,str) or not re.fullmatch(r'[a-f0-9]{32}',id) or id not in [r['id'] for r in saved['runs']]:raise ValueError('저장된 요약 버전이 아닙니다')
-    if next(r for r in saved['runs'] if r['id']==id).get('scope') in ('timestamps','external'):
+    if next(r for r in saved['runs'] if r['id']==id).get('scope') in ('timestamps','external','clips-local'):
         from .context_exchange_data import result as exchange_result
         return exchange_result(path,vod,id)
     if next(r for r in saved['runs'] if r['id']==id).get('scope')=='full':
@@ -70,7 +70,7 @@ class ContextJob:
         self.output_tokens=self.inference['output'] if self.inference else context_tokens.OUTPUT
         self.stop=threading.Event();self.closed=False
         previous=state(path)
-        resume=(action=='resume' and previous.get('action') in ('whole','resume') and previous.get('full_run')==value['saved']['id']) or (action=='timestamps-resume' and previous.get('run')==value['saved']['id'])
+        resume=(action=='resume' and previous.get('action') in ('whole','resume') and previous.get('full_run')==value['saved']['id']) or (action=='timestamps-resume' and previous.get('run')==value['saved']['id']) or (action=='clips-resume' and previous.get('clip_run')==value['saved']['id'])
         self.value=previous|{'state':'running','action':action,'message':'요약 작업 준비 중','progress':{},'compute':None,
                              'timing':task_timing.start(previous,resume=resume)}
         self.thread=threading.Thread(target=self.run,daemon=True)
@@ -166,6 +166,9 @@ class ContextJob:
         try:
             problems=0
             if self.action=='model':model.prepare(self.stop,self.update,self.model_info['name'])
+            elif self.action in ('clips','clips-resume'):
+                from . import context_clips_local
+                problems=context_clips_local.run(self) or 0
             elif self.action in ('timestamps','timestamps-resume'):
                 from . import context_timestamps
                 problems=context_timestamps.run(self) or 0
@@ -174,6 +177,8 @@ class ContextJob:
                 problems=context_full.run(self) or 0
             else:self.infer()
             self.update(state='review' if problems else 'complete',message=f'문맥 처리 종료 · 확인 필요 {problems}개. 완료 요약은 사용 가능하며 이어하기로 재검토하세요' if problems else '요약 모델 준비 완료' if self.action=='model' else '문맥 정리 완료 · 원문과 근거를 확인하세요')
+            if self.action in ('clips','clips-resume'):
+                self.update(message=f'클립 후보 처리 종료 · 실패 범위 {problems}개 · 완료 후보는 사용할 수 있습니다. 이어하기로 재검토하세요' if problems else '클립 후보 처리 완료 · 추천 이유와 실제 영상을 확인하세요')
             if problems and (self.input or {}).get('version') in (8,9,10):
                 self.update(message=f'문맥 처리 종료 · 확인 필요 {problems}개. 근거 확인 표시는 원문에서 검토하세요. 실패 범위만 이어하기로 재검토합니다.')
         except Exception as error:
