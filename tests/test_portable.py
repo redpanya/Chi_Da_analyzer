@@ -48,6 +48,21 @@ class PortableTests(unittest.TestCase):
             finally:
                 lock.close();processes.stop(child);child.stdout.close()
 
+    def test_moving_retains_exclusion_and_recovers_on_failure(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)/'project'
+            code=('from pathlib import Path; from archive.storage import ProjectLock,Conflict; import sys; '
+                  '\ntry: ProjectLock(Path(sys.argv[1]))\nexcept Conflict: sys.exit(19)\n')
+            with ProjectLock(root) as lock:
+                with self.assertRaisesRegex(OSError,'이동 실패'),lock.moving():
+                    child=subprocess.run([sys.executable,'-c',code,str(root)],cwd=ROOT,timeout=10)
+                    self.assertEqual(child.returncode,19)
+                    raise OSError('이동 실패')
+                self.assertIsNotNone(lock.fd)
+                with self.assertRaises(Conflict):ProjectLock(root)
+                with lock.moving():root.rename(Path(temp)/'moved')
+                self.assertFalse(root.exists())
+
     @unittest.skipUnless(os.name=='nt','Windows Job Object 전용')
     def test_parent_crash_terminates_grandchild(self):
         import ctypes

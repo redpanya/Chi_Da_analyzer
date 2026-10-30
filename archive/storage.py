@@ -1,6 +1,7 @@
 """VOD 식별, 프로세스 간 쓰기 잠금과 원자적 상태 저장."""
 
 from datetime import datetime, timezone
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -76,20 +77,38 @@ def project_path(root, vod):
 class ProjectLock:
     def __init__(self, path):
         self.fd = None
-        path.mkdir(parents=True, exist_ok=True)
+        self.path = path
         fd = None
         try:
             if os.name == 'nt':
-                from .windows_runtime import exclusive_file
-                fd = exclusive_file(path / '.write.lock')
+                from .windows_runtime import exclusive_file, move_guard
+                with move_guard(path):
+                    path.mkdir(parents=True, exist_ok=True)
+                    fd = exclusive_file(path / '.write.lock')
             else:
                 import fcntl
+                path.mkdir(parents=True, exist_ok=True)
                 fd = os.open(path / '.write.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             if fd is not None: os.close(fd)
             raise Conflict('다른 작업이 이 VOD 폴더를 사용 중입니다. 완료 또는 중단을 기다리세요') from None
         self.fd = fd
+
+    @contextmanager
+    def moving(self):
+        if os.name != 'nt':
+            yield
+            return
+        from .windows_runtime import exclusive_file, move_guard
+        if self.fd is None: raise Conflict('잠금 없이 폴더를 이동할 수 없습니다')
+        with move_guard(self.path):
+            os.close(self.fd); self.fd = None
+            try:
+                yield
+            finally:
+                # 실패 시 기존 파일 잠금을 복구한 뒤 이동 보호를 해제한다.
+                if self.path.exists(): self.fd = exclusive_file(self.path / '.write.lock')
 
     def close(self):
         if self.fd is not None:

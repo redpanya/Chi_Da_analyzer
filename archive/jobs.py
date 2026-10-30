@@ -537,7 +537,8 @@ class Manager:
         with self.guard:
             self.speech_idle()
             load_project(path, vod)
-            with ProjectLock(path): return deletion.trash(path, vod, token, confirmation)
+            with ProjectLock(path) as lock, lock.moving():
+                return deletion.trash(path, vod, token, confirmation)
 
     def context_background(self, root, vod, text=None, mode=None, custom_request=None):
         from . import context_background

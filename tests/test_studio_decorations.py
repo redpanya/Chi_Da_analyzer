@@ -98,6 +98,8 @@ class Decorations(unittest.TestCase):
                 print((layer/'captions.ffconcat').read_text(),flush=True)
                 print((folder/'clip-001-final-working.log').read_text(errors='replace')[-6000:],flush=True)
             self.assertGreater(pixel[0],35) # 반투명 빨강 PNG가 실제 영상에 합성됨
+            self.assertLess(pixel[1],40)
+            self.assertGreater(pixel[2],70)
         self.assertEqual(before,hashlib.sha256(source.read_bytes()).hexdigest())
 
 if __name__=='__main__':unittest.main()

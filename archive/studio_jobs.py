@@ -82,8 +82,9 @@ class Studio:
                     file=run_file(path,data['run'])
                     from .studio_range_cleanup import child_path
                     child=child_path(file)
-                    if child is not None and child.exists():locks.enter_context(ProjectLock(child))
+                    child_lock=locks.enter_context(ProjectLock(child)) if child is not None and child.exists() else None
                     if action=='clean-preview':return studio_maintenance.preview(path,file,data['mode'])
+                    if child_lock is not None and data['mode']=='delete':locks.enter_context(child_lock.moving())
                     return studio_maintenance.clean(path,file,data['mode'],data.get('token'))
             if action=='draft':
                 with ProjectLock(path):
