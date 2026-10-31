@@ -15,7 +15,7 @@
         "이번 설명서에서 달라진 것",
         "AI 문맥은 상세 문맥 정리·타임스탬프·클립 후보, 세 가지로 나뉘어요. 원하는 구간 다운로드, 부분 분석, 클립 편집과 자막·PNG 합성, 재인코딩 없는 영상 나누기까지 안내를 추가했어요.",
         "작업 설정·설정·더보기의 새 위치, 댓글 시각 편집, 오류 진단 로그도 현재 화면에 맞췄어요.",
-        "이 설명서는 v0.20.0-preview.8 기준이에요. 예시 화면의 내용은 사용법을 보여주기 위한 가상 자료예요."
+        "이 설명서는 v1 정식 릴리즈 기준 (preview.8과 동일한 기능)이에요. 예시 화면의 내용은 사용법을 보여주기 위한 가상 자료예요."
       ],
       [
         "처음이라면 이 순서로",
@@ -39,7 +39,7 @@
     "rows": [
       [
         "내 운영체제에 맞게 다운로드",
-        "아래 릴리즈에서 macOS arm64 또는 Windows x64용 ZIP을 받아 압축을 풀어 주세요. Mac은 ChiDaanalyzer.app을, Windows는 압축을 푼 폴더 안 실행 파일을 열어요.\nhttps://github.com/redpanya/Chi_Da_analyzer/releases/tag/v0.20.0-preview.8",
+        "아래 릴리즈에서 macOS arm64 또는 Windows x64용 ZIP을 받아 압축을 풀어 주세요. Mac은 ChiDaanalyzer.app을, Windows는 압축을 푼 폴더 안 실행 파일을 열어요.\nhttps://github.com/redpanya/Chi_Da_analyzer/releases/tag/v1",
         "Windows는 실행 파일만 따로 옮기지 말고 함께 풀린 구성 파일을 그대로 두세요. Mac arm64 빌드는 Apple Silicon용이에요.",
         "소스 코드 ZIP은 실행용 앱이 아니에요. ZIP 안에서 바로 실행하지 마세요. 모델 파일은 필요 기능에서 별도 다운로드합니다."
       ],

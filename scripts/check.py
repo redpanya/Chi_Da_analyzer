@@ -60,7 +60,8 @@ for s in shots:
         assert x <= fx < fx+fw <= x+w and y <= fy < fy+fh <= y+h, f'잘린 버튼 표시: {s}'
 for stale in ('0.18.0', 'preview.5', '실제 화면 8장', '102개 안내', 'v0.20.0-preview.4', 'v0.20.0-preview.6'):
     assert stale not in page, f'이전 버전 안내: {stale}'
-assert 'v0.20.0-preview.8' in page
+assert '/releases/tag/v1' in page
+assert '/releases/tag/v0.20.0-preview.' not in page
 assert all(term in page for term in ('클립 후보', '영상 나누기', 'PNG', '오류 진단 로그', '1080p', '지정 구간', 'Gemma 4 E4B'))
 assert not re.search(r'/Users/|/Volumes/|[A-Za-z]:[\\/]Users[\\/]|vod-\d{6,}', page), '개인 경로·실제 VOD 식별자 노출'
 print(f'통과: {p.chapters}개 주제 · {p.entries}개 기본 펼침 · 설명별 화면 {p.images}개 · 링크/로컬 자원/크롭/표시 경계')
