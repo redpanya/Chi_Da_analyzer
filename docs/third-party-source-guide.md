@@ -10,6 +10,10 @@
 
 libsndfile은 SoundFile 0.13.1의 고정 하위 저장소 `bastibe/libsndfile-binaries@a3e6f9769d0c7e91d2d036cf0fdbe5b4bbf18b87`에서 제공한 라이브러리다. Mac 빌드 스크립트와 Windows triplet·작업 흐름을 소스 묶음에 보존한다. Windows 원 작업 흐름은 vcpkg 리비전을 고정하지 않았으므로 역사적 바이너리의 바이트 단위 재현을 보장하지 않는다. 확인된 코덱 버전·보완 범위는 구현 검증 문서에 기록한다.
 
+## 이전 배포본의 소스 찾기
+
+v1 정식 전환으로 이전 앱 릴리즈를 정리했다. 이전 버전의 대응 소스·고지·해시 자료는 [과거 배포본의 라이선스·대응 소스](https://github.com/redpanya/Chi_Da_analyzer/releases/tag/license-supplement-20261020)에 보존한다. `source-manifest.json`에서 버전과 소스 커밋으로 원래 파일명·보관 파일명·SHA-256을 확인한다. 같은 해시의 파일은 여러 버전에서 공유한다. 원래 해시 목록을 검사할 때는 대응표의 원래 이름으로 파일을 복사해 사용한다.
+
 ## libsndfile 교체
 
 앱을 종료하고 **별도로 복사한 앱 폴더**에서 작업한다. VOD·AI 모델·전사·수동 화자 배정·요약 파일을 수정할 필요가 없다.
