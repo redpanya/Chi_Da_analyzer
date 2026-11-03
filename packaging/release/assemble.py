@@ -41,11 +41,13 @@ def assemble(version):
     shutil.copy2(ROOT/'docs/배포-사용안내.md',package/'README.ko.md' if sys.platform!='darwin' else resources/'README.ko.md')
     if sys.platform=='darwin':
         executables=package/'Contents/MacOS';executables.mkdir()
+        shutil.copy2(ROOT/'packaging/icons/ChiDaanalyzer.icns', resources/'ChiDaanalyzer.icns')
         trash=dest/'_internal/bin/vod-trash';trash.parent.mkdir(exist_ok=True)
         for source,target in [('Launcher.swift',executables/'ArchiveLauncher'),('Trash.swift',trash)]:
             run(['swiftc','-O','-target','arm64-apple-macos14.0','-module-cache-path',ROOT/'build/swift-cache',ROOT/'packaging'/source,'-o',target])
         info={'CFBundleIdentifier':'local.chzzk.archive','CFBundleName':NAME,'CFBundleDisplayName':NAME,
-              'CFBundleExecutable':'ArchiveLauncher','CFBundlePackageType':'APPL','CFBundleShortVersionString':version,
+              'CFBundleExecutable':'ArchiveLauncher','CFBundleIconFile':'ChiDaanalyzer.icns',
+              'CFBundlePackageType':'APPL','CFBundleShortVersionString':version,
               'CFBundleVersion':os.environ.get('GITHUB_RUN_NUMBER','1'),'LSMinimumSystemVersion':'14.0',
               'NSHighResolutionCapable':True}
         with (package/'Contents/Info.plist').open('wb') as f:plistlib.dump(info,f)
@@ -58,5 +60,5 @@ def assemble(version):
 
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--version',default='0.20.0')
+    parser=argparse.ArgumentParser();parser.add_argument('--version',default='1.1.0')
     assemble(parser.parse_args().version)

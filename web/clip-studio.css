@@ -58,6 +58,8 @@ input[type=checkbox],input[type=radio]{accent-color:var(--accent);width:15px;hei
 
 .preview-panel{min-width:0;padding:16px clamp(16px,2vw,30px);overflow:auto;display:flex;flex-direction:column}
 .preview-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+#profile-preview-note{display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:10px;background:var(--tint);border:1px solid #e8c3ad;border-radius:7px}
+#profile-preview-note p{margin:0;flex:1}#profile-preview-note button{font-size:11px}
 .preview-stage{height:clamp(190px,calc(100dvh - 470px),460px);flex-shrink:0;border-radius:10px;background:#1c1c1d;position:relative;display:grid;place-items:center;overflow:hidden;border:1px solid #282829}
 .preview-frame{position:relative;width:100%;height:100%;overflow:hidden;background:#080808;container-type:inline-size}
 #studio-video{width:100%;height:100%;display:block;object-fit:contain;object-position:50% 50%}
@@ -199,3 +201,11 @@ input[type=hidden]{display:none!important}
 .template-save-row{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
 #caption-template-dialog input{width:100%;margin-top:6px}
 #caption-template-dialog h2{font-size:17px;margin:0 0 14px}
+
+/* 구간 편집 대상은 상세 패널을 열어도 보인다. */
+.profile-scope-bar{padding:8px 14px 0;flex-shrink:0;background:var(--paper)}
+.profile-scope-bar select{min-width:0;flex:1;font-size:11px;padding:6px}.profile-scope-bar button{font-size:11px;padding:6px 10px}
+#profile-active{margin:4px 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;color:var(--accent)}
+.profile-dialog{width:min(520px,90vw);border:1px solid var(--line);border-radius:12px;padding:22px}.profile-dialog::backdrop{background:#0006}
+.profile-dialog select{width:100%}.profile-dialog .button-row{margin:10px 0}.profile-dialog input{min-width:0;flex:1}.profile-dialog p{line-height:1.6}
+.profile-check{display:flex;align-items:center;gap:4px;padding:5px 3px;font-size:10px;cursor:pointer}.profile-check input{width:14px;height:14px;margin:0}.profile-check span{white-space:nowrap}

@@ -17,6 +17,7 @@ def export(target, *, docs=True):
     for name in ('archive','web','workers','tests','.github','native', *(('docs',) if docs else ())):
         files += [p for p in (ROOT/name).rglob('*') if p.is_file() and not p.is_symlink()
                   and '__pycache__' not in p.parts and '.build' not in p.parts
+                  and p != ROOT/'tests/test_browser_preview.py'  # 개인 개발 실행 스크립트 전용 검사
                   and p.suffix in ('.py','.json','.js','.mjs','.html','.css','.svg','.md','.yml','.swift')]
     # 글꼴은 출처 목록에 고정된 파일만 반출한다. 사용자 설치 글꼴은 포함하지 않는다.
     fonts = ROOT/'web/fonts'
@@ -30,6 +31,8 @@ def export(target, *, docs=True):
         font_files.append(file)
     files += font_files
     files += list((ROOT/'web/patterns').glob('pattern-*.webp'))
+    files += [ROOT/f'web/icons/chida-{size}.png' for size in (16, 32, 64)]
+    files += [ROOT/f'packaging/icons/ChiDaanalyzer.{ext}' for ext in ('icns', 'ico')]
     # 직접 생성한 HTTPS 회귀 검사 영상만 허용한다. 사용자 영상은 반출하지 않는다.
     fixtures = {
         'https-media.mp4': '064e914cf3ac2c20cc1df6761abc348cecdf7cf898c0a3e68373624e76eef653',

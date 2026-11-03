@@ -48,8 +48,30 @@ def checked_root(base, candidate=None):
 
 
 def range_root(base, vod, scope, format_id):
-    key = hashlib.sha256(json.dumps([vod, scope, format_id], sort_keys=True).encode()).hexdigest()[:32]
-    return checked_root(base, library(str(base))/'.download-ranges'/key)
+    base = library(str(base))
+    identity = [vod, scope, format_id]
+    def location(parts):
+        key = hashlib.sha256(json.dumps(parts, sort_keys=True).encode()).hexdigest()[:32]
+        return checked_root(base, base/'.download-ranges'/key)
+    default = location(identity)
+    # 화질 변경 후에도 기존 프로젝트 경로(채팅·작업 기록)는 고정한다.
+    def matches(root):
+        data = load_project(project_path(root, vod), vod)
+        return format_id in (data['format_id'], data.get('video_replacement', {}).get('format_id')) and bounds(data) == scope
+    if (project_path(default, vod)/'project.json').exists() and matches(default):
+        return default
+    for root in sorted(default.parent.glob('*')):
+        if root != default and re.fullmatch('[0-9a-f]{32}', root.name) and not root.is_symlink():
+            try:
+                if (project_path(root, vod)/'project.json').is_file() and matches(root):
+                    return root
+            except (ValueError, OSError):
+                continue  # 다른 구간의 손상된 프로젝트는 이 등록을 막지 않는다.
+    target, index = default, 0
+    while (project_path(target, vod)/'project.json').exists():
+        index += 1
+        target = location([*identity, index])
+    return target
 
 
 def entry_root(base, entry):

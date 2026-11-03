@@ -21,7 +21,7 @@ export function createWorkspaceStatus(layout) {
   }
   function jobs() {
     const descriptors = [
-      ['video','영상',2,'video-stop',project?.tasks?.video], ['chat','채팅',2,'chat-stop',project?.tasks?.chat],
+      ['video','영상',2,'video-stop',project?.video_replacement?.task||project?.tasks?.video], ['chat','채팅',2,'chat-stop',project?.tasks?.chat],
       ['speech','음성 전사',3,'speech-stop',project?.speech], ['voices','화자 구분',4,'voices-stop',project?.voices],
       ['context','AI 문맥',6,'context-stop',project?.context],
     ];

@@ -4,6 +4,7 @@ import {timecode} from './player.js';
 export function createSpeech({api, player, showVoices, showPreview, onProject}) {
   const $ = id => document.getElementById(id);
   let project = null, generation = 0, infoGeneration = 0, rowGeneration = 0, details = null, fingerprint = '', rowsKey = '', next = null, cursor = 0, requesting = false;
+  const clipPending = new Set();
   const selected = () => ({root: project.root, vod_id: project.vod_id});
   const message = text => { $('speech-notice').textContent = text; };
   const fileURL = key => `file?${new URLSearchParams({...selected(), kind:'speech', key, revision:project.speech.updated_at||''})}`;
@@ -73,6 +74,7 @@ export function createSpeech({api, player, showVoices, showPreview, onProject}) 
     $('speech-export').disabled = requesting || project.locked || !s.run;
     $('speech-track').disabled = $('speech-language').disabled = requesting || project.locked;
     for (const control of document.querySelectorAll('.speech-edit-control')) control.disabled = project.locked || requesting;
+    for (const control of document.querySelectorAll('.speech-clip-add')) control.disabled = project.locked || project.speech.stale || project.tasks.video.state !== 'complete' || clipPending.has(control.dataset.key);
     $('speech-audio-box').hidden = !s.audio;
     if (s.audio) {
       const audio = $('speech-audio'), relative = s.audio.file;
@@ -101,7 +103,7 @@ export function createSpeech({api, player, showVoices, showPreview, onProject}) 
       $('transcript-rows').replaceChildren(); next = result.next_cursor;
       $('speech-next').disabled = next === null;
       $('speech-prev').disabled = cursor === 0;
-      $('speech-count').textContent = `${result.total}개 · ${Math.floor(cursor / 100) + 1}쪽`;
+      $('speech-count').textContent = [`${result.total}개 · ${Math.floor(cursor / 100) + 1}쪽`, result.sync_message].filter(Boolean).join(' · ');
       for (const row of result.items) {
         const card = document.createElement('article'); card.className = 'transcript-row';
         const actions = document.createElement('div'); actions.className = 'play-actions';
@@ -116,8 +118,23 @@ export function createSpeech({api, player, showVoices, showPreview, onProject}) 
         }));
         actions.append(button('화자 검토 (선택)', () => showVoices(row)), button('해당 영상보기', () => {
           if (project.speech.stale) return message('이전 입력의 전사입니다. 입력 상태를 먼저 확인하세요.');
-          showPreview(row);
+          const start=row.video_start_ms??row.start_ms, end=row.video_end_ms??row.end_ms;
+          if(end<=start)return message('이 발언은 현재 영상의 재생 범위를 벗어납니다.');
+          showPreview({...row,start_ms:start,end_ms:end});
         }));
+        const clipStatus = document.createElement('p'); clipStatus.className='hint'; clipStatus.setAttribute('role','status');
+        const clipKey=JSON.stringify([project.path,result.run,row.id]);
+        const addClip=button('클립에 담기',async()=>{
+          if(clipPending.has(clipKey)||project.locked||project.speech.stale||project.tasks.video.state!=='complete')return;
+          const target=selected(),version=generation;clipPending.add(clipKey);render();clipStatus.textContent='클립에 담는 중…';
+          try{
+            const saved=await api('studio-transcript-add',{...target,run:result.run,segment:row.id});
+            if(version===generation)clipStatus.textContent=`${saved.added?'클립 만들기의 담은 구간에 추가했습니다.':'이미 담은 전사 구간입니다.'} 전체 ${saved.count}개 · 더보기 → 클립 만들기에서 편집하세요.`;
+          }catch(error){if(version===generation)clipStatus.textContent=error.message;}
+          finally{clipPending.delete(clipKey);if(project)render();}
+        },'secondary speech-clip-add');
+        addClip.dataset.key=clipKey;addClip.disabled=project.locked||project.speech.stale||project.tasks.video.state!=='complete'||clipPending.has(clipKey);
+        actions.append(addClip);
         const text = document.createElement('p'); text.textContent = row.text || '(교정 후 빈 텍스트)';
         const hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = `${row.corrected ? '사용자 교정 · 원문 별도 보존' : '자동 전사 · 원음 확인 필요'}${row.boundary_review ? ' · 조각 경계 검토' : ''}${row.timing_adjusted ? ' · 종료 시각 범위 제한 · 시각 검토 필요' : ''}${row.repeat_review ? ' · 같은 문장 반복 · 인식 내용 검토' : ''}${row.repeat_candidate ? ' · 유사 반복 발화 · 원문·요약 입력 유지' : ''}${row.quality_review ? ' · '+row.quality_notes.join(' · ')+(row.corrected?' · 사용자 교정 반영':' · 요약에서 제외, 원음 확인 후 교정 가능') : ''}${row.encoding_review ? (row.corrected ? ' · 원출력 문자 오류 · 교정 반영' : ' · 문자 인식 오류 · 원음 확인 후 교정 필요') : ''}`;
         const edit = document.createElement('details'), summary = document.createElement('summary'); summary.textContent = '텍스트 교정';
@@ -127,7 +144,7 @@ export function createSpeech({api, player, showVoices, showPreview, onProject}) 
         const saveButton=button('교정 저장',()=>save(input.value),'secondary speech-edit-control'), restoreButton=button('원문으로 복원',()=>save(null),'subtle speech-edit-control');
         saveButton.disabled=restoreButton.disabled=project.locked;
         edit.append(summary,original,input,saveButton,restoreButton);
-        card.append(actions,text,hint,edit); $('transcript-rows').append(card);
+        card.append(actions,text,hint,edit,clipStatus); $('transcript-rows').append(card);
       }
     } catch (error) { if (token === generation) message(error.message); }
   }
@@ -184,7 +201,7 @@ export function createSpeech({api, player, showVoices, showPreview, onProject}) 
     if (changed || modelChanged || videoChanged || (previous?.owned && !value.speech.owned) || (value.speech.action === 'model' && value.speech.state === 'complete' && previous?.updated_at !== value.speech.updated_at)) info();
     const nextFingerprint=JSON.stringify(value.speech)+value.locked;
     if (nextFingerprint !== fingerprint) {fingerprint=nextFingerprint;render();}
-    const key=`${value.speech.run}:${value.speech.transcript?.processed_ms}:${value.speech.updated_at}`;
+    const key=`${value.video_generation||'original'}:${value.speech.run}:${value.speech.transcript?.processed_ms}:${value.speech.updated_at}`;
     if(key !== rowsKey){rowsKey=key;loadRows(true);}
   }};
 }

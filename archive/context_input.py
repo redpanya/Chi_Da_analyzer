@@ -29,7 +29,8 @@ def sample(rows, budget):
 def source(path, vod, offset=0, selection=None, *, include_chat=True):
     explore.options(chat_offset_ms=offset)
     data=load_project(path,vod)
-    duration=data['tasks']['video'].get('verification',{}).get('duration',data['metadata'].get('duration',0))
+    from .video_replacement import analysis_duration
+    duration=analysis_duration(data)
     if not duration or duration<=0:raise ValueError('영상 길이를 확인할 수 없습니다')
     chats=list(analysis_store.rows(path,data,mapping_offset=offset)) if include_chat and data['tasks']['chat']['assets'].get('jsonl') else []
     if selection is not None:

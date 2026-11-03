@@ -5,7 +5,7 @@ import os
 import shutil
 import uuid
 from types import SimpleNamespace
-from . import clip_contract, clip_render, analysis_inputs, speech_media, speech_store, voice_store
+from . import clip_contract, clip_render, analysis_inputs, caption_sync, speech_media, speech_store, voice_store
 from . import automation, automation_plan, automation_steps, analysis_store, context_background
 from .storage import load_project, create_or_load, ProjectLock, save_json, read_json, stamp, asset_path
 from .source import check_cancel
@@ -51,6 +51,8 @@ def filtered_chat(parent,path,data,a,b,stop):
 def copy_transcript(parent,path,vod,selection,a,b,audio):
     source=load_project(parent,vod);origin=source.get('input',{}).get('start_vod_ms',0)
     selected=analysis_inputs.selected(parent,source,selection);raw=speech_store.manifest(parent,{'run':selection['transcript_run']})
+    sync = caption_sync.resolve(parent, source, selected['audio'])
+    origin += sync['offset_ms']
     duration=audio['duration_ms'];rows=[]
     for r in selected['speech']:
         start=max(a,r['start_ms']+origin);end=min(b,a+duration,r['end_ms']+origin)

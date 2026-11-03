@@ -22,6 +22,7 @@ async function api(action,data){
   const value=await response.json();if(!response.ok)throw Error(value.error||'자료를 불러오지 못했습니다.');return value;
 }
 function showTab(name,focus=false){
+  if(name==='export'&&editor?.previewCurrent()===false)return;
   for(const key of tabs){$('panel-'+key).hidden=key!==name;$('tab-'+key).setAttribute('aria-selected',String(key===name));$('tab-'+key).tabIndex=key===name?0:-1;}
   inspector.setTab(name);if(name==='export')renderExport();if(focus)$('tab-'+name).focus();
 }
@@ -64,7 +65,9 @@ function renderSelection(){
       const next=$('assembly-list').querySelectorAll('.assembly-select');(next[Math.min(i,next.length-1)]||$('show-all')).focus();
       playerNotice('담은 구간에서 제거했습니다. 원본과 문맥 결과는 유지됩니다.');
     };
-    card.append(button,remove);list.append(card);
+    const profile=node('label','','profile-check'),check=node('input');check.type='checkbox';check.checked=editor?.profileChecked(row.id)||false;check.setAttribute('aria-label',`${row.title} 프리셋 적용 대상`);check.onchange=()=>editor?.checkProfile(row.id,check.checked);
+    const badge=node('span',row.options?'개별 설정':'공통 기본값');badge.dataset.profileBadge=row.id;profile.append(check,badge);
+    card.append(button,remove,profile);list.append(card);
   }
   if(!selected.length)list.append(node('p','왼쪽 목록에서 원하는 문맥을 체크하세요.','small'));
   list.scrollLeft=scroll;renderExport();editor?.selectionChanged();
@@ -82,8 +85,10 @@ function fields(){
   $('scrub-start').textContent=timecode(active.start_ms);$('scrub-end').textContent=timecode(active.end_ms);
 }
 function selectRow(row,keepSequence=false){
-  if(!keepSequence)stopSequence();active=row;video.pause();fields();renderList();renderSelection();
+  if(editor?.beforeSelect()===false){stopSequence();return false;}
+  if(!keepSequence)stopSequence();active=row;video.pause();editor?.activeChanged(row,keepSequence);fields();renderList();renderSelection();
   if(mediaReady){video.currentTime=(row.start_ms-origin)/1000;updateClock();}
+  return true;
 }
 function updateClock(){
   $('play-clock').textContent=timecode(origin+video.currentTime*1000);$('preview-scrub').value=video.currentTime;
@@ -95,7 +100,7 @@ function previewCaption(caption){
   if(!mediaReady){playerNotice('영상이 아직 준비되지 않았습니다. 저장 파일과 연결 상태를 확인하세요.');return;}
   const target=captionPreviewTarget(caption,chosen.values(),active,origin,duration);
   if(!target){playerNotice('이 자막과 겹치는 담은 구간이 없습니다. 구간을 다시 확인하세요.');return;}
-  stopSequence();if(active?.id!==target.clip.id)selectRow(target.clip);
+  stopSequence();if(active?.id!==target.clip.id&&selectRow(target.clip)===false)return;
   video.currentTime=target.seconds;updateClock();playerNotice('자막 시각부터 재생합니다.');void play();
 }
 video.addEventListener('loadedmetadata',()=>{
@@ -110,7 +115,7 @@ video.addEventListener('timeupdate',()=>{
   updateClock();if(!active||video.seeking||video.paused)return;
   if(origin+video.currentTime*1000>=active.end_ms){
     video.pause();
-    if(sequence){const next=sequence.index+1;if(next<sequence.rows.length){sequence.index=next;selectRow(sequence.rows[next],true);play();return;}stopSequence();playerNotice('담은 구간을 모두 재생했습니다.');}
+    if(sequence){const next=sequence.index+1;if(next<sequence.rows.length){sequence.index=next;if(selectRow(sequence.rows[next],true))play();return;}stopSequence();playerNotice('담은 구간을 모두 재생했습니다.');}
   }
 });
 video.addEventListener('ended',()=>{stopSequence();updateClock();});
@@ -122,7 +127,7 @@ $('volume').oninput=()=>{video.volume=Number($('volume').value)/100;$('volume-va
 $('play-sequence').onclick=()=>{
   if(sequence){video.pause();stopSequence();return;}
   const selected=sortedRanges(chosen.values());if(!selected.length||!mediaReady)return;
-  sequence={rows:selected,index:0};$('play-sequence').textContent='■ 이어 보기 중단';selectRow(selected[0],true);play();playerNotice('선택한 구간만 시간순으로 이어 봅니다.');
+  sequence={rows:selected,index:0};$('play-sequence').textContent='■ 이어 보기 중단';if(!selectRow(selected[0],true))return;play();playerNotice('선택한 구간만 시간순으로 이어 봅니다.');
 };
 $('clear-picked').onclick=()=>{stopSequence();video.pause();chosen.clear();renderSelection();renderList();};
 $('source-search').oninput=renderList;
@@ -163,7 +168,7 @@ for(const id of ['caption-enabled','caption-style','caption-position','caption-s
 $('caption-reset').onclick=()=>{$('caption-x').value=$('caption-y').value=0;caption();};
 function renderExport(){
   const joined=document.querySelector('[name=output-mode]:checked').value==='joined';$('transition').disabled=!joined;
-  const values=[['담은 구간',`${chosen.size}개 · 합계 ${timecode(totalLength(chosen.values()))}`],['파일 구성',joined?'합친 영상 1개':`영상 ${chosen.size}개`],['화면 비율',ratio==='original'?'원본':ratio],['해상도',$('export-size').selectedOptions[0].textContent],['자막',$('caption-enabled').checked?'선택 전사 · 스타일 적용':'영상에 입히지 않음'],['편집용 자막',$('sidecar').checked?'별도 파일 포함':'포함 안 함'],['전환',joined?$('transition').selectedOptions[0].textContent:'구간별 저장']];
+  const values=[['담은 구간',`${chosen.size}개 · 합계 ${timecode(totalLength(chosen.values()))}`],['파일 구성',joined?'합친 영상 1개':`영상 ${chosen.size}개`],['화면·자막',`${[...chosen.values()].filter(r=>r.options).length}개 개별 설정 · 나머지 공통 기본값`],['합친 영상 비율',joined?'첫 구간 기준 · 다른 비율은 여백으로 보존':'구간별 설정 유지'],['해상도',$('export-size').selectedOptions[0].textContent],['편집용 자막',$('sidecar').checked?'별도 파일 포함':'포함 안 함'],['전환',joined?$('transition').selectedOptions[0].textContent:'구간별 저장']];
   $('export-summary').replaceChildren(...values.map(([key,value])=>{const row=node('div');row.append(node('dt',key),node('dd',value));return row;}));
 }
 for(const el of document.querySelectorAll('[name=output-mode],#transition,#sidecar,#export-size'))el.onchange=renderExport;
@@ -200,12 +205,12 @@ async function init(){
   const runs=project.context?.runs||[],select=$('source-version');select.replaceChildren(...runs.map(run=>new Option(`${({clips:'클립 후보',timestamps:'타임스탬프',detail:'상세 문맥'})[run.mode||'detail']||'이전 문맥'} · ${run.label||run.title||run.id}`,run.id)));
   select.disabled=!runs.length;
   if(project.tasks?.video?.state==='complete'){
-    const url=new URL('file',location.href);url.search=new URLSearchParams({...identity(),kind:'video',key:'playback'});video.src=url.href;
+    const url=new URL('file',location.href);url.search=new URLSearchParams({...identity(),kind:'video',key:'playback',version:project.video_generation||'original'});video.src=url.href;
   }else{$('media-empty').textContent='저장된 영상이 준비되면 여기서 재생할 수 있습니다.';}
   if(runs.length){select.value=runs.some(r=>r.id===params.get('run'))?params.get('run'):runs.at(-1).id;await loadRun(select.value);}
   else{select.append(new Option('저장된 분석 결과 없음',''));$('source-state').textContent='분석 결과 없음 · 구간을 직접 추가해 보세요.';renderList();}
   renderSelection();await editor.init(project);
 }
-editor=createStudioTools({api,identity,video,onCaptionPreview:previewCaption,rangeDrafts:()=>rangeDrafts,restoreRangeDrafts:value=>{rangeDrafts=value;fields();},selection:()=>sortedRanges(chosen.values()),getRatio:()=>ratio,setRatio:value=>{ratio=value;for(const b of document.querySelectorAll('[data-ratio]'))b.setAttribute('aria-pressed',String(b.dataset.ratio===value));resizeFrame();renderExport();},restore:clips=>{chosen.clear();manualId=Math.max(manualId,...clips.map(c=>Number(/^manual-(\d+)$/.exec(c.id||'')?.[1])||0));for(const [i,c] of clips.entries()){const match=rows.find(r=>c.id?r.id===c.id:r.title===c.title&&r.start_ms===c.start_ms&&r.end_ms===c.end_ms);const row={...match,...c,id:c.id||match?.id||'draft-'+i,original_start:match?.original_start??c.start_ms,original_end:match?.original_end??c.end_ms};chosen.set(row.id,row);}rows=rows.map(r=>chosen.get(r.id)||r);if(chosen.size)selectRow([...chosen.values()][0]);else{active=null;fields();renderSelection();renderList();}}});
+editor=createStudioTools({api,identity,video,onCaptionPreview:previewCaption,rangeDrafts:()=>rangeDrafts,restoreRangeDrafts:value=>{rangeDrafts=value;fields();},selection:()=>sortedRanges(chosen.values()),getActive:()=>active,getRatio:()=>ratio,setRatio:value=>{ratio=value;for(const b of document.querySelectorAll('[data-ratio]'))b.setAttribute('aria-pressed',String(b.dataset.ratio===value));resizeFrame();renderExport();},restore:clips=>{chosen.clear();manualId=Math.max(manualId,...clips.map(c=>Number(/^manual-(\d+)$/.exec(c.id||'')?.[1])||0));for(const [i,c] of clips.entries()){const match=rows.find(r=>c.id?r.id===c.id:r.title===c.title&&r.start_ms===c.start_ms&&r.end_ms===c.end_ms);const row={...match,...c,id:c.id||match?.id||'draft-'+i,original_start:match?.original_start??c.start_ms,original_end:match?.original_end??c.end_ms};chosen.set(row.id,row);}rows=rows.map(r=>chosen.get(r.id)||r);if(chosen.size)selectRow([...chosen.values()][0]);else{active=null;fields();renderSelection();renderList();}}});
 renderExport();init().catch(error=>{notice(error.message);$('source-state').textContent='자료를 불러오지 못했습니다.';$('media-empty').textContent='보관함 연결을 확인해 주세요.';});
 window.addEventListener('pagehide',()=>{video.pause();stopSequence();});

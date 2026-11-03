@@ -56,7 +56,7 @@ def current(path, r):
     s = speech_store.state(path)
     audio = s.get('audio')
     return bool(audio and s.get('run') == r['transcript_run'] and audio['sha256'] == r['audio_sha256']
-                and audio['source'] == speech_media.identity(speech_media.source(path, load_project(path, path.name[4:])), path)
+                and audio['source'] == speech_media.analysis_identity(path, load_project(path, path.name[4:]))
                 and speech_media.local(path, audio['file']).is_file())
 
 

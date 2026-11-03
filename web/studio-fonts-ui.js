@@ -100,5 +100,6 @@ export function studioFonts({api,identity,onChange}){
   $('font-options').addEventListener('toggle',()=>{if(opened())void previews();else serial++;});
   window.addEventListener('pagehide',()=>{serial++;});window.addEventListener('pageshow',()=>{if(fonts.length)void previews();});
   return {sample,blocked:()=>loading||failed||!matchingFonts(fonts,language.value).length||(value.value!=='auto'&&!fonts.some(f=>f.id===value.value&&f.languages.includes(language.value))),
+    restore(options){language.value=options.caption_language||'ko';value.value=options.font||'auto';choices();void previews();onChange();},
     async init(options={}){language.value=options.caption_language||'ko';await load(options.font||'auto');}};
 }

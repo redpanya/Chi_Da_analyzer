@@ -36,7 +36,8 @@ def main():
  install(internal,a.ggml_source_archive)
  run('codesign','--force','--sign','-',internal/'Python.framework')
  run('xcrun','swiftc','-O','-target','arm64-apple-macos27.0',ROOT/'packaging/Launcher.swift','-o',contents/'MacOS/ArchiveLauncher')
- with (contents/'Info.plist').open('wb') as f:plistlib.dump({'CFBundleIdentifier':'local.chzzk.archive','CFBundleName':'ChiDaanalyzer','CFBundleDisplayName':'ChiDaanalyzer','CFBundleExecutable':'ArchiveLauncher','CFBundlePackageType':'APPL','CFBundleVersion':'25','CFBundleShortVersionString':'0.17.0','LSMinimumSystemVersion':'27.0','NSHighResolutionCapable':True,'NSHumanReadableCopyright':'로컬 검증 버전 · 구성요소 라이선스는 Resources/NOTICES 참조'},f)
+ shutil.copy2(ROOT/'packaging/icons/ChiDaanalyzer.icns',resources/'ChiDaanalyzer.icns')
+ with (contents/'Info.plist').open('wb') as f:plistlib.dump({'CFBundleIdentifier':'local.chzzk.archive','CFBundleName':'ChiDaanalyzer','CFBundleDisplayName':'ChiDaanalyzer','CFBundleExecutable':'ArchiveLauncher','CFBundleIconFile':'ChiDaanalyzer.icns','CFBundlePackageType':'APPL','CFBundleVersion':'25','CFBundleShortVersionString':'0.17.0','LSMinimumSystemVersion':'27.0','NSHighResolutionCapable':True,'NSHumanReadableCopyright':'로컬 검증 버전 · 구성요소 라이선스는 Resources/NOTICES 참조'},f)
  notice=resources/'NOTICES';notice.mkdir();shutil.copyfile(ROOT/'README.md',notice/'README.ko.md')
  shutil.copytree(ROOT/'packaging/notices',notice/'third-party',dirs_exist_ok=True)
  # 로컬 검증용 임시 서명. Developer ID 서명·공증을 대신하지 않는다.

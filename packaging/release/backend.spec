@@ -12,5 +12,6 @@ a = Analysis([str(root/'app.py')], pathex=[str(root)], binaries=[], datas=data,
              excludes=['torch','torchaudio','demucs','tkinter','matplotlib','IPython','pytest'],noarchive=False)
 pyz = PYZ(a.pure)
 exe = EXE(pyz,a.scripts,[],exclude_binaries=True,name='archive-backend',console=True,
+          icon=str(root/'packaging/icons/ChiDaanalyzer.ico') if sys.platform=='win32' else None,
           target_arch='arm64' if sys.platform=='darwin' else None)
 coll = COLLECT(exe,a.binaries,a.datas,name='backend')

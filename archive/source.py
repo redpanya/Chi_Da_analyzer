@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
 
 from yt_dlp import YoutubeDL
 from .storage import vod_id
+from .vod_extractor import extract_vod
 
 
 class Cancelled(Exception):
@@ -107,7 +108,7 @@ def inspect(value):
     vod = resolve_url(value)
     meta = metadata(vod)
     with YoutubeDL(ydl_options()) as downloader:
-        info = downloader.extract_info(meta['url'], download=False)
+        info = extract_vod(downloader, vod)
     formats = []
     for item in info.get('formats', []):
         if item.get('ext') != 'mp4' or item.get('protocol') not in ('m3u8_native', 'https') or item.get('has_drm'):

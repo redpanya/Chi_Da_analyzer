@@ -11,7 +11,9 @@ def estimate(src,request,caption_count=0):
     lower=seconds*(rate if fast else max(32000,rate*.5))
     upper=seconds*(rate*1.2 if fast else max(1500000,rate*3))
     copies=3 if request['options']['mode']=='joined' else 2
-    decorated=request['options']['caption'] or request['options'].get('image')
+    from .studio_profiles import profiles
+    decorated=any(o['caption'] or o.get('image') for o in profiles(request))
+    if any('options' in c for c in request['clips']):copies+=2
     if decorated:copies+=1
     return {'output_min':round(lower),'output_max':round(upper),'required_min':round(lower*copies)+RESERVE,
             'required_max':round(upper*copies)+RESERVE+max(1,caption_count)*src['width']*src['height']*4 if decorated else round(upper*copies)+RESERVE}

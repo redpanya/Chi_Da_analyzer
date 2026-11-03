@@ -17,6 +17,7 @@ class ServerAssetTests(unittest.TestCase):
         try:
             files = [(p.name, p, 'text/javascript') for p in WEB.glob('*.js')]
             files += [('', WEB/'index.html', 'text/html')]
+            files += [(f'icons/chida-{n}.png', WEB/f'icons/chida-{n}.png', 'image/png') for n in (16, 32, 64)]
             files += [(p.name, p, 'text/css') for p in WEB.glob('*.css')]
             files += [(f'patterns/pattern-{i:02}.webp', WEB/f'patterns/pattern-{i:02}.webp', 'image/webp')
                       for i in range(1, 9)]

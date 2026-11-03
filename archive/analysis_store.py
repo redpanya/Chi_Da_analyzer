@@ -4,6 +4,7 @@ import hashlib
 import json
 
 from . import analysis
+from .video_replacement import analysis_duration
 from .storage import ACTIVE, Conflict, asset_path, read_json, save_json, stamp
 
 
@@ -16,7 +17,7 @@ def source_info(path, data):
     stat = file.stat()
     timeline={'local_start_vod_ms':data['input']['start_vod_ms']} if data.get('input') else {}
     return timeline|{'file': relative, 'bytes': stat.st_size, 'mtime_ns': stat.st_mtime_ns,
-            'state': task['state'], 'duration': data['tasks']['video'].get('verification',{}).get('duration',data['metadata'].get('duration', 0)) if data.get('input') else data['metadata'].get('duration',0)}
+            'state': task['state'], 'duration': analysis_duration(data) if data.get('input') else data['metadata'].get('duration',0)}
 
 
 def rows(path, data, digest=None, counter=None, mapping_offset=0):

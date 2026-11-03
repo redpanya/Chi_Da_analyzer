@@ -18,7 +18,7 @@ def input_audio(path, data, stop=None):
     value = speech.state(path); audio = value.get('audio'); run = speech.manifest(path, value)
     if not audio or not run or not run['complete'] or run.get('source_audio_sha256', run['audio_sha256']) != audio['sha256']:
         raise ValueError('현재 음성의 전체 전사를 먼저 완료하세요')
-    if audio['source'] != media.identity(media.source(path, data), path):
+    if audio['source'] != media.analysis_identity(path, data):
         raise ValueError('영상 입력이 변경됐습니다. 음성 추출부터 다시 확인하세요')
     file = media.local(path, audio['file'])
     media.validate_wav(file, audio['duration_ms'],stop)

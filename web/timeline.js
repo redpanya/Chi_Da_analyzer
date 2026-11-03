@@ -17,7 +17,7 @@ export function viewport(duration,center,span){
 export function timeAt(fraction,view){return Math.round(view.start+Math.max(0,Math.min(1,fraction))*(view.end-view.start));}
 export function createTimeline({canvas,onSeek,onPan,onZoom}){
   let info=null,position=0,view={start:0,end:1},down=null;
-  const left=86,height=214;
+  const left=86,height=180;
   function draw(){
     if(!info){canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);return;}
     if(canvas.clientWidth<=left)return;
@@ -27,7 +27,7 @@ export function createTimeline({canvas,onSeek,onPan,onZoom}){
     const x=ms=>left+(ms-view.start)/(view.end-view.start)*area;
     const block=(start,end,y,h,color)=>{if(end<view.start||start>view.end)return;ctx.fillStyle=color;ctx.fillRect(Math.max(left,x(start)),y,Math.max(1,Math.min(width,x(end))-Math.max(left,x(start))),h);};
     const stripe=(start,end,y,h)=>{const a=Math.max(left,x(start)),b=Math.min(width,x(end));if(b<=a)return;block(start,end,y,h,'#E5E2DE');ctx.strokeStyle='#99938D';ctx.save();ctx.beginPath();ctx.rect(a,y,b-a,h);ctx.clip();for(let at=Math.floor((a-h)/10)*10;at<b;at+=10){ctx.beginPath();ctx.moveTo(at,y+h);ctx.lineTo(at+h,y);ctx.stroke();}ctx.restore();};
-    for(const [label,y] of [['채팅 / 10초',25],['반응 후보',87],['발언·화자',125],['인식 실패',165]]){ctx.fillStyle='#54504A';ctx.font='11px sans-serif';ctx.fillText(label,5,y);block(view.start,view.end,y+7,1,'#D5D1CC');}
+    for(const [label,y] of [['채팅 / 10초',25],['반응 후보',87],['AI 클립 후보',125]]){ctx.fillStyle='#54504A';ctx.font='11px sans-serif';ctx.fillText(label,5,y);block(view.start,view.end,y+7,1,'#D5D1CC');}
     const graph=info.graph||[],max=Math.max(1,...graph.map(r=>r.messages||0));
     if(!graph.length)stripe(view.start,view.end,12,42);
     // 같은 화면 열의 최대값을 보존하여 전체 보기에서도 짧은 급증이 사라지지 않게 한다.
@@ -37,11 +37,10 @@ export function createTimeline({canvas,onSeek,onPan,onZoom}){
       if(bin.messages!=null){const key=Math.floor(x(start));const old=columns.get(key);if(!old||old.messages<bin.messages)columns.set(key,{start,end,messages:bin.messages});}}
     for(const bin of columns.values()){const h=bin.messages/max*42;block(bin.start,bin.end,54-h,h,'#86c99d');}
     for(const row of info.reactions||[])block(row.start_ms,row.end_ms,69,18,'#daba7d');
-    stripe(info.processed_ms||0,info.duration_ms,105,31);
-    for(const row of info.tracks||[]){block(row.start_ms,row.end_ms,105,31,speakerColor(row.speaker));if(row.status==='failed')block(row.start_ms,row.end_ms,151,18,'#f4a47d');}
+    for(const row of info.clips||[])block(row.start_ms,row.end_ms,105,31,'#9779c9');
     ctx.fillStyle='#54504A';ctx.font='11px monospace';
-    for(let n=0;n<=4;n++){const ms=timeAt(n/4,view);ctx.textAlign=n===4?'right':n===0?'left':'center';ctx.fillText(timecode(ms),left+area*n/4,203);}ctx.textAlign='left';
-    if(position>=view.start&&position<=view.end){ctx.strokeStyle='#18181B';ctx.beginPath();ctx.moveTo(x(position),0);ctx.lineTo(x(position),185);ctx.stroke();}
+    for(let n=0;n<=4;n++){const ms=timeAt(n/4,view);ctx.textAlign=n===4?'right':n===0?'left':'center';ctx.fillText(timecode(ms),left+area*n/4,169);}ctx.textAlign='left';
+    if(position>=view.start&&position<=view.end){ctx.strokeStyle='#18181B';ctx.beginPath();ctx.moveTo(x(position),0);ctx.lineTo(x(position),145);ctx.stroke();}
     canvas.setAttribute('aria-valuemin','0');canvas.setAttribute('aria-valuemax',String(Math.round(info.video_ms||info.duration_ms)));canvas.setAttribute('aria-valuenow',String(position));canvas.setAttribute('aria-valuetext',timecode(position));
   }
   const at=event=>{const r=canvas.getBoundingClientRect();return timeAt((event.clientX-r.left-left)/(r.width-left),view);};

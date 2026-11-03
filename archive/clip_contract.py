@@ -34,7 +34,9 @@ def validate(value, src, *, draft=False):
         a=number(c.get('start_ms'),src['origin'],src['origin']+src['duration'],'시작 시각')
         b=number(c.get('end_ms'),a+100,src['origin']+src['duration'],'끝 시각')
         if c.get('id') is not None and (not isinstance(c['id'],str) or len(c['id'])>256):raise ValueError('클립 선택 정보를 확인하세요')
-        result.append(dict(title=c['title'],start_ms=round(a),end_ms=round(b),id=c.get('id')))
+        item=dict(title=c['title'],start_ms=round(a),end_ms=round(b),id=c.get('id'))
+        if 'options' in c:item['options']=c['options']
+        result.append(item)
     result.sort(key=lambda c:(c['start_ms'],c['end_ms']))
     options=dict(ratio='original',fit='contain',x=50,y=50,layout='single',split=60,game=[0,0,100,100],face=[70,50,30,50],
                  size='source',mode='separate',transition='cut',volume=100,brightness=0,contrast=1,saturation=1,fade=0,
@@ -71,10 +73,21 @@ def validate(value, src, *, draft=False):
             if r[1]+r[3]>100.001:raise ValueError(label+'의 세로 위치 + 높이가 100%를 넘습니다. 화면 설정에서 조절하세요')
             if r[2]*src['width']/100<2 or r[3]*src['height']/100<2:raise ValueError(label+'의 너비·높이는 원본 기준 최소 2픽셀이어야 합니다')
     if options['layout']=='split':options['ratio']='9:16'
-    if not draft and options['speed']=='fast' and (options['mode']!='separate' or options['ratio']!='original' or options['caption'] or options['image'] or
+    if not draft and any('options' not in c for c in result) and options['speed']=='fast' and (options['mode']!='separate' or options['ratio']!='original' or options['caption'] or options['image'] or
         options['layout']!='single' or options['size']!='source' or options['volume']!=100 or options['brightness']!=0 or
         options['contrast']!=1 or options['saturation']!=1 or options['fade'] or (options['sidecar'] and value.get('selection'))):
         raise ValueError('빠른 저장은 개별·원본 비율·효과/자막/PNG 없음에서만 사용할 수 있습니다. 편집용 자막 파일도 해제하세요')
+    from .studio_profiles import CLIP_KEYS
+    for i,c in enumerate(result):
+        if 'options' not in c:continue
+        override=c['options']
+        if not isinstance(override,dict) or set(override)-CLIP_KEYS:raise ValueError('구간별 편집 옵션을 확인하세요')
+        try:
+            clean=validate(dict(clips=[{k:v for k,v in c.items() if k!='options'}],
+                                options=options|override,selection=value.get('selection')),src,draft=draft)['options']
+        except ValueError as error:raise ValueError(f'{i+1}번 구간 · {error}') from error
+        c['options']={k:clean[k] for k in override}
+        if override.get('layout')=='split':c['options']['ratio']='9:16'
     edits=value.get('caption_edits',{})
     if not isinstance(edits,dict) or len(edits)>20000 or any(not isinstance(k,str) or not isinstance(v,str) or len(v)>5000 for k,v in edits.items()):raise ValueError('자막 교정을 확인하세요')
     versions=value.get('caption_versions',{})

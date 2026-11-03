@@ -1,15 +1,18 @@
 <!doctype html>
 <html lang="ko">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>치(지직) 다(시보기) 분석기</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="pattern-background.css"><link rel="stylesheet" href="workspace.css">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>치(지직) 다(시보기) 분석기</title>
+<link rel="icon" type="image/png" sizes="16x16" href="icons/chida-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/chida-32.png">
+<link rel="stylesheet" href="style.css"><link rel="stylesheet" href="pattern-background.css"><link rel="stylesheet" href="workspace.css">
 <link rel="stylesheet" href="mini-player.css"><script src="pattern-background.js" defer></script><script src="app.js" type="module"></script><script src="error-capture.js" type="module"></script></head>
 <body>
 <aside>
-  <a class="brand" href="./" aria-label="치(지직) 다(시보기) 분석기"><span class="mark" aria-hidden="true">↙</span><span class="brand-name" aria-hidden="true"><span class="brand-term">치<small>(지직)</small></span><span class="brand-term">다<small>(시보기)</small></span><span>분석기</span></span></a>
+  <a class="brand" href="./" aria-label="치(지직) 다(시보기) 분석기"><img class="mark" src="icons/chida-32.png" srcset="icons/chida-64.png 2x" width="32" height="32" alt=""><span class="brand-name" aria-hidden="true"><span class="brand-term">치<small>(지직)</small></span><span class="brand-term">다<small>(시보기)</small></span><span>분석기</span></span></a>
   <p class="tagline">다시보기를 AI로 요약</p>
   <button id="new" class="primary wide">＋ VOD 리스트 등록</button>
   <div class="library-head"><h2>저장한 VOD</h2><button id="refresh" class="subtle" aria-label="프로젝트 목록 새로고침">↻</button></div>
   <div id="projects"><p class="muted">저장한 프로젝트가 여기에 표시됩니다.</p></div>
-  <footer><a id="open-video-split" class="secondary wide" href="video-split.html">✂ 영상 나누기</a><button id="step9" class="secondary wide">⚙ 설정</button><span class="dot"></span> 이 컴퓨터에 저장<br><small>공개 VOD · 0.20.0</small></footer>
+  <footer><a id="open-video-split" class="secondary wide" href="video-split.html">✂ 영상 나누기</a><button id="step9" class="secondary wide">⚙ 설정</button><span class="dot"></span> 이 컴퓨터에 저장<br><small>공개 VOD · 1.1.0</small></footer>
 </aside>
 <main>
   <header><div><span class="eyebrow">내 컴퓨터의 방송 기록</span><h1 id="heading" tabindex="-1" data-help="import">VOD 리스트 등록</h1></div><div class="play-actions"><span class="local-badge">로컬 보관함</span><button id="delete-project" class="danger" hidden>VOD 삭제</button></div></header>
@@ -82,7 +85,7 @@
     <div class="project-heading"><h2 id="project-title"></h2><p id="project-meta" class="muted"></p><p id="project-path" class="path"></p></div>
     <p id="lock-note" class="hint"></p>
     <div class="cards">
-      <article class="task panel" id="video-card"><div class="task-heading"><h2 data-help="video">영상</h2><span class="badge" id="video-state">준비 전</span></div><p id="video-message" class="task-message"></p><progress id="video-progress" max="100" value="0" aria-label="영상 수신 진행"></progress><p id="video-elapsed" class="hint task-elapsed">작업을 시작하면 소요 시간을 기록합니다.</p><p id="video-detail" class="detail"></p><div class="card-actions"><button id="video-resume" class="secondary">영상 이어받기</button><button id="video-stop" class="subtle" disabled>중단</button></div></article>
+      <article class="task panel" id="video-card"><div class="task-heading"><h2 data-help="video">영상</h2><span class="badge" id="video-state">준비 전</span></div><p id="video-message" class="task-message"></p><progress id="video-progress" max="100" value="0" aria-label="영상 수신 진행"></progress><p id="video-elapsed" class="hint task-elapsed">작업을 시작하면 소요 시간을 기록합니다.</p><p id="video-detail" class="detail"></p><div class="card-actions"><button id="video-resume" class="secondary">영상 이어받기</button><button id="video-stop" class="subtle" disabled>중단</button><button id="video-quality-open" class="secondary" type="button">화질 변경</button></div><small id="video-quality-current" class="hint"></small><p id="video-quality-cleanup" class="hint" hidden>새 영상으로 교체했습니다. 기존 파일을 정리하지 못했습니다. 파일이 사용 중이면 닫아주세요.</p><details id="video-quality-history" hidden><summary>보존한 이전 영상</summary><div class="play-actions" id="video-quality-links"></div></details></article>
       <article class="task panel" id="chat-card"><div class="task-heading"><h2 data-help="chat">전체 제공 채팅</h2><span class="badge" id="chat-state">준비 전</span></div><p id="chat-message" class="task-message"></p><progress id="chat-progress" max="100" value="0" aria-label="채팅 수집 진행"></progress><p id="chat-elapsed" class="hint task-elapsed">작업을 시작하면 소요 시간을 기록합니다.</p><p id="chat-detail" class="detail"></p><div class="card-actions"><button id="chat-resume" class="secondary">채팅 이어받기</button><button id="chat-stop" class="subtle" disabled>중단</button></div></article>
     </div>
 
@@ -227,6 +230,7 @@
         <button id="timeline-fit" class="subtle">전체</button><button id="timeline-current" class="subtle">현재 위치</button>
         <label class="inline-check"><input id="explore-follow" type="checkbox">재생 위치 따라가기</label>
       </div>
+      <label class="timeline-clip-picker">AI 클립 후보 결과<select id="timeline-clip-version" disabled><option value="">클립 후보 결과 없음</option></select></label>
       <label for="explore-position" class="sr-only">전체 영상에서 표시할 범위의 중심</label><input id="explore-position" type="range" min="0" max="1" step="1000" value="0">
       <output id="explore-window" class="hint"></output>
       <canvas id="unified-graph" tabindex="0" role="slider" aria-label="공통 시간축. 좌우 키로 5초 이동, 위아래 키로 확대·축소"></canvas>
@@ -397,5 +401,18 @@
 <dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title">
   <div class="help-dialog-heading"><h2 id="help-title"></h2><button id="help-close" type="button" class="subtle" aria-label="도움말 닫기" autofocus>닫기 ×</button></div>
   <div id="help-body" class="help-body" tabindex="0" aria-label="도움말 내용"></div>
+</dialog>
+<dialog id="video-quality-dialog" aria-labelledby="video-quality-title">
+  <h2 id="video-quality-title">다운로드 화질 변경</h2>
+  <p id="video-quality-title-vod"></p>
+  <label>새 화질<select id="video-quality-select"></select></label>
+  <fieldset id="video-quality-existing" hidden><legend>새 영상 검증 후 기존 파일 처리</legend>
+    <label class="inline-check"><input type="radio" id="video-quality-keep" name="old-video" checked> 기존 영상 보존</label>
+    <label class="inline-check"><input type="radio" id="video-quality-delete" name="old-video"> 기존 원본·재생용 영상 삭제</label>
+    <p class="hint">교체가 끝날 때까지 기존 영상을 볼 수 있습니다. 채팅·전사·AI 분석은 그대로 사용합니다.</p>
+  </fieldset>
+  <p id="video-quality-partial" class="hint">새 화질의 영상은 처음부터 받습니다. 이전에 내려받은 영상 조각과 채팅은 보관됩니다.</p>
+  <p id="video-quality-note" role="status"></p>
+  <div class="play-actions"><button id="video-quality-apply" class="primary" type="button" disabled>화질 적용</button><button id="video-quality-close" class="secondary" type="button">닫기</button></div>
 </dialog>
 </body></html>

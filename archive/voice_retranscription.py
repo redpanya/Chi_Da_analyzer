@@ -13,7 +13,7 @@ def run(job):
     if not audio or not transcript:raise ValueError('원음과 기존 전사를 먼저 준비하세요')
     start,end=job.options.get('start_ms'),job.options.get('end_ms')
     validate_range(start,end,audio['duration_ms'])
-    if audio['source']!=media.identity(media.source(job.path,job.data),job.path):raise ValueError('원음의 영상 입력이 바뀌었습니다')
+    if audio['source']!=media.analysis_identity(job.path, job.data):raise ValueError('원음의 영상 입력이 바뀌었습니다')
     original=media.local(job.path,audio['file']);identity=media.identity(original,job.path)
     engine=shutil.which('whisper-cli');speech_model.verify()
     if not engine:raise ValueError('whisper-cli를 찾지 못했습니다')
@@ -30,7 +30,7 @@ def run(job):
             'segments':speech_store.normalize(speech_store.read_engine_output(folder/'transcript.json'),start,end,0)}
     check_cancel(job.stop)
     if (state!=speech_store.state(job.path) or identity!=media.identity(original,job.path)
-            or audio['source']!=media.identity(media.source(job.path,job.data),job.path)):
+            or audio['source']!=media.analysis_identity(job.path, job.data)):
         raise ValueError('재전사 중 입력이 변경됐습니다. 기존 결과는 보존됩니다')
     save_json(folder/'result.json',result)
     job.update(retranscription=id,retranscriptions=store.state(job.path).get('retranscriptions',[])+[{'id':id,'start_ms':start,'end_ms':end}])

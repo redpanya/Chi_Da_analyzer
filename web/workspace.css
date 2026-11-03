@@ -50,7 +50,7 @@
 .result-first .context-workspace{grid-template-columns:minmax(0,1.22fr) minmax(0,1fr);gap:16px;margin-top:12px}
 .result-first #context-result,.result-first #context-clips-result{max-height:none;overflow:visible;padding:0}
 .result-first .context-preview{position:sticky;top:12px;max-height:none;overflow:visible;padding:0}
-.result-first #context-clips-panel .result-browser{position:sticky;top:12px;z-index:2;padding:8px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 3px 8px #0000000d}
+.result-first .context-workspace .result-browser{position:sticky;top:12px;z-index:2;padding:8px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 3px 8px #0000000d}
 .result-first #context-video video,.result-first #context-clips-video video{margin-top:0;max-height:34dvh}
 .result-first #context-result .context-item,.result-first #context-clips-result .clip-item{border:0;border-bottom:1px solid var(--line);border-radius:0;padding:12px 10px;margin:0;background:white}
 .result-first #context-result .context-item.selected,.result-first #context-clips-result .clip-item.selected{background:#fff7f1;box-shadow:inset 3px 0 var(--green)}
@@ -69,6 +69,9 @@
 .result-first #voice-rows,.result-first #voice-failed-rows,.result-first #voice-cards,.result-first #transcript-rows{max-height:none;overflow:visible}
 .result-first .transcript-row{border:0;border-bottom:1px solid var(--line);border-radius:0;margin:0;padding:10px}
 .transcript-time{font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--muted)}
+.result-first #unified-graph{height:180px}
+.timeline-clip-picker{display:flex;align-items:center;gap:8px;margin:8px 0}
+.timeline-clip-picker select{flex:1;min-width:0;max-width:620px;text-overflow:ellipsis}
 /* 실행·이동·저장·접기 동작의 공통 버튼 표면. 탭과 보관함 선택 표시는 유지한다. */
 .result-first :is(button.subtle,button.secondary,button.candidate-jump,button:not([class]):not([role=tab]),a:not(.brand),summary){
   box-sizing:border-box;border:1px solid #CEC8C0;border-radius:8px;background:#fff;color:#18181B;

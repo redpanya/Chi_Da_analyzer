@@ -8,12 +8,14 @@ export function connectSplitAudio({video, api, changed, error}) {
   let serial=0, chunk=null, intent=false, originalMuted=false;
   const tracks=()=>source?.streams.filter(s=>s.codec_type==='audio')||[];
   const kept=()=>mode.value==='all'?tracks().map(s=>s.index):selected;
-  const label=(s,i)=>`트랙 ${i+1} · ${s.tags?.title||s.tags?.handler_name||'AAC'} · ${s.channels}채널${s.tags?.language&&s.tags.language!=='und'?' · '+s.tags.language:''}`;
+  const label=(s,i)=>`트랙 ${i+1} · ${s.tags?.title||s.tags?.handler_name||s.codec_name?.toUpperCase()||'오디오'} · ${s.channels}채널${s.tags?.language&&s.tags.language!=='und'?' · '+s.tags.language:''}${s.preview_supported===false?' · 미리듣기 미지원':''}`;
+  const canListen=()=>tracks().find(s=>s.index===Number(listen.value))?.preview_supported!==false;
   function controls() {
     mode.disabled=busy||!tracks().length;
     list.hidden=mode.value!=='selected';
     for(const input of list.querySelectorAll('input'))input.disabled=busy;
-    listen.disabled=toggle.disabled=!kept().length;
+    listen.disabled=!kept().length;
+    toggle.disabled=!kept().length||!canListen();
     toggle.textContent=enabled?'선택 트랙 듣기 종료':'선택 트랙으로 미리보기';
     toggle.setAttribute('aria-pressed',String(enabled));
     $('split-audio-volume-row').hidden=!enabled;
@@ -23,6 +25,7 @@ export function connectSplitAudio({video, api, changed, error}) {
     $('split-preview-note').textContent=enabled
       ? '선택한 트랙 하나만 영상에 맞춰 듣습니다. 원본 소리는 끄고 아래 음량으로 조절합니다.'
       : '기본 재생은 브라우저의 기본 트랙을 사용합니다. 저장할 트랙은 아래에서 고르세요.';
+    if(!canListen())status.textContent='이 오디오 코덱은 미리듣기 미지원입니다. 분할 저장에는 그대로 유지됩니다.';
   }
   function stop() {
     serial++;intent=false;waiting=false;chunk=null;audio.pause();audio.removeAttribute('src');audio.load();
@@ -50,7 +53,7 @@ export function connectSplitAudio({video, api, changed, error}) {
   async function playPair(token) {
     sync();
     try {await audio.play();if(token!==serial||!intent){audio.pause();return;}await video.play();}
-    catch(e){fail(e,token);}
+    catch(e){if(e.name!=='AbortError'&&intent)fail(e,token);}
   }
   async function prepare(at, resume) {
     if(!enabled||!source)return;
@@ -72,7 +75,7 @@ export function connectSplitAudio({video, api, changed, error}) {
     }catch(e){fail(e,token);}
   }
   mode.onchange=()=>{refreshList();changed();};
-  listen.onchange=()=>{if(enabled)prepare(video.currentTime,!video.paused||intent);};
+  listen.onchange=()=>{if(!canListen()){video.pause();stop();}else{status.textContent='';if(enabled)prepare(video.currentTime,!video.paused||intent);}controls();};
   toggle.onclick=()=>{
     if(enabled){video.pause();stop();return;}
     originalMuted=video.muted;enabled=true;video.muted=true;controls();prepare(video.currentTime,true);

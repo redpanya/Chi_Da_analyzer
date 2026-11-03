@@ -18,6 +18,7 @@ import {createContext} from './context.js';
 import {connectDeletion} from './project-delete.js';
 import {createFolders} from './folders.js';
 import {elapsedText} from './task-timing.js';
+import {setupVideoQuality,transferMessage} from './video-quality.js';
 const $=id=>document.getElementById(id);
 const active=new Set(['queued','running','downloading','verifying','exporting','stopping']);
 const finished=new Set(['complete','empty','unavailable']);
@@ -40,6 +41,7 @@ const folders=createFolders({api,onApplied:async()=>{if(current){current=await a
 const errorLogs=createErrorLogUI({api});
 const reports=createReports({api,getProject:()=>current});
 const queue=createQueue({api,onStatus:workspace.setQueue,getRoot:()=>$('root').value,onOpen:(root,vod)=>perform(async()=>{current=await api('state',{root,vod_id:vod});render();go(2);}),onChanged:()=>list().catch(()=>{}),onLock:locked=>{for(const id of ['root','load-library'])$(id).disabled=locked;}});
+const videoQuality=setupVideoQuality({api,getProject:()=>current,onChanged:async value=>{current=value;render();await queue.refresh();await list();}});
 $('open-clip-studio').onclick=()=>{
  if(!current)return;
  const url=new URL('clip-studio.html',location.href),run=$(context.mode()==='clips'?'context-clips-version':'context-version').value;
@@ -62,22 +64,24 @@ function go(step){step=Math.min(9,Math.max(1,step));if(page!==step){miniPlayer.c
  explorer.open(step===5);if(step===6)context.refresh();if(step===7)reports.refresh();if(step===8)external.refresh();if(step===9)folders.refresh();}
 async function list(){const requested=$('root').value,projects=await api('projects',{root:requested});if(requested!==$('root').value)return;$('projects').replaceChildren();if(!projects.length){const p=document.createElement('p');p.className='muted';p.textContent='이 폴더에 저장한 VOD가 없습니다.';$('projects').append(p);}for(const project of projects){const button=document.createElement('button');button.dataset.path=project.path;button.className='project-item'+(current?.path===project.path?' selected':'');const title=document.createElement('strong'),summary=document.createElement('small');title.textContent=vodLabel(project);summary.textContent=`영상 ${labels[project.tasks.video.state]} · 채팅 ${labels[project.tasks.chat.state]}`;button.append(title,summary);button.onclick=()=>perform(async()=>{current=await api('state',{root:project.root,vod_id:project.vod_id});render();go(2);});const row=document.createElement('div');row.className='project-row';row.append(button);$('projects').append(row);}}
 async function perform(fn){if(busy)return;busy=true;notice();try{await fn();}catch(error){notice(error.message);}finally{busy=false;}}
-function fileURL(kind,key){return `file?${new URLSearchParams({root:current.root,vod_id:current.vod_id,kind,key})}`;}
+function fileURL(kind,key){return `file?${new URLSearchParams({root:current.root,vod_id:current.vod_id,kind,key,...(kind==='video'?{version:current.video_generation||'original'}:{})})}`;}
 function render(){
+ videoQuality.render(current);
  analysisScope.setProject(current);
  miniPlayer.setProject(current);
  help.setProject(current?.path);
  if(current)sessionStorage.setItem('project',JSON.stringify({root:current.root,library_root:$('root').value,vod_id:current.vod_id}));
- for(const [name,state] of [['video',current?.tasks.video],['chat',current?.tasks.chat],['speech',current?.speech],['voices',current?.voices],['context',current?.context]])$(name+'-elapsed').textContent=elapsedText(state);
+ for(const [name,state] of [['video',current?.video_replacement?.task||current?.tasks.video],['chat',current?.tasks.chat],['speech',current?.speech],['voices',current?.voices],['context',current?.context]])$(name+'-elapsed').textContent=elapsedText(state);
  $('open-clip-studio').disabled=!current||current.tasks?.video?.state!=='complete';$('delete-project').hidden=!current;$('delete-project').disabled=!!current?.locked;
  if(!current)workspace.update(null);
  if(!current)return;for(const button of $('projects').querySelectorAll('.project-item')){const selected=button.dataset.path===current.path;button.classList.toggle('selected',selected);if(selected)button.querySelector('small').textContent=`영상 ${labels[current.tasks.video.state]} · 채팅 ${labels[current.tasks.chat.state]}`;}reactions.setProject(current);speech.setProject(current);voices.setProject(current);explorer.setProject(current);context.setProject(current);external.setProject(current);$('step8').disabled=false;$('step6').disabled=false;$('step5').disabled=false;$('step4').disabled=false;$('step2').disabled=false;$('step3').disabled=false;$('project-title').textContent=current.metadata.title;$('project-meta').textContent=`${current.metadata.channel} · ${current.input?(current.input.kind==='range'?'선택 범위 ':'내 영상 ')+duration(current.tasks.video.verification?.duration || 0)+' · VOD '+duration(current.metadata.duration)+' · 시작 '+duration(current.input.start_vod_ms/1000):duration(current.metadata.duration)} · VOD ${current.vod_id}`;$('project-path').textContent=current.path;
  $('lock-note').textContent=current.analysis_running?'저장된 채팅을 분석 중입니다. 수집 자료는 유지됩니다.':current.locked?(current.owned?'자료를 안전하게 쓰는 중입니다. 이 VOD의 중복 시작은 차단됩니다.':(current.context?.owned||current.voices?.owned||current.speech?.owned?'이 앱에서 영상·음성 파생 파일을 처리하고 있습니다. 다른 작업은 완료 또는 중단 후 시작하세요.':'다른 실행기가 이 VOD를 사용 중입니다. 여기서는 결과만 확인할 수 있습니다.')):'저장된 프로젝트입니다. 미완료 작업만 이어받을 수 있습니다.';
- for(const kind of ['video','chat']){const task=current.tasks[kind],p=task.progress||{};$(`${kind}-state`).textContent=labels[task.state]||'확인 필요';$(`${kind}-state`).dataset.state=task.state;$(`${kind}-message`).textContent=task.message;const progress=$(`${kind}-progress`);if(finished.has(task.state))progress.value=100;else if(kind==='video'&&Number.isFinite(p.percent)){progress.value=Math.max(0,Math.min(99,p.percent));}else if(kind==='video'&&(p.total_bytes||p.total_bytes_estimate)){progress.value=Math.min(99,100*(p.downloaded_bytes||p.bytes||0)/(p.total_bytes||p.total_bytes_estimate));}else if(active.has(task.state))progress.removeAttribute('value');else progress.value=0;
+ const transfers={...current.tasks,video:current.video_replacement?.task||current.tasks.video};
+ for(const kind of ['video','chat']){const task=transfers[kind],p=task.progress||{};$(`${kind}-state`).textContent=labels[task.state]||'확인 필요';$(`${kind}-state`).dataset.state=task.state;$(`${kind}-message`).textContent=transferMessage(task);const progress=$(`${kind}-progress`);if(finished.has(task.state))progress.value=100;else if(kind==='video'&&Number.isFinite(p.percent)){progress.value=Math.max(0,Math.min(99,p.percent));}else if(kind==='video'&&(p.total_bytes||p.total_bytes_estimate)){progress.value=Math.min(99,100*(p.downloaded_bytes||p.bytes||0)/(p.total_bytes||p.total_bytes_estimate));}else if(active.has(task.state))progress.removeAttribute('value');else progress.value=0;
   $(`${kind}-detail`).textContent=kind==='video'&&current.download_range&&Number.isFinite(p.percent)&&!finished.has(task.state)?`구간 처리 ${p.percent}%`:kind==='video'?`${bytes(p.downloaded_bytes||p.bytes||0)}${p.total_bytes?' / '+bytes(p.total_bytes):p.total_bytes_estimate?' / 약 '+bytes(p.total_bytes_estimate):''}${p.speed?' · '+bytes(p.speed)+'/초':''}${p.fragment_count?' · '+(p.fragment_index||0)+'/'+p.fragment_count+'조각':''}`:`${(p.messages||0).toLocaleString()}건 · ${p.pages||0}페이지${p.last_ms!=null?' · 마지막 '+duration(p.last_ms/1000):''}`;
   $(`${kind}-resume`).disabled=(current.locked&&!current.owned)||active.has(task.state)||finished.has(task.state)||busy;$(`${kind}-resume`).textContent=task.state==='error'||task.state==='review'?'다시 시도':task.state==='idle'?'시작하기':'이어받기';$(`${kind}-stop`).disabled=!current.owned||!active.has(task.state)||task.state==='stopping';
  }
- $('stop-all').disabled=!current.owned;$('resume-all').disabled=(current.locked&&!current.owned)||Object.values(current.tasks).every(t=>finished.has(t.state)||active.has(t.state));
+ $('stop-all').disabled=!current.owned;$('resume-all').disabled=(current.locked&&!current.owned)||Object.values(transfers).every(t=>finished.has(t.state)||active.has(t.state));
  const ready=current.tasks.video.state==='complete';$('video-result').hidden=!ready;$('video-unready').hidden=ready;
  if(ready){const url=new URL(fileURL('video','playback'),location.href).href;if($('player').src!==url){player.reset();$('player').src=url;}$('original').href=fileURL('video','original');}else if($('player').getAttribute('src')){$('player').removeAttribute('src');$('player').load();}
  const task=current.tasks.chat;$('export-state').textContent=task.message+(task.state==='paused'||task.state==='error'?' · 내보내기가 있으면 마지막으로 보존한 일부 결과입니다.':'');$('export-links').replaceChildren();for(const key of ['json','csv','txt','jsonl'])if(task.assets?.[key]){const a=document.createElement('a');a.href=fileURL('chat',key);a.className='text-link';a.textContent=key.toUpperCase()+' 저장';$('export-links').append(a);}

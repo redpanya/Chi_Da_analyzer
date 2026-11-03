@@ -91,7 +91,7 @@ def selected(path, data, selection):
     if not run.get('complete'):
         raise ValueError('전체 처리가 완료된 전사 데이터를 선택하세요')
     audio = speech_store.audio_for_run(path, run)
-    if not audio or audio.get('source') != speech_media.identity(speech_media.source(path, data), path):
+    if not audio or audio.get('source') != speech_media.analysis_identity(path, data):
         raise ValueError('선택한 전사는 현재 영상과 다른 입력입니다')
     edits = speech_store.corrections(path, run)
     rows = [r | {'text': edits.get(r['id'], r['text']), 'corrected': r['id'] in edits}
@@ -108,4 +108,4 @@ def selected(path, data, selection):
         label += ' / ' + next(r['label'] for r in speakers(path) if r['id'] == speaker_id)
     else:
         notes.append('화자 정보 사용 안 함')
-    return {'speech': rows, 'notes': notes, 'selection': dict(selection), 'label': label}
+    return {'speech': rows, 'notes': notes, 'selection': dict(selection), 'label': label, 'audio': audio}

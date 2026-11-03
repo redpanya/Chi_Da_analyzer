@@ -1,16 +1,19 @@
 <!doctype html>
 <html lang="ko">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>영상 나누기 · 치다 분석기</title>
+<link rel="icon" type="image/png" sizes="16x16" href="icons/chida-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/chida-32.png">
+
 <link rel="stylesheet" href="style.css"><link rel="stylesheet" href="workspace.css"><link rel="stylesheet" href="pattern-background.css"><link rel="stylesheet" href="video-split.css">
 <script src="pattern-background.js" defer></script><script src="video-split.js" type="module"></script><script src="error-capture.js" type="module"></script></head>
 <body class="result-first split-page">
-<aside><a class="brand" href="./"><span class="mark">↙</span>치 다 분석기</a><p class="tagline">다시보기를 AI로 요약</p><a class="secondary" href="./">← 보관함으로 돌아가기</a><h2>영상 나누기</h2><button id="split-select-video" class="primary wide">비디오 선택</button><h3>최근 작업</h3><div id="split-history" aria-label="영상 나누기 최근 작업"></div><footer>이 컴퓨터에서만 처리<br>원본 파일은 그대로 보존</footer></aside>
+<aside><a class="brand" href="./"><img class="mark" src="icons/chida-32.png" srcset="icons/chida-64.png 2x" width="32" height="32" alt="">치 다 분석기</a><p class="tagline">다시보기를 AI로 요약</p><a class="secondary" href="./">← 보관함으로 돌아가기</a><h2>영상 나누기</h2><button id="split-select-video" class="primary wide">비디오 선택</button><h3>최근 작업</h3><div id="split-history" aria-label="영상 나누기 최근 작업"></div><footer>이 컴퓨터에서만 처리<br>원본 파일은 그대로 보존</footer></aside>
 <main>
   <header><div class="play-actions"><h1>영상 나누기</h1><button id="split-help-open" class="help-button" aria-label="영상 나누기 도움말" aria-haspopup="dialog">💡</button></div><div class="play-actions"><span class="local-badge">재인코딩 없음</span><button id="split-delete" class="danger" aria-haspopup="dialog" hidden>작업 삭제</button></div></header>
   <p id="split-notice" role="status" hidden></p>
   <p id="split-error" role="alert" hidden></p>
   <section class="panel source-panel" aria-labelledby="source-heading"><h2 id="source-heading">1. 비디오 선택</h2>
-    <div class="play-actions"><button id="split-pick" class="secondary">MP4 파일 선택</button><span class="hint">H.264 영상 · AAC 오디오 · 재인코딩 없이 저장</span></div>
+    <div class="play-actions"><button id="split-pick" class="secondary">비디오 파일 선택</button><span class="hint">MP4 · M4V · MOV · MKV · WebM · 재인코딩 없이 저장</span></div>
     <form id="split-source-form" class="input-row"><input id="split-path" placeholder="또는 비디오 파일의 전체 경로 입력" aria-label="비디오 파일 전체 경로" required><button id="split-load" class="primary">파일 열기</button></form>
     <p id="split-source-info" class="hint">선택한 파일을 업로드하거나 복제하지 않습니다.</p>
   </section>
@@ -18,6 +21,7 @@
     <div class="split-grid">
       <section class="panel preview-panel" aria-label="원본 영상 미리보기">
         <video id="split-video" controls preload="metadata" playsinline></video>
+        <p id="split-format-note" class="hint"></p>
         <p id="split-preview-note" class="hint"></p>
         <div class="split-audio-preview">
           <label for="split-audio-listen">미리듣기 트랙</label><select id="split-audio-listen" aria-label="미리듣기 트랙"></select>
@@ -33,7 +37,7 @@
       <section class="panel boundaries-panel" aria-labelledby="split-boundary-heading"><h2 id="split-boundary-heading">2. 어디서 나눌까요?</h2>
         <form id="split-point-form" class="input-row"><input id="split-time" placeholder="00:10:00.000" aria-label="분할할 시각" required><button class="secondary">분할점 추가</button></form>
         <div class="play-actions"><label class="inline-control">간격 (분)<input id="split-minutes" type="number" min="0.1" step="0.1" value="30"></label><button id="split-interval" class="secondary">간격으로 설정</button><button id="split-clear" class="secondary">초기화</button></div>
-        <p class="hint">키프레임을 기준으로 지정 시각 뒤에서 나눕니다. 최대 200개 분할점을 지정할 수 있어요.</p>
+        <p class="hint">재생 가능한 키프레임을 찾아 지정 시각 뒤에서 나눕니다. 최대 200개 분할점을 지정할 수 있어요.</p>
         <div id="split-points"></div>
         <fieldset class="split-audio-options"><legend>저장할 오디오</legend>
           <select id="split-audio-mode" aria-label="오디오 유지 방식"><option value="all">전체 오디오 유지</option><option value="selected">선택한 오디오 트랙들 유지</option></select>
@@ -63,5 +67,5 @@
   <p id="split-delete-error" role="alert"></p>
   <div class="play-actions"><button id="split-delete-cancel" class="secondary" autofocus>취소</button><button id="split-delete-confirm" class="danger" disabled>삭제</button></div>
 </dialog>
-<dialog id="split-help" aria-labelledby="split-help-title"><h2 id="split-help-title">영상 나누기 도움말</h2><p>비디오를 열고 원하는 시각을 분할점으로 추가하세요. ‘실제 분할 시각 확인’을 누르면 영상 구조에 맞는 경계를 보여줍니다. 확인 후 저장 폴더를 정하고 시작하세요.</p><p>영상과 유지할 오디오 트랙을 다시 압축하지 않습니다. 전체 유지 또는 여러 트랙 선택이 가능합니다. 선택을 바꾸면 경계를 다시 확인해 새 작업으로 저장합니다. 이전 작업을 이어받을 때는 그 작업의 트랙 선택을 유지합니다.</p><p>각 출력은 원본 일부를 담은 새 파일입니다. 원본은 삭제하지 않습니다. 완료 파일은 중단해도 유지하며, 결과 검사는 선택 트랙·길이와 시작/끝의 재생 가능한 구조를 확인합니다. 전체 프레임을 검사한 것은 아닙니다.</p><p>미리듣기는 유지할 트랙 중 하나씩 전환합니다. 현재 시각 주변 1분 오디오를 임시 폴더에 스트림 복사하므로 처음 듣거나 시각을 옮기면 잠시 준비할 수 있습니다. 여러 트랙을 합쳐 듣지는 않습니다. 임시 음원은 앱 종료 시 정리합니다.</p><button id="split-help-close" class="primary">확인</button></dialog>
+<dialog id="split-help" aria-labelledby="split-help-title"><h2 id="split-help-title">영상 나누기 도움말</h2><p>MP4·M4V·MOV·MKV·WebM을 원본과 같은 형식으로 저장합니다. 지원 영상은 H.264·HEVC·VP8·VP9·MPEG-4·MJPEG·ProRes, 오디오는 AAC·MP3·AC-3·E-AC-3·ALAC·FLAC·Opus·Vorbis·일부 PCM입니다. 영상 트랙은 하나여야 하며, 자막·데이터·첨부 트랙·챕터가 있으면 손실 방지를 위해 시작하지 않습니다.</p><p>브라우저에서 지원하지 않는 코덱은 미리보기·미리듣기가 제한됩니다. 재생을 위한 자동 변환은 하지 않으며, 시각 입력으로 경계를 확인하고 분할할 수 있습니다. 분할 출력도 코덱을 지원하는 플레이어에서 열어주세요.</p><p>비디오를 열고 원하는 시각을 분할점으로 추가하세요. ‘실제 분할 시각 확인’을 누르면 영상 구조에 맞는 경계를 보여줍니다. 확인 후 저장 폴더를 정하고 시작하세요.</p><p>영상과 유지할 오디오 트랙을 다시 압축하지 않습니다. 전체 유지 또는 여러 트랙 선택이 가능합니다. 선택을 바꾸면 경계를 다시 확인해 새 작업으로 저장합니다. 이전 작업을 이어받을 때는 그 작업의 트랙 선택을 유지합니다.</p><p>각 출력은 원본 일부를 담은 새 파일입니다. 원본은 삭제하지 않습니다. 완료 파일은 중단해도 유지하며, 결과 검사는 선택 트랙·길이와 시작/끝의 재생 가능한 구조를 확인합니다. 전체 프레임을 검사한 것은 아닙니다. 열린 GOP처럼 경계 앞의 프레임을 참조하는 구조는 분할점에서 제외합니다. 이후 5분 안에 사용할 경계가 없으면 안내하며 멈춥니다. 가변 프레임률·AV1·다른 컨테이너는 현재 지원 범위에서 제외합니다.</p><p>미리듣기는 유지할 트랙 중 하나씩 전환합니다. 현재 시각 주변 1분 오디오를 임시 폴더에 스트림 복사하므로 처음 듣거나 시각을 옮기면 잠시 준비할 수 있습니다. 여러 트랙을 합쳐 듣지는 않습니다. 임시 음원은 앱 종료 시 정리합니다.</p><button id="split-help-close" class="primary">확인</button></dialog>
 </body></html>

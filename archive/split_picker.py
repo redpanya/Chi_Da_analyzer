@@ -9,14 +9,14 @@ from . import processes
 def choose(folder=False):
     if sys.platform == 'darwin':
         kind = 'folder' if folder else 'file'
-        script = f'try\nreturn POSIX path of (choose {kind} with prompt "영상 나누기: {"저장 폴더" if folder else "MP4 파일"} 선택")\non error number -128\nreturn ""\nend try'
+        script = f'try\nreturn POSIX path of (choose {kind} with prompt "영상 나누기: {"저장 폴더" if folder else "비디오 파일"} 선택")\non error number -128\nreturn ""\nend try'
         args = ['/usr/bin/osascript', '-e', script]
     elif os.name == 'nt':
         script = 'Add-Type -AssemblyName System.Windows.Forms; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; '
         if folder:
             script += '$d=New-Object System.Windows.Forms.FolderBrowserDialog; if($d.ShowDialog() -eq "OK"){[Console]::Write($d.SelectedPath)}'
         else:
-            script += '$d=New-Object System.Windows.Forms.OpenFileDialog; $d.Filter="MP4|*.mp4"; if($d.ShowDialog() -eq "OK"){[Console]::Write($d.FileName)}'
+            script += '$d=New-Object System.Windows.Forms.OpenFileDialog; $d.Filter="Video|*.mp4;*.m4v;*.mov;*.mkv;*.webm"; if($d.ShowDialog() -eq "OK"){[Console]::Write($d.FileName)}'
         args = [os.path.join(os.environ['SystemRoot'], 'System32/WindowsPowerShell/v1.0/powershell.exe'),
                 '-NoProfile', '-STA', '-EncodedCommand', base64.b64encode(script.encode('utf-16-le')).decode()]
     else:

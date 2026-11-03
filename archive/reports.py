@@ -28,7 +28,8 @@ def options(value=None):
 def state(path, stage):
     if stage == 'download':
         data = load_project(path, path.name[4:])
-        tasks = data['tasks']
+        from .video_replacement import transfer_tasks
+        tasks = transfer_tasks(data)
         statuses = [task['state'] for task in tasks.values()]
         status = 'complete' if all(s in ('complete', 'empty', 'unavailable') for s in statuses) else 'error' if 'error' in statuses else 'paused' if 'paused' in statuses else 'review' if 'review' in statuses else 'running'
         return {'state': status, 'message': ' / '.join(str(t.get('message', '')) for t in tasks.values())}
@@ -75,7 +76,7 @@ class Reports:
 
     def new(self, root, vod, settings=None):
         path = project_path(root, vod)
-        report = dict(schema=2, policy=report_schema.POLICY, report_id=uuid.uuid4().hex, vod_id=vod, app_version='0.20.0',
+        report = dict(schema=2, policy=report_schema.POLICY, report_id=uuid.uuid4().hex, vod_id=vod, app_version='1.1.0',
                       hardware=report_hardware.collect(), options=options(settings), stages=[], counts={})
         local = dict(payload=report, created_at=stamp(), updated_at=stamp(), events=[], details=[], revision=0)
         with self.guard:

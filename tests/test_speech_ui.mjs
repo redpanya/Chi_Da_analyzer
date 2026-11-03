@@ -25,7 +25,8 @@ const details={tracks:[{index:1,channels:1}],duration_ms:10000,estimated_bytes:3
 let view;
 view=createSpeech({player:{reset(){}},showPreview:row=>preview=row,api:async(action,data)=>{
   if(action==='speech-info')return details;
-  if(action==='speech-result'){rowsRequests++;return {items,total:items.length,next_cursor:null};}
+  if(action==='speech-result'){rowsRequests++;return {items,total:items.length,next_cursor:null,run:project.speech.run};}
+  if(action==='studio-transcript-add'){calls.push({action,data});return {added:true,count:2};}
   calls.push({action,data});return project;
 },onProject:value=>view.setProject(value)});
 const settle=async()=>{await Promise.resolve();await Promise.resolve();};
@@ -61,9 +62,14 @@ const actions=$('transcript-rows').children[0].children[0].children;
 assert.equal(actions[0].tagName,'SPAN');
 assert.equal(actions[0].textContent,'00:00:01 → 00:00:03');
 assert.equal(actions[0].onclick,undefined);
-assert.deepEqual(actions.filter(n=>n.tagName==='BUTTON').map(n=>n.textContent),['음성 듣기','화자 검토 (선택)','해당 영상보기']);
+assert.deepEqual(actions.filter(n=>n.tagName==='BUTTON').map(n=>n.textContent),['음성 듣기','화자 검토 (선택)','해당 영상보기','클립에 담기']);
+const clipButton=actions.find(n=>n.textContent==='클립에 담기');
+await clipButton.onclick();assert.equal(calls.at(-1).action,'studio-transcript-add');
+assert.equal(calls.at(-1).data.run,'선택 전사');assert.equal(calls.at(-1).data.segment,'발언1');
+assert.match($('transcript-rows').children[0].children.at(-1).textContent,/전체 2개/);
 const together=actions.find(n=>n.textContent==='해당 영상보기');
 together.onclick();assert.equal(preview,items[0]);
 preview=null;project={...project,speech:{...project.speech,stale:true}};view.setProject(project);together.onclick();
 assert.equal(preview,null);assert.match($('speech-notice').textContent,/이전 입력/);
+const callCount=calls.length;await clipButton.onclick();assert.equal(calls.length,callCount);
 console.log('전사 시각 텍스트·영상 버튼 단일화·미니 플레이어 연결·이전 입력 차단 통과');

@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 const sections={layout:['frame','비율·화면 구성'],image:['frame','PNG 이미지'],effects:['frame','색감·효과'],volume:['frame','음량'],transcript:['caption','사용할 전사'],captions:['caption','자막 내용 수정'],font:['caption','자막 스타일·글꼴'],'caption-position':['caption','크기·위치']};
 const hints={
   layout:['전체 보이기는 원본 전체를, 화면 채우기는 선택한 위치를 확대해 보여줍니다.','세로 2단은 원본의 게임·얼굴 영역을 나눠 배치합니다. 자동 추적은 하지 않습니다.'],
-  image:['PNG 한 장을 모든 담은 구간에 공통으로 올립니다. 자막은 이미지 위에 표시합니다.','이 패널에서 영상 위 PNG를 끌거나 모서리로 크기를 조절할 수 있습니다. 닫아도 이미지는 유지됩니다.'],
+  image:['PNG 한 장을 상단의 편집 대상에 올립니다. 자막은 이미지 위에 표시합니다.','이 패널에서 영상 위 PNG를 끌거나 모서리로 크기를 조절할 수 있습니다. 닫아도 이미지는 유지됩니다.'],
   effects:['밝기·대비·채도는 미리보기에 즉시 적용합니다. 시작·끝 페이드는 저장 영상에 반영됩니다.'],
   volume:['저장할 영상의 음량입니다. 가운데 플레이어의 소리 켜짐·꺼짐은 미리보기만 조절합니다.'],
   transcript:['완료된 전사를 선택합니다. 원전사·화자 배정은 변경하지 않습니다.'],
@@ -55,6 +55,7 @@ export function createStudioInspector(){
   for(const kind of ['input','change','click'])document.addEventListener(kind,()=>queueMicrotask(update));
   const observer=new MutationObserver(update);
   for(const id of ['caption-count','caption-load-state','caption-font-note','caption-size-error','caption-design-error','caption-design-state','font-selected','image-name','image-status','decoration-state','image-preview-state'])observer.observe($(id),{childList:true,characterData:true,subtree:true});
+  document.addEventListener('studio-profile-change',update);
   update();
   return {setTab(name){tab=name;active='';help=false;render();}};
 }

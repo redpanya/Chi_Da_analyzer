@@ -54,7 +54,7 @@ export function createQueue({api,getRoot,onOpen,onChanged,onLock,onStatus}){
    for(const [i,item] of data.items.entries()){
      const article=node('article');const title=node('strong',`${i+1}. ${item.title} · VOD ${item.vod}`);
      if(editable(item)){const label=node('label');label.className='inline-check';const check=node('input');check.type='checkbox';check.checked=selected.has(item.id);check.disabled=busy||data.active;check.setAttribute('aria-label',`${item.title} 대기 설정 선택`);check.onchange=()=>{if(check.checked)selected.add(item.id);else selected.delete(item.id);controls();};label.append(check,title);article.append(label);}else article.append(title);
-     const opts=item.options;const status=node('p',`${states[item.state]||item.state}${item.stage?' · '+stages[item.stage]:''} · ${selectionLabel(opts)} · 저장·이어받기 화질 ${item.quality||'기존 등록 화질'} (등록 시 확정)`);status.className=item.state==='error'?'queue-error':'hint';
+     const opts=item.options;const status=node('p',`${states[item.state]||item.state}${item.stage?' · '+stages[item.stage]:''} · ${selectionLabel(opts)} · 저장·이어받기 화질 ${item.quality||'기존 등록 화질'}`);status.className=item.state==='error'?'queue-error':'hint';
      article.append(status);
      const chosen=selectedSteps(opts),details=[];
      if(chosen.includes('transcribe'))details.push(`전사 ${languages[opts.language]||opts.language} · 발화 검출 ${vads[opts.asr_options?.vad||'standard']||'표준'}${opts.asr_options?.prompt?' · 용어 힌트: '+opts.asr_options.prompt:''}`);

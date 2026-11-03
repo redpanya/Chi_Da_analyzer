@@ -14,7 +14,7 @@ class PreviewCacheTests(unittest.TestCase):
         self.source_file = Path(self.temp.name) / '원본.mp4'
         self.source_file.write_bytes(b'preserve original')
         self.source = {'path': str(self.source_file), 'identity': split_contract.identity(self.source_file),
-                       'duration': 1200, 'streams': [{'index': 1, 'codec_type': 'audio'}]}
+                       'duration': 1200, 'streams': [{'index': 1, 'codec_type': 'audio', 'codec_name': 'aac'}]}
         self.preview = split_audio.Preview()
         self.capture = patch('archive.split_media.capture', side_effect=self.write_audio)
         self.probe = patch('archive.split_media.probe', return_value={

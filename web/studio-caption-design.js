@@ -8,7 +8,7 @@ export function createCaptionDesign(host,select,note,error){
   function values(){return Object.fromEntries(fields.map(f=>[f.dataset.design,f.type==='checkbox'?f.checked:f.type==='number'?f.valueAsNumber:f.value]));}
   function status(){
     const template=selected();
-    note.textContent=legacy()?'기존 자막 디자인을 유지합니다. 아래 옵션을 수정하면 단일 테두리·그림자의 맞춤 디자인으로 전환됩니다.':template?`${template.name} · ${same(design,template.design)?'저장한 색상·효과':'맞춤 변경됨 · 원래 템플릿은 유지'}`:design?'맞춤 설정 · 담은 모든 구간에 적용':'템플릿 기본값 · 아래 옵션을 직접 조절할 수 있습니다.';
+    note.textContent=legacy()?'기존 자막 디자인을 유지합니다. 아래 옵션을 수정하면 단일 테두리·그림자의 맞춤 디자인으로 전환됩니다.':template?`${template.name} · ${same(design,template.design)?'저장한 색상·효과':'맞춤 변경됨 · 원래 템플릿은 유지'}`:design?'맞춤 설정 · 현재 편집 대상에 적용':'템플릿 기본값 · 아래 옵션을 직접 조절할 수 있습니다.';
     for(const group of ['outline','shadow','box']){
       const enabled=fields.find(f=>f.dataset.design===group).checked;
       host.querySelector(`[data-design-state="${group}"]`).textContent=enabled?'켜짐':'꺼짐';

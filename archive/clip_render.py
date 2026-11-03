@@ -103,6 +103,9 @@ def burn(file,rows,size,options,target,total,stop,lock,update,overlay=None):
 
 
 def render(folder,src,request,rows,stop,lock,update,completed):
+    if any('options' in c for c in request['clips']):
+        from .clip_profile_render import render as per_clip
+        return per_clip(folder,src,request,rows,stop,lock,update,completed)
     clips=request['clips'];opts=request['options'];size=contract.dimensions(src,opts);parts=[]
     update(message='선택 구간의 실제 자막 문장 호환성 검사',progress=0)
     captions.preflight(rows,clips,size,opts,stop)

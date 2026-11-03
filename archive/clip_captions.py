@@ -2,20 +2,32 @@
 import hashlib
 import shutil
 from .source import check_cancel
-from . import analysis_inputs
+from . import analysis_inputs, caption_sync
 from .storage import load_project
 from .clip_contract import offsets
 from . import caption_fonts, caption_styles, caption_design, studio_images
 
 
 def snapshot(path, vod, selection, edits=None):
-    if selection is None:return []
-    selected=analysis_inputs.selected(path,load_project(path,vod),selection)
-    origin=load_project(path,vod).get('input',{}).get('start_vod_ms',0)
+    return preview(path, vod, selection, edits)['rows']
+
+
+def preview(path, vod, selection, edits=None):
+    if selection is None:
+        return {'rows': [], 'sync_message': ''}
+    data = load_project(path,vod)
+    selected = analysis_inputs.selected(path,data,selection)
+    sync = caption_sync.resolve(path, data, selected['audio'])
+    origin = data.get('input',{}).get('start_vod_ms',0)
     rows=selected['speech'];edits=edits or {};ids={r['id'] for r in rows}
     if set(edits)-ids:raise ValueError('선택한 전사에 없는 자막 교정입니다')
-    return [dict(id=r['id'],start_ms=r['start_ms']+origin,end_ms=r['end_ms']+origin,
-                 text=edits.get(r['id'],r['text']),speaker=r.get('speaker_name','')) for r in rows]
+    captions = []
+    for row in rows:
+        start, end = caption_sync.interval(row, sync)
+        if end > start:
+            captions.append(dict(id=row['id'], start_ms=origin+start, end_ms=origin+end,
+                                 text=edits.get(row['id'],row['text']), speaker=row.get('speaker_name','')))
+    return {'rows': captions, 'sync_message': sync['message']}
 
 
 def cues(rows, clips, transition='cut'):

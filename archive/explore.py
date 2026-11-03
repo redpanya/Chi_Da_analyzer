@@ -3,7 +3,7 @@
 from heapq import merge
 import math
 
-from . import analysis, analysis_store, speech_store, voice_store
+from . import analysis, analysis_store, speech_store, voice_store, explore_clips
 from .storage import load_project, project_path
 
 NAMES = {'burst': '채팅 급증', 'word': '반복 단어', 'consonant': '자음 반응'}
@@ -96,7 +96,7 @@ def snapshot(path, data, offset):
             'processed_ms': processed, 'complete': complete}
 
 
-def info(root, vod, chat_offset_ms=0):
+def info(root, vod, chat_offset_ms=0, clip_run=None):
     options(chat_offset_ms=chat_offset_ms)
     path = project_path(root, vod)
     data = load_project(path, vod)
@@ -105,6 +105,7 @@ def info(root, vod, chat_offset_ms=0):
     if type(duration) not in (int, float) or not math.isfinite(duration) or not 0 <= duration <= analysis.MAX_SECONDS:
         raise ValueError('영상 길이를 확인할 수 없습니다')
     video_ms = round(duration * 1000)
+    clips = explore_clips.read(path, vod, video_ms, clip_run)
     result = saved['analysis']
     tracks = [{k: r.get(k) for k in ('start_ms', 'end_ms', 'speaker', 'speaker_name', 'status')} for r in saved['speech']]
     speakers = {r['speaker']: r['speaker_name'] for r in saved['speech'] if r.get('speaker')}
@@ -112,7 +113,8 @@ def info(root, vod, chat_offset_ms=0):
                   max(0, (data['tasks']['chat'].get('progress', {}).get('last_ms') or 0) + chat_offset_ms + 1)]
                  + [r['end_ms'] for r in saved['reaction'] + saved['speech']])
     if data.get('input'): extent = max(video_ms, 1)
-    return {'notes': saved['notes'], 'duration_ms': extent, 'video_ms': video_ms, 'speakers': speakers,
+    return {'notes': saved['notes']+clips['notes'], 'duration_ms': extent, 'video_ms': video_ms, 'speakers': speakers,
+            'clips': clips['items'], 'clip_run': clips['run'],
             'tracks': tracks, 'reactions': saved['reaction'], 'graph': result['graph'] if result else [],
             'chat_offset_ms': chat_offset_ms, 'processed_ms': saved['processed_ms'], 'complete': saved['complete'],
             'boundary_unverified': bool(result and result.get('boundary_unverified'))}

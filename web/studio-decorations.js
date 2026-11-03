@@ -78,7 +78,7 @@ export function studioDecorations({api,identity,video,read,onChange}){
       const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(new Error('파일을 읽지 못했습니다.'));reader.onload=()=>resolve(reader.result);reader.readAsDataURL(file);});
       image=await api('studio-image-add',{...identity(),png:String(data).split(',')[1],name:file.name});
       for(const [k,v] of Object.entries({x:50,y:50,width:30,opacity:100}))$('image-'+k).value=v;
-      $('image-status').textContent=`${image.width_px} × ${image.height_px}px · 전체 선택 구간에 적용됩니다.`;
+      $('image-status').textContent=`${image.width_px} × ${image.height_px}px · 현재 편집 대상에 적용됩니다.`;
     }catch(e){$('image-status').textContent='PNG 준비 실패 · '+e.message;}
     finally{uploading=false;$('image-file').value='';controls();schedule();onChange();}
   };
@@ -90,8 +90,9 @@ export function studioDecorations({api,identity,video,read,onChange}){
   video.addEventListener('loadedmetadata',schedule);
   window.addEventListener('pagehide',()=>{clearTimeout(timer);wanted++;sampleWanted++;sampleLast='';});
   window.addEventListener('pageshow',()=>{last=sampleLast='';schedule();});
-  return {imageOptions,blocked:()=>uploading||editor.blocked()||((read().caption||(read().sidecar&&$('caption-version').value))&&fonts.blocked())||
+  return {imageOptions,uploading:()=>uploading,blocked:()=>uploading||editor.blocked()||((read().caption||(read().sidecar&&$('caption-version').value))&&fonts.blocked())||
       (read().caption&&(checked!==JSON.stringify(payload())||sampleChecked!==JSON.stringify(example()))),
+    restore(options){image=options.image||null;if(image)for(const k of ['x','y','width','opacity'])$('image-'+k).value=image[k];fonts.restore(options);controls();schedule();},
     busy(value){busy=value;controls();},async init(options={}){
       await fonts.init(options);image=options.image||null;
       if(image)for(const k of ['x','y','width','opacity'])$('image-'+k).value=image[k];

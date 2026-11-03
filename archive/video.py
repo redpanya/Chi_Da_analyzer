@@ -14,6 +14,8 @@ from yt_dlp import YoutubeDL
 from .source import Cancelled, check_cancel, metadata, ydl_options
 from .storage import save_json, read_json, Conflict
 from . import media_timeline
+from .vod_extractor import extract_vod
+from .video_quality import media_directory
 
 
 def playlist(text):
@@ -118,8 +120,8 @@ def download(project, stop):
         raise ValueError('FFmpeg와 ffprobe 설치 경로를 확인한 뒤 다시 실행하세요')
     data = project.snapshot()
     vod, format_id = data['vod_id'], data['format_id']
-    media = project.path / 'media'
-    media.mkdir(exist_ok=True)
+    media = media_directory(project)
+    media.mkdir(parents=True, exist_ok=True)
     for item in media.iterdir():
         if item.is_symlink():
             raise Conflict('영상 폴더의 연결 파일은 덮어쓰지 않습니다')
@@ -145,7 +147,7 @@ def download(project, stop):
     offline = received_original(media, data)
     if not offline:
         with YoutubeDL(options) as downloader:
-            info = downloader.extract_info(f'https://chzzk.naver.com/video/{vod}', download=False)
+            info = extract_vod(downloader, vod)
             check_cancel(stop)
             if info.get('id') != vod or info.get('format_id') != format_id or info.get('has_drm'):
                 raise Conflict('선택한 영상·화질과 현재 제공 정보가 다릅니다')
@@ -243,4 +245,4 @@ def download(project, stop):
     project.update('video', state='complete', message='영상 수신과 전체 검사 완료 · '+
                    ('원본을 재생·음성 추출에 함께 사용합니다' if mode == 'original' else
                     '저장된 재생본의 패킷 보존 확인·복구 완료' if reused else '별도 재생용 MP4를 사용합니다'),
-                   verification=verification, assets={'original': 'media/original.mp4', 'playback': str(playback.relative_to(project.path))})
+                   verification=verification, assets={'original': str(original.relative_to(project.path)), 'playback': str(playback.relative_to(project.path))})

@@ -21,7 +21,7 @@ def transcribe(path, data, language, stop, lock, update, input_audio=None, raw_a
     raw_audio = raw_audio or audio
     if not audio:
         raise ValueError('음성을 먼저 추출하세요')
-    if audio['source'] != media.identity(media.source(path, data), path):
+    if audio['source'] != media.analysis_identity(path, data):
         raise ValueError('영상 입력이 변경됐습니다. 음성을 다시 추출하세요')
     audio_limits.duration(audio['duration_ms'])
     wav = media.local(path, audio['file'])
@@ -74,7 +74,7 @@ def transcribe(path, data, language, stop, lock, update, input_audio=None, raw_a
         else:
             raw = speech_recognition.recognize(binary,model_file,chunk,folder,index,end-start,language,vad_model,stop,lock,options,execution)
         rows = speech_quality.annotate(store.normalize(raw, start, end, index))
-        if audio['source'] != media.identity(media.source(path, data), path) or wav_identity != media.identity(wav, path):
+        if audio['source'] != media.analysis_identity(path, data) or wav_identity != media.identity(wav, path):
             raise ValueError('전사 중 영상 또는 추출 음성이 변경됐습니다. 입력을 다시 확인하세요')
         if metrics['digital_silence']:
             status = 'silence'

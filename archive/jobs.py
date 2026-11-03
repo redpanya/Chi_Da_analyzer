@@ -6,6 +6,7 @@ import time
 
 from . import analysis_store, chat, source, video, speech, speech_store, speech_media, speech_model
 from . import task_timing, local_import, speech_options, compute, download_scope
+from .video_replacement import ReplacementProject, transfer_tasks, cleanup
 from . import voices, voice_store, voice_models, deletion, context_job, context_input, model_paths, context_model
 from .storage import (Project, ProjectLock, Conflict, FINISHED, ACTIVE, create_or_load,
                       library, load_project, project_path, recover)
@@ -14,6 +15,7 @@ from .storage import (Project, ProjectLock, Conflict, FINISHED, ACTIVE, create_o
 class Job:
     def __init__(self, project, guard):
         self.project = project
+        self.work = ReplacementProject(project) if project.data.get('video_replacement') else project
         self.guard = guard
         self.stops, self.workers = {}, {}
         self.closed = False
@@ -26,8 +28,8 @@ class Job:
         started = []
         try:
             for kind in kinds:
-                self.project.update(kind, state='queued', message='작업을 준비하고 있습니다',
-                                    timing=task_timing.start(self.project.snapshot()['tasks'][kind], resume=True))
+                self.work.update(kind, state='queued', message='작업을 준비하고 있습니다',
+                                 timing=task_timing.start(self.work.snapshot()['tasks'][kind], resume=True))
                 self.stops[kind] = threading.Event()
                 self.workers[kind] = threading.Thread(target=self.run_one, args=(kind,), daemon=True)
             for kind in kinds:
@@ -42,12 +44,15 @@ class Job:
 
     def run_one(self, kind):
         try:
-            (video.download if kind == 'video' else chat.collect)(self.project, self.stops[kind])
+            if kind == 'video' and isinstance(self.work, ReplacementProject):
+                self.work.download(video.download,self.stops[kind])
+            else:
+                (video.download if kind == 'video' else chat.collect)(self.project,self.stops[kind])
         except Exception as error:
             paused = isinstance(error, source.Cancelled) or self.stops[kind].is_set()
             if not paused: error_log.record('download-'+kind,error,path=self.project.path)
             try:
-                self.project.update(kind, state='paused' if paused else 'error',
+                self.work.update(kind, state='paused' if paused else 'error',
                                     message='중단했습니다. 저장된 자료에서 이어받을 수 있습니다' if paused else source.safe_error(error))
             except OSError:
                 # 디스크까지 기록 불가하면 이전 진행 상태가 남으며 다음 열기에서 복구한다.
@@ -58,18 +63,25 @@ class Job:
             while True:
                 with self.guard:
                     if not any(worker.is_alive() for worker in self.workers.values()):
+                        if self.project.data.get('video_cleanup'):
+                            from .storage import save_json
+                            data = self.project.snapshot()
+                            if cleanup(self.project.path, data):
+                                save_json(self.project.path/'project.json', data)
+                                self.project.data = data
                         self.project.lock.close()
                         self.closed = True
                         break
                 threading.Event().wait(.1)
         finally:
             self.project.lock.close()
+            self.closed = True
 
     def cancel(self, kind):
         for target, stop in self.stops.items():
-            if kind in ('all', target) and self.project.snapshot()['tasks'][target]['state'] in ACTIVE:
+            if kind in ('all', target) and self.work.snapshot()['tasks'][target]['state'] in ACTIVE:
                 stop.set()
-                self.project.update(target, state='stopping', message='중단 요청을 받았습니다. 현재 자료를 보존하고 있습니다')
+                self.work.update(target, state='stopping', message='중단 요청을 받았습니다. 현재 자료를 보존하고 있습니다')
 
 
 class Manager:
@@ -233,7 +245,7 @@ class Manager:
                 if format_id != current['format_id']:
                     raise Conflict('진행 중인 VOD의 화질은 바꿀 수 없습니다')
                 kinds = [target for target in ('video', 'chat') if kind in ('all', target)
-                         and current['tasks'][target]['state'] not in ACTIVE | FINISHED]
+                         and transfer_tasks(current)[target]['state'] not in ACTIVE | FINISHED]
                 if not kinds:
                     raise Conflict('이미 진행 중이거나 완료된 작업입니다')
                 self.job.add(kinds)
@@ -253,7 +265,7 @@ class Manager:
                     if meta is None:
                         raise ValueError('먼저 VOD 정보를 확인하세요')
                 data = recover(path, create_or_load(path, meta, format_id))
-                kinds = [target for target in ('video', 'chat') if kind in ('all', target) and data['tasks'][target]['state'] not in FINISHED]
+                kinds = [target for target in ('video', 'chat') if kind in ('all', target) and transfer_tasks(data)[target]['state'] not in FINISHED]
                 if not kinds:
                     lock.close()
                     return self.view(root, vod)
@@ -414,8 +426,17 @@ class Manager:
 
     def speech_result(self, root, vod, query='', cursor=0):
         path = project_path(root, vod)
-        load_project(path, vod)
-        return speech_store.result(path, query, cursor)
+        data = load_project(path, vod)
+        result = speech_store.result(path, query, cursor)
+        if data.get('analysis_video') and result['run']:
+            from . import caption_sync
+            run = speech_store.manifest(path, {'run': result['run']})
+            if run:
+                sync = caption_sync.resolve(path, data, speech_store.audio_for_run(path, run))
+                for row in result['items']:
+                    row['video_start_ms'], row['video_end_ms'] = caption_sync.interval(row, sync)
+                result['sync_message'] = sync['message']
+        return result
 
     def speech_edit(self, root, vod, action, run=None, segment=None, text=None):
         path = project_path(root, vod)

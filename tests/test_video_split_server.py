@@ -43,6 +43,14 @@ class SplitServer(unittest.TestCase):
                 self.assertEqual(call('GET','split-audio?id='+token,{'Origin':'https://example.com'})[0],403)
                 self.assertEqual(call('GET','split-audio?id='+'4'*32)[0],404)
                 self.assertEqual(call('GET','split-audio?path='+str(audio))[0],404)
+                for extension, mime in (('.MOV', 'video/quicktime'), ('.mkv', 'video/x-matroska'),
+                                        ('.webm', 'video/webm'), ('.m4v', 'video/mp4'), ('.ogg', 'audio/ogg'),
+                                        ('.flac', 'audio/flac'), ('.mp3', 'audio/mpeg')):
+                    sample=root/('format'+extension);sample.write_bytes(b'0123456789')
+                    manager.splitter.sources[source]={'path':str(sample),'identity':identity(sample)}
+                    code,headers,data=call('GET','split-file?source='+source,{'Range':'bytes=2-5'})
+                    self.assertEqual((code,data),(206,b'2345'));self.assertEqual(headers['Content-Type'],mime)
+                manager.splitter.sources[source]={'path':str(file),'identity':identity(file)}
                 self.assertEqual(call('POST','api/split-delete',{'Origin':'https://example.com','Content-Type':'application/json'},json.dumps({'id':'a'*32,'token':'invalid'}))[0],403)
                 file.write_bytes(b'changed')
                 self.assertEqual(call('GET','split-file?source='+source)[0],404)

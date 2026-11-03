@@ -8,7 +8,7 @@ from .deletion import trash_path
 from .file_metadata import owned_metadata
 
 def owned(relative,outputs):
-    return relative in ('manifest.json','captions.json','join.ffconcat') or relative in outputs or re.fullmatch(r'(?:clip-\d{3}|joined|join|join-\d{3})[\w-]*\.(?:mp4|log|progress)',relative) or re.fullmatch(r'(?:clip-\d{3}|joined)-final-working-captions(?:/(?:[0-9a-f]{20}\.png|blank\.png|captions\.ffconcat))?',relative)
+    return relative in ('manifest.json','captions.json','join.ffconcat') or relative in outputs or re.fullmatch(r'(?:clip-\d{3}|joined|join|join-\d{3})[\w-]*\.(?:mp4|log|progress)',relative) or re.fullmatch(r'(?:clip-\d{3}|joined)-(?:final-)?working-captions(?:/(?:[0-9a-f]{20}\.png|blank\.png|captions\.ffconcat))?',relative) or re.fullmatch(r'joined-sidecars(?:/\d{1,3}\.(?:ass|srt))?',relative)
 
 def identity(file):
     s=file.stat();return [s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns]

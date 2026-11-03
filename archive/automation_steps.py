@@ -52,7 +52,7 @@ def check_inputs(path, data, settings, stage):
         raw = speech_store.state(path).get('raw_audio') or speech_store.state(path).get('audio')
         try:
             valid = (raw and not raw.get('separation_run') and raw.get('input_kind', 'original') == 'original'
-                     and raw['source'] == speech_media.identity(speech_media.source(path, data), path)
+                     and raw['source'] == speech_media.analysis_identity(path, data)
                      and speech_media.local(path, raw['file']).is_file())
         except (ValueError, OSError, KeyError):
             valid = False
@@ -97,7 +97,7 @@ def execute(queue, entry, stage):
     check_inputs(path, data, settings, stage)
     if stage == 'audio':
         raw = speech_store.state(path).get('raw_audio')
-        if raw and raw.get('source') == speech_media.identity(speech_media.source(path, data), path) and speech_media.local(path, raw['file']).is_file():
+        if raw and raw.get('source') == speech_media.analysis_identity(path, data) and speech_media.local(path, raw['file']).is_file():
             speech_media.validate_wav(speech_media.local(path, raw['file']), raw['duration_ms'], queue.stop)
             manager.reports.skipped(path, stage)
             return 'reused'

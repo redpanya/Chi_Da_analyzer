@@ -3,13 +3,14 @@ from urllib.parse import urlsplit
 from yt_dlp import YoutubeDL
 from .source import ydl_options, check_cancel
 from . import clip_render
+from .vod_extractor import extract_vod
 
 
 def receive(vod, start_ms, end_ms, target, stop, lock, update, *, height=480, format_id=None):
     check_cancel(stop)
     selector = format_id or f'best[height<={height}][vcodec!=none][acodec!=none]/best[height<={height}]'
     with YoutubeDL(ydl_options() | {'format':selector}) as ydl:
-        info = ydl.extract_info(f'https://chzzk.naver.com/video/{vod}', download=False)
+        info = extract_vod(ydl, vod)
     check_cancel(stop)
     url = info.get('url')
     if not isinstance(url, str) or urlsplit(url).scheme != 'https':

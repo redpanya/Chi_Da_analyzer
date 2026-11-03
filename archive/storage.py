@@ -172,8 +172,12 @@ def asset_path(path, relative):
 
 
 def recover(path, data):
-    changed = False
-    for task in data['tasks'].values():
+    from .video_replacement import cleanup
+    changed = cleanup(path, data)
+    tasks = list(data['tasks'].values())
+    if data.get('video_replacement'):
+        tasks.append(data['video_replacement']['task'])
+    for task in tasks:
         if task['state'] in ACTIVE:
             task.update(task_timing.interrupted(task))
             task.update(state='paused', message='이전 실행이 중단됐습니다. 저장된 자료에서 이어받을 수 있습니다')

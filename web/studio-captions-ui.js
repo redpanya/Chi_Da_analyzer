@@ -25,7 +25,8 @@ export function studioCaptions({api,identity,video,selection,onChange,onState,on
     const current=latest.begin(),version=select.value;loading=true;failed=false;rows=[];page=0;render();at();onState();
     $('caption-load-state').textContent=version?'선택한 전사 자막을 불러오는 중…':'자막 사용 안 함';
     try{const value=version?await api('studio-captions',{...identity(),selection:{transcript_run:version,speaker_run:null}}):{rows:[]};
-      if(!current()||version!==select.value)return;rows=value.rows;loaded=version;$('caption-load-state').textContent=version?`자막 준비됨 · ${select.selectedOptions[0].textContent} · ${rows.length}개`: '자막 사용 안 함';
+      if(!current()||version!==select.value)return;rows=value.rows;loaded=version;
+      $('caption-load-state').textContent=version?[`자막 준비됨 · ${select.selectedOptions[0].textContent} · ${rows.length}개`, value.sync_message].filter(Boolean).join(' · '):'자막 사용 안 함';
     }catch(e){if(!current())return;failed=true;$('caption-load-state').textContent='자막 불러오기 실패 · '+e.message;}
     finally{if(current()){loading=false;render();at();onState();}}
   }

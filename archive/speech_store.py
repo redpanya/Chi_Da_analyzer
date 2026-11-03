@@ -6,7 +6,7 @@ import json
 import math
 import uuid
 
-from .speech_media import local, identity, source
+from .speech_media import local, analysis_identity
 from .storage import read_json, save_json, stamp
 from . import task_timing, sam_options, roformer_config
 
@@ -69,7 +69,7 @@ def view(path, data, busy=False, owned=False):
     stale = False
     if audio:
         try:
-            stale = audio['source'] != identity(source(path, data), path) or not local(path, audio['file']).is_file()
+            stale = audio['source'] != analysis_identity(path, data) or not local(path, audio['file']).is_file()
         except (ValueError, OSError):
             stale = True
     run = manifest(path, value)

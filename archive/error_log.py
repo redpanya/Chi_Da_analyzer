@@ -123,7 +123,7 @@ def snapshot(*, export=False):
         fields = ('at','last_at','operation','vod_id','run','error_type','code','summary','frames','count')
         if not export: fields += ('message',)
         events = [{k:r.get(k) for k in fields} for r in rows]
-        return dict(schema=1, app_version='0.20.0', system=platform.system(), architecture=platform.machine(), created_at=stamp(), **config(), events=events)
+        return dict(schema=1, app_version='1.1.0', system=platform.system(), architecture=platform.machine(), created_at=stamp(), **config(), events=events)
 
 
 def install_hooks():

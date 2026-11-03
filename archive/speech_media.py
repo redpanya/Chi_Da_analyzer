@@ -9,6 +9,7 @@ import sys
 import uuid
 import wave
 
+from .video_replacement import logical_source
 from . import audio_limits
 from .source import Cancelled, check_cancel
 from .storage import asset_path, Conflict
@@ -42,6 +43,10 @@ def source(path, data):
     return asset_path(path, data['tasks']['video']['assets']['playback'])
 
 
+def analysis_identity(path, data):
+    return logical_source(data, identity(source(path, data), path))
+
+
 def info(path, data):
     file = source(path, data)
     value = probe(file)
@@ -54,7 +59,7 @@ def info(path, data):
                'language': s.get('tags', {}).get('language', '미지정'),
                'title': s.get('tags', {}).get('title', ''), 'start_seconds': float(s.get('start_time', origin)) - origin}
               for s in value['streams'] if s['codec_type'] == 'audio']
-    return {'source': identity(file, path), 'duration_ms': round(duration * 1000),
+    return {'source': logical_source(data, identity(file, path)), 'duration_ms': round(duration * 1000),
             'origin_seconds': origin, 'tracks': tracks, 'estimated_bytes': math.ceil(duration * RATE) * 2 + 44}
 
 
@@ -107,12 +112,13 @@ def extract(path, data, track, stop, lock, update):
              '-ac', '1', '-ar', str(RATE), '-c:a', 'pcm_s16le', str(part)],
             final.parent / 'extract.log', stop, lock)
     validate_wav(part, details['duration_ms'],stop)
-    if details['source'] != identity(source(path, data), path):
+    if details['source'] != analysis_identity(path, data):
         raise ValueError('추출 중 영상 파일이 변경됐습니다. 다시 확인하세요')
     check_cancel(stop)
     sha = digest(part,stop)
     part.replace(final)
-    return details | {'file': relative, 'track': track, 'sha256': sha}
+    return details | {'file': relative, 'track': track, 'sha256': sha,
+                      'playback_source': identity(source(path, data), path)}
 
 
 def chunk_audio(audio, target, start_ms, end_ms):

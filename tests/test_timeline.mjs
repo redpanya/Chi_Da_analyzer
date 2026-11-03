@@ -26,8 +26,8 @@ for(const length of [1800000,3600000,36000000,72000000])for(const center of [0,l
   assert(view.start>=0&&view.end<=length);
   assert.equal(timeAt(0,view),view.start);assert.equal(timeAt(1,view),view.end);
 }
-let strokes=0;
-const ctx={scale(){},fillRect(){},fillText(){},save(){},restore(){},beginPath(){},rect(){},clip(){},moveTo(){},lineTo(){},stroke(){strokes++;}};
+let strokes=0;const labels=[],rectangles=[];
+const ctx={scale(){},fillRect(...args){rectangles.push({color:this.fillStyle,args});},fillText(text){labels.push(text);},save(){},restore(){},beginPath(){},rect(){},clip(){},moveTo(){},lineTo(){},stroke(){strokes++;}};
 globalThis.devicePixelRatio=1;canvas.setAttribute=()=>{};canvas.getContext=()=>ctx;
 const longInfo={duration_ms:duration,chat_offset_ms:0,tracks:[],reactions:[],boundary_unverified:true,
   graph:Array.from({length:7200},(_,i)=>({start_ms:i*10000,end_ms:(i+1)*10000,messages:i%12,coverage:'known'}))};
@@ -35,3 +35,8 @@ timeline.set(longInfo,0,viewport(duration,duration/2,120000));
 assert(strokes<400);
 strokes=0;timeline.set(longInfo,0,viewport(duration,0,0));assert(strokes<50000);
 console.log('20시간 시간축의 확대 경계·클릭·가로 이동·키보드 탐색·화자 색 검사 통과');
+labels.length=0;rectangles.length=0;
+timeline.set({...longInfo,boundary_unverified:false,graph:[],clips:[{start_ms:1000,end_ms:3000}],tracks:[{start_ms:0,end_ms:6000,status:'failed'}]},0,{start:0,end:10000});
+assert(labels.includes('AI 클립 후보'));assert(!labels.includes('발언·화자'));assert(!labels.includes('인식 실패'));
+assert.equal(rectangles.filter(r=>r.color==='#9779c9').length,1);assert(!rectangles.some(r=>r.color==='#f4a47d'));
+console.log('AI 클립 후보 막대와 발언·인식 실패 표시 제거 검사 통과');

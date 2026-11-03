@@ -1,4 +1,4 @@
-"""분할 오디오 선택 계약과 세션 전용 무압축 미리듣기 캐시."""
+"""분할 오디오 선택 계약과 세션 전용 스트림 복사 미리듣기 캐시."""
 from collections import OrderedDict
 from contextlib import contextmanager
 import math
@@ -8,6 +8,7 @@ import threading
 import uuid
 from . import split_contract as contract
 from .source import check_cancel
+from .split_formats import AUDIO_PREVIEWS
 
 
 def selection(source, value=None):
@@ -45,7 +46,7 @@ def mapping(source, value=None):
 
 
 class Preview:
-    """현재 시각 주변 AAC만 복사한다. 원본 경로나 임의 파일을 GET에 노출하지 않는다."""
+    """현재 시각 주변 선택 오디오만 복사한다. 원본 경로를 GET에 노출하지 않는다."""
     def __init__(self):
         self.guard = threading.Lock()
         self.stop = threading.Event()
@@ -81,6 +82,10 @@ class Preview:
     def prepare(self, source_id, source, track, at):
         from . import split_media as media
         selection(source, {'mode': 'selected', 'tracks': [track]})
+        codec = next(s['codec_name'] for s in source['streams'] if s['index'] == track)
+        extension = AUDIO_PREVIEWS.get(codec)
+        if not extension:
+            raise ValueError(f'{codec.upper()}는 브라우저 미리듣기를 지원하지 않습니다. 분할 저장에는 그대로 유지할 수 있습니다')
         if type(at) not in (int, float) or not math.isfinite(at) or not 0 <= at < source['duration']:
             raise ValueError('원본 범위 안의 미리보기 시각을 선택하세요')
         with self.guard:
@@ -95,16 +100,17 @@ class Preview:
             if self.temp is None:
                 self.temp = tempfile.TemporaryDirectory(prefix='chida-split-audio-', ignore_cleanup_errors=True)
             token = uuid.uuid4().hex
-            file = Path(self.temp.name) / (token + '.m4a')
+            file = Path(self.temp.name) / (token + extension)
             end = min(start + 60, source['duration'])
             try:
                 media.capture(['ffmpeg', '-v', 'error', '-nostdin', '-n', '-ss', str(start),
                     *media.input_args(path), '-t', str(end-start), '-map', f'0:{track}',
                     '-c', 'copy', '-map_metadata', '-1', '-map_chapters', '-1',
-                    '-movflags', '+faststart', str(file)], self.stop)
+                    *(['-movflags', '+faststart'] if extension == '.m4a' else []), str(file)], self.stop)
                 data = media.probe(file, self.stop)
                 output = data.get('streams', [])
-                if len(output) != 1 or output[0].get('codec_name') != 'aac' or not output[0].get('duration'):
+                if len(output) != 1 or output[0].get('codec_name') != codec or not (
+                        float(output[0].get('duration', data.get('format', {}).get('duration', 0))) > 0):
                     raise ValueError('이 시각에 재생할 오디오가 없습니다. 다른 시각을 선택하세요')
                 contract.unchanged(source)
                 check_cancel(self.stop)

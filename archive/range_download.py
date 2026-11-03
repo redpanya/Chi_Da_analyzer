@@ -3,6 +3,7 @@ import hashlib
 import uuid
 from . import download_scope, remote_media, clip_render, media_timeline
 from .source import check_cancel
+from .video_quality import media_directory
 from .storage import Conflict, save_json
 
 
@@ -10,10 +11,8 @@ def download(project, stop):
     data = project.snapshot(); scope = download_scope.bounds(data)
     if scope is None:
         raise ValueError('구간 다운로드 설정이 없습니다')
-    folder = project.path/'media'
-    if folder.is_symlink():
-        raise Conflict('영상 폴더에 연결 경로를 사용할 수 없습니다')
-    folder.mkdir(exist_ok=True)
+    folder = media_directory(project)
+    folder.mkdir(parents=True, exist_ok=True)
     target = folder/'range.mp4'
     if target.is_symlink():
         raise Conflict('기존 연결 파일은 덮어쓰지 않습니다')
@@ -42,5 +41,5 @@ def download(project, stop):
     save_json(folder/'probe.json', clip_render.probe(target))
     save_json(folder/'range-verification.json', proof)
     project.update('video', state='complete', message='지정 구간 영상 다운로드·전체 검사 완료', verification=proof,
-                   assets={'original':'media/range.mp4','playback':'media/range.mp4'},
+                   assets=dict.fromkeys(('original','playback'),str(target.relative_to(project.path))),
                    progress={'percent':100, 'downloaded_bytes':target.stat().st_size, 'total_bytes':target.stat().st_size})

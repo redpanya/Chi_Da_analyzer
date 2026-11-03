@@ -52,6 +52,7 @@ function controls(){
 function setSource(id,value,audioSelection=null){
   sourceId=id;source=value;$('split-workspace').hidden=false;$('split-path').value=value.path;
   $('split-source-info').textContent=`${value.name} · ${clock(value.duration)} · ${value.width}×${value.height} · ${value.fps.toFixed(2)}fps · ${(value.identity.bytes/1024**3).toFixed(2)}GiB · 오디오 ${value.audio_count}개`;
+  $('split-format-note').textContent=value.preview_note||'MP4 · H.264 · 미리보기 지원은 브라우저에 따라 다릅니다.';
   splitAudio.reset(id,value,audioSelection);
   video.pause();video.src='split-file?'+new URLSearchParams({source:id});video.load();
   $('split-folder').value=value.path.replace(/[/\\][^/\\]+$/,'')||'/';
@@ -92,7 +93,7 @@ window.addEventListener('resize',draw);
 video.addEventListener('timeupdate',()=>{$('split-clock').textContent=clock(video.currentTime);draw();});
 video.addEventListener('play',()=>$('split-play').textContent='일시정지');video.addEventListener('pause',()=>$('split-play').textContent='재생');
 video.addEventListener('error',()=>{$('split-preview-note').textContent='브라우저에서 미리보기를 재생하지 못했습니다. 파일 검사 결과와는 별개이며, 시각을 직접 입력해 분할할 수 있습니다.';});
-$('split-play').onclick=()=>{if(video.paused)video.play().catch(error);else video.pause();};
+$('split-play').onclick=()=>{if(video.paused)video.play().catch(e=>{if(e.name!=='AbortError')error(e);});else video.pause();};
 $('split-back').onclick=()=>seek(video.currentTime-3);$('split-forward').onclick=()=>seek(video.currentTime+3);
 $('split-seek-form').onsubmit=e=>{e.preventDefault();try{seek(parseTime($('split-seek-time').value));}catch(e){error(e);}};
 $('split-time').addEventListener('input',()=>edits.changed());

@@ -296,6 +296,9 @@ class Automation:
                 outcomes = {}
                 stage = ''
                 try:
+                    from .video_quality import sync_item
+                    # 프로젝트 저장 직후 종료된 경우에도 예전 화질로 다시 시작하지 않는다.
+                    sync_item(entry, load_project(path, entry['vod']))
                     stages = automation_plan.sequence(entry['options'])
                     for stage in stages:
                         if self.stop.is_set():

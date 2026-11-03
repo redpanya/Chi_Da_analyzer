@@ -153,6 +153,9 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     result = manager.view(data['root'], data['vod_id'])
                 elif action == '/api/start':
                     result = manager.start(data['root'], data['vod_id'], data['format_id'], data['kind'])
+                elif action == '/api/video-quality':
+                    from .video_quality import change
+                    result = change(manager, data['root'], data['vod_id'], data['expected'], data['format_id'], data.get('existing'))
                 elif action == '/api/stop':
                     result = manager.stop(data['root'], data['vod_id'], data['kind'])
                 elif action == '/api/analyze':
@@ -162,7 +165,7 @@ def make_server(manager, port=0, *, annotation_preview=False):
                 elif action.startswith('/api/clips-'):
                     self.reply(410, {'error':'구간 저장은 제거된 기능입니다. 화면을 새로고침하세요'});return
                 elif action == '/api/explore-info':
-                    result = explore.info(data['root'], data['vod_id'], data.get('chat_offset_ms', 0))
+                    result = explore.info(data['root'], data['vod_id'], data.get('chat_offset_ms', 0), data.get('clip_run'))
                 elif action == '/api/explore-search':
                     result = explore.search(data['root'], data['vod_id'], **{k: v for k, v in data.items() if k not in ('root', 'vod_id')})
                 elif action == '/api/chats':
@@ -252,6 +255,8 @@ def make_server(manager, port=0, *, annotation_preview=False):
                      '/app.js': ('app.js', 'text/javascript; charset=utf-8')}
             files.update({f'/patterns/pattern-{i:02}.webp': (f'patterns/pattern-{i:02}.webp', 'image/webp')
                           for i in range(1, 9)})
+            files.update({f'/icons/chida-{size}.png': (f'icons/chida-{size}.png', 'image/png')
+                          for size in (16, 32, 64)})
             files.update({f'/clip-studio.{ext}': (f'clip-studio.{ext}', mime)
                           for ext, mime in [('html', 'text/html; charset=utf-8'),
                                             ('css', 'text/css; charset=utf-8'),
@@ -263,14 +268,14 @@ def make_server(manager, port=0, *, annotation_preview=False):
             files['/video-split-model.js'] = ('video-split-model.js', 'text/javascript; charset=utf-8')
             files['/video-split-delete.js'] = ('video-split-delete.js', 'text/javascript; charset=utf-8')
             files['/video-split-audio.js'] = ('video-split-audio.js', 'text/javascript; charset=utf-8')
-            for name in ('error-capture','error-log-ui','studio-frame-validation','clip-studio-tools','clip-studio-preview','studio-decorations','studio-fonts-ui','studio-inspector', 'studio-caption-size','studio-caption-design','studio-caption-templates','studio-image-editor','studio-image-geometry','page-lifecycle','edit-session','studio-captions-ui','studio-export-check','result-browser','reaction-times','studio-history'):
+            for name in ('error-capture','error-log-ui','studio-frame-validation','studio-profiles','clip-studio-tools','clip-studio-preview','studio-decorations','studio-fonts-ui','studio-inspector', 'studio-caption-size','studio-caption-design','studio-caption-templates','studio-image-editor','studio-image-geometry','page-lifecycle','edit-session','studio-captions-ui','studio-export-check','result-browser','reaction-times','studio-history'):
                 files[f'/{name}.js'] = (f'{name}.js', 'text/javascript; charset=utf-8')
             files['/clip-studio-model.js'] = ('clip-studio-model.js', 'text/javascript; charset=utf-8')
             files['/analysis-scope-preview.js'] = ('analysis-scope-preview.js', 'text/javascript; charset=utf-8')
             files['/context-clips.js']=('context-clips.js','text/javascript; charset=utf-8')
             files['/context-clip-evidence.js']=('context-clip-evidence.js','text/javascript; charset=utf-8')
             files.update({f'/{name}.js': (f'{name}.js', 'text/javascript; charset=utf-8')
-                          for name in ('preview-toast', 'mini-player', 'workspace-layout', 'workspace-status', 'settings-panel', 'version-picker', 'context-clip-controls', 'queue', 'queue-saved', 'queue-options', 'vod-label', 'reports', 'help', 'help-content', 'voice-model-help', 'voice-tool-status', 'voice-tabs', 'context-background', 'context-inputs', 'context-external', 'context-fallback', 'reactions', 'player', 'speech', 'voices', 'voice-review', 'voice-suggestions', 'explore', 'timeline', 'context', 'project-delete', 'folders', 'compute', 'task-timing', 'audio-preview', 'context-reactions', 'context-copy', 'context-comment-model', 'context-comment-time', 'player-sequence', 'context-tree', 'context-interpretations')})
+                          for name in ('video-quality', 'preview-toast', 'mini-player', 'workspace-layout', 'workspace-status', 'settings-panel', 'version-picker', 'context-clip-controls', 'queue', 'queue-saved', 'queue-options', 'vod-label', 'reports', 'help', 'help-content', 'voice-model-help', 'voice-tool-status', 'voice-tabs', 'context-background', 'context-inputs', 'context-external', 'context-fallback', 'reactions', 'player', 'speech', 'voices', 'voice-review', 'voice-suggestions', 'explore', 'timeline', 'context', 'project-delete', 'folders', 'compute', 'task-timing', 'audio-preview', 'context-reactions', 'context-copy', 'context-comment-model', 'context-comment-time', 'player-sequence', 'context-tree', 'context-interpretations')})
             if path in files:
                 filename, mime = files[path]
                 content = (WEB / filename).read_bytes()
@@ -286,7 +291,12 @@ def make_server(manager, port=0, *, annotation_preview=False):
                 query = parse_qs(urlsplit(self.path).query)
                 root, vod, kind, key = (query[name][0] for name in ('root', 'vod_id', 'kind', 'key'))
                 data = manager.view(root, vod)
-                if kind == 'studio':
+                if kind == 'saved-video':
+                    version = next((v for v in data.get('saved_video_versions', []) if v['id']==query.get('version',[''])[0]), None)
+                    if not version or key not in ('original','playback'):
+                        raise ValueError('보존된 영상 파일을 찾을 수 없습니다')
+                    target = asset_path(project_path(root,vod),version['assets'][key])
+                elif kind == 'studio':
                     target = manager.studio.file(project_path(root, vod), query['run'][0], key)
                 elif kind == 'voices':
                     from .storage import read_json
@@ -305,6 +315,8 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     task = data['tasks'][kind]
                     if kind == 'video' and task['state'] != 'complete':
                         raise ValueError('영상 검사가 완료되지 않았습니다')
+                    if kind == 'video' and query.get('version',[data.get('video_generation','original')])[0] != data.get('video_generation','original'):
+                        raise ValueError('재생 영상이 교체되었습니다. 새로고침하세요')
                     target = asset_path(project_path(root, vod), task['assets'][key])
                 self.send_file(target, body, download=(key not in ('playback', 'audio', 'sam') and not (kind == 'voices' and key in ('original','vocals','background'))))
             except (ValueError, KeyError, OSError) as error:
@@ -323,7 +335,10 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     self.send_header('Content-Length', '0')
                     self.end_headers()
                     return
-                mime = {'.mp4': 'video/mp4', '.m4a': 'audio/mp4', '.wav': 'audio/wav'}.get(path.suffix, 'application/octet-stream')
+                mime = {'.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime',
+                        '.mkv': 'video/x-matroska', '.webm': 'video/webm', '.m4a': 'audio/mp4',
+                        '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg',
+                        '.flac': 'audio/flac'}.get(path.suffix.lower(), 'application/octet-stream')
                 self.send_headers(206 if requested else 200, mime, end - start + 1)
                 self.send_header('Accept-Ranges', 'bytes')
                 if requested:

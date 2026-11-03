@@ -10,11 +10,13 @@ from . import processes, split_contract as contract, split_media as media
 from .source import check_cancel
 from .split_storage import check_volume
 from . import split_audio
+from .split_formats import output
 
 
 def render(work):
     value = work.value
     source, plan = value['source'], value['plan']
+    extension, muxer = output(source)
     src = contract.unchanged(source)
     folder = contract.local_path(value['folder'], directory=True)
     if (folder.stat().st_dev, folder.stat().st_ino) != tuple(value['folder_identity']):
@@ -30,17 +32,20 @@ def render(work):
     attempt = Path(tempfile.mkdtemp(prefix='.split-', dir=folder))
     listing, progress, log = attempt/'closed.csv', attempt/'progress.txt', work.file.parent/'ffmpeg.log'
     video_start = float(next(s for s in source['streams'] if s['codec_type'] == 'video').get('start_time', 0)) - source['origin']
+    video_tag = next(s for s in source['streams'] if s['codec_type'] == 'video').get('codec_tag_string')
+    # hvc1은 일부 브라우저의 HEVC 재생에 필요하다. 같은 MOV 계열 안에서 원래 태그를 유지한다.
+    tags = ['-tag:v:0', video_tag] if muxer in ('mov', 'mp4') and video_tag in ('hvc1', 'hev1', 'avc1', 'av01', 'vp09') else []
     args = ['ffmpeg', '-hide_banner', '-v', 'warning', '-nostdin', '-n', '-copyts', '-start_at_zero',
             *media.input_args(src), *split_audio.mapping(source, value.get('audio_selection')),
             '-map_metadata', '0', '-map_chapters', '-1',
-            '-c', 'copy', '-avoid_negative_ts', 'disabled', '-f', 'segment',
+            '-c', 'copy', *tags, '-avoid_negative_ts', 'disabled', '-f', 'segment',
             # segment muxer의 분할 시각은 기준 영상의 첫 PTS부터 센다. 오디오 선행분을 보존한다.
             '-reference_stream', 'v:0', '-segment_times', ','.join(f'{c["actual"]-video_start:.6f}' for c in plan['cuts']),
             # PTS가 영상 시간 단위로 반올림돼 경계보다 수십 μs 앞서는 경우 같은 키프레임을 유지한다.
             '-segment_time_delta', str(.5/source['fps']),
-            '-reset_timestamps', '1', '-break_non_keyframes', '0', '-segment_format', 'mp4',
+            '-reset_timestamps', '1', '-break_non_keyframes', '0', '-segment_format', muxer,
             '-segment_format_options', 'avoid_negative_ts=disabled', '-segment_list_type', 'csv',
-            '-segment_list', str(listing), '-progress', str(progress), str(attempt/'part-%03d.mp4')]
+            '-segment_list', str(listing), '-progress', str(progress), str(attempt/f'part-%03d{extension}')]
     processed = set()
     work.update(message='재인코딩 없이 선택한 트랙 분할 저장 중', command=args, progress=0)
 
@@ -51,7 +56,7 @@ def render(work):
         for index, row in enumerate(rows):
             if index in processed or len(row) != 3:
                 continue
-            if index >= len(plan['parts']) or row[0] != f'part-{index:03d}.mp4':
+            if index >= len(plan['parts']) or row[0] != f'part-{index:03d}{extension}':
                 raise ValueError('분할 도구의 출력 목록이 계획과 다릅니다')
             part = plan['parts'][index]
             if abs(float(row[1])-part['start']) > .05:
