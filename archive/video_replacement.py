@@ -71,9 +71,10 @@ def cleanup(path, data):
                 return False
     except (KeyError, OSError, ValueError):
         return False
-    reserved = set(active['assets'].values())
+    # 과거 JSON의 '/'와 Windows의 '\'도 같은 재생 파일을 가리킨다.
+    reserved = {path / relative for relative in active['assets'].values()}
     for version in data.get('saved_video_versions', []):
-        reserved.update(version['assets'].values())
+        reserved.update(path / relative for relative in version['assets'].values())
     remaining = []
     for info in pending:
         try:
@@ -81,7 +82,7 @@ def cleanup(path, data):
             file = _owned_media(path, relative)
             if not file.exists():
                 continue
-            if relative in reserved or _file_info(path, relative) != info:
+            if file in reserved or _file_info(path, relative) != info:
                 raise Conflict('파일이 변경되어 삭제를 보류합니다')
             file.unlink()
         except (OSError, ValueError):

@@ -127,10 +127,16 @@ class ReplacementTests(unittest.TestCase):
             s=file.stat()
             return dict(file=str(file.relative_to(self.path)),bytes=s.st_size,mtime_ns=s.st_mtime_ns)
         data['tasks']['video']['verification']['files']={'playback':mark(self.old),'original':mark(self.original)}
+        # 과거 JSON의 표기와 현재 OS에서 만든 정리 경로가 달라도 활성 파일을 보호한다.
+        data['tasks']['video']['assets']['playback']='media/./playback.mp4'
+        kept=self.path/'media/playback-00000000000000000000000000000000.mp4'
+        kept.write_bytes(b'previous')
+        data['saved_video_versions']=[{'assets':{'playback':'media/./'+kept.name}}]
         data['video_cleanup']=[mark(extra),mark(copy),mark(self.old),mark(self.path/'project.json')]
+        data['video_cleanup'].append(mark(kept))
         extra.write_bytes(b'different')
         self.assertFalse(video_replacement.cleanup(self.path,data))
-        self.assertTrue(extra.exists() and copy.is_symlink() and self.old.exists())
+        self.assertTrue(extra.exists() and copy.is_symlink() and self.old.exists() and kept.exists())
 
     def test_cleanup_after_restart_requires_intact_new_files(self):
         with patch('archive.jobs.cleanup',return_value=False), patch.object(video_replacement,'cleanup',return_value=False):
