@@ -68,7 +68,10 @@ await clipButton.onclick();assert.equal(calls.at(-1).action,'studio-transcript-a
 assert.equal(calls.at(-1).data.run,'선택 전사');assert.equal(calls.at(-1).data.segment,'발언1');
 assert.match($('transcript-rows').children[0].children.at(-1).textContent,/전체 2개/);
 const together=actions.find(n=>n.textContent==='해당 영상보기');
-together.onclick();assert.equal(preview,items[0]);
+together.onclick();assert.deepEqual(preview,items[0]);
+items[0].video_start_ms=200;items[0].video_end_ms=2200;
+together.onclick();assert.equal(preview.start_ms,200);assert.equal(preview.end_ms,2200);
+assert.equal(items[0].start_ms,1000);assert.equal(items[0].end_ms,3000);
 preview=null;project={...project,speech:{...project.speech,stale:true}};view.setProject(project);together.onclick();
 assert.equal(preview,null);assert.match($('speech-notice').textContent,/이전 입력/);
 const callCount=calls.length;await clipButton.onclick();assert.equal(calls.length,callCount);
