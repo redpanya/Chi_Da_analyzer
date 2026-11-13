@@ -117,7 +117,6 @@ dialog{border:1px solid var(--line);border-radius:12px;max-width:480px;padding:2
 dialog::backdrop{background:#0006}
 .dialog-heading{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:14px}
 .dialog-heading h2{font-size:17px}
-#help-content p{font-size:13px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}
 }
 
@@ -173,7 +172,6 @@ input[type=hidden]{display:none!important}
 #inspector-alert{padding:8px 14px;border-top:1px solid #e6b5a5;max-height:110px;overflow:auto;background:#fff5ef;font-size:11px;color:#9c3217}
 #inspector-alert p{margin:0 0 5px}#inspector-alert button{font-size:11px;min-height:26px;padding:3px 8px}
 .inspector-bottom{flex-wrap:wrap;padding:10px 14px}.inspector-bottom #studio-save-state{flex:1 1 100%}
-#inspector-help-content{font-size:12px;line-height:1.8}
 
 .caption-edit-row{margin:14px 0}.caption-time{font:11px ui-monospace,monospace;min-height:30px;padding:5px 8px;margin-bottom:6px}
 .caption-size-controls{display:grid;grid-template-columns:minmax(0,1fr) 76px;gap:10px;align-items:center}

@@ -58,7 +58,6 @@ body.step-workspace>main{grid-column:4;grid-row:1;min-width:0;width:100%;max-wid
 :root[data-theme] .step-workspace .library-card:hover{background:var(--ds-surface)}
 :root[data-theme] .step-workspace .flow-card{background:var(--ds-card);border-color:var(--ds-line)}
 :root[data-theme] .step-workspace .flow-card:hover{background:var(--ds-raised);border-color:var(--ds-accent)}
-.step-workspace[data-use-page] main>header .help-button{display:none}
 
 /* 승인 미리보기의 정보 위계: 목록 → 선택한 자료 → 필요한 설정. */
 :root[data-theme] body.step-workspace{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:14px;line-height:1.55}

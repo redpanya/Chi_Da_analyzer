@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import {createSpeech} from '../web/speech.js';
-import {getHelpContent} from '../web/help-content.js';
 
 const nodes = new Map();
 function node() {
@@ -38,14 +37,14 @@ view.setProject(project);await settle();
 assert.equal($('transcribe').disabled,false);
 assert.equal($('speech-vad').value,'standard');
 $('speech-vad').value='sensitive';$('speech-vad').onchange();
-$('speech-prompt').value='사용자 용어';assert.match(getHelpContent('speech-options',id=>$(id).value).current,/sensitive/);
+$('speech-prompt').value='사용자 용어';
 project={...project,speech:{...project.speech,updated_at:'폴링'}};view.setProject(project);
 assert.equal($('speech-vad').value,'sensitive');assert.equal($('speech-prompt').value,'사용자 용어');
 await $('transcribe').onclick();
 assert.equal(calls.at(-1).data.input_kind,'original');
 assert.deepEqual(calls.at(-1).data.asr_options,{vad:'sensitive',prompt:'사용자 용어'});
 assert.equal(calls.at(-1).data.sam_profile,undefined);
-$('speech-vad').value='off';$('speech-vad').onchange();assert.match(getHelpContent('speech-options',id=>$(id).value).current,/off/);
+$('speech-vad').value='off';$('speech-vad').onchange();
 view.setProject({...project,locked:true});assert.equal($('speech-vad').disabled,true);assert.equal($('speech-prompt').disabled,true);
 project={...project,path:'/검증/vod-2',speech:{...project.speech,options:{asr_options:{vad:'off',prompt:'다른 자료'}}}};
 view.setProject(project);await settle();

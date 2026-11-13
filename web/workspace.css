@@ -79,7 +79,6 @@
 }
 .result-first a:not(.brand){display:inline-flex;align-items:center;min-height:36px;margin:3px 4px 3px 0;max-width:100%;overflow-wrap:anywhere}
 .result-first summary{width:fit-content;max-width:100%;min-height:36px;cursor:pointer}
-.result-first .help-details>details>summary{max-width:calc(100% - 36px)}
 .result-first .context-comment-row{grid-template-columns:96px minmax(0,1fr) 32px 32px}
 .context-comment-row .comment-time-edit{grid-column:3;grid-row:1;padding:4px!important;font-size:18px!important}
 .context-comment-row .comment-remove{grid-column:4;grid-row:1}
@@ -140,7 +139,7 @@
 .settings-body .speech-steps label{margin-top:10px}.settings-body .speech-steps button{margin-top:8px}
 .settings-body .context-inputs{border:0;padding:0}.settings-body .context-inputs legend{padding:0}
 .settings-body #voices-setup{padding:0;border:0}.settings-body #voices-setup>summary{display:none}
-.settings-body .help-details{margin:12px 0}.settings-body .play-actions:empty{display:none}
+.settings-body .play-actions:empty{display:none}
 .settings-footer{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;padding:12px 20px;border-top:1px solid var(--line);background:#fff;flex:none}
 .settings-footer button{white-space:normal}.settings-notice{white-space:pre-wrap;overflow-wrap:anywhere;max-height:18dvh;overflow:auto;padding:0 20px;color:var(--muted);font-size:13px}
 .settings-notice:empty{display:none}.settings-help:focus-visible{outline:2px solid var(--green);outline-offset:-4px}
@@ -156,7 +155,6 @@
 .result-first main>header{padding:8px 16px}
 .result-first main>header .play-actions{margin:0}
 .result-first .workspace-subtitle{margin:2px 0 0;line-height:1.4}
-.result-first .help-button{min-height:32px}
 .result-first .context-section{padding-top:16px}
 /* 짧은 개발 안내는 문서 흐름을 밀지 않는다. */
 .preview-toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 32px);padding:6px 12px;background:#fff6e8;border:1px solid #e8d6b6;border-radius:8px;color:#6a4a17;box-shadow:0 4px 18px #0002;font-size:12px}

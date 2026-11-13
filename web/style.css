@@ -65,23 +65,10 @@ header>div,.settings-grid>*,.speech-steps>*,.voice-cards>*,.stem-audio-grid>*{mi
 .voice-card audio,.stem-audio-grid audio{min-width:0}
 #context-model,#speech-model,#speech-source,.task-message,.detail,[role=status]{overflow-wrap:anywhere}
 
-/* 제목 옆 도움말. summary와 버튼은 서로 형제인 영역에 둔다. */
+/* 제목의 기본 정렬 */
 .help-heading{display:flex;align-items:center;gap:6px;min-width:0}
 .help-heading>h1,.help-heading>h2,.help-heading>h3{min-width:0;overflow-wrap:anywhere}
-.help-button{display:inline-grid;place-items:center;flex-shrink:0;width:32px;height:32px;padding:0;background:transparent;border:1px solid transparent;font-size:16px;line-height:1}
-.help-button:hover{background:#FFF1E8;border-color:#ECD2C3}
-.help-details{position:relative;margin:12px 0}
-.help-details:has(.voice-editor){margin:24px 0}
-.help-details>details{margin:0}.help-details>details>summary{padding-right:38px;min-height:24px}
-.help-details>.help-button{position:absolute;top:10px;right:10px}
-.help-dialog{width:calc(100vw - 32px);max-width:600px;max-height:min(85dvh,calc(100dvh - 32px));padding:0;overflow:hidden}
-.help-dialog[open]{display:flex;flex-direction:column}
-.help-dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line);flex-shrink:0}
-.help-dialog-heading h2{margin:0;font-size:18px;overflow-wrap:anywhere}
-.help-dialog-heading button{flex-shrink:0;min-height:40px}
-.help-body{min-height:0;overflow:auto;overscroll-behavior:contain;padding:4px 20px 20px;font-size:14px;line-height:1.8;overflow-wrap:anywhere}
-.help-body:focus-visible{outline:2px solid var(--green);outline-offset:-4px}
-.help-current{border-left:3px solid var(--green);padding:10px 12px;background:#FFF1E8}
+
 
 /* 처리 내역은 진행 영역에, 목록에는 반응지수 필터만 둔다. */
 .context-log>#context-overview{max-height:320px;overflow:auto;scrollbar-gutter:stable}
@@ -106,7 +93,7 @@ button{touch-action:manipulation;user-select:none;-webkit-user-select:none}butto
 .review-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:14px 0 10px;position:sticky;top:0;background:white;z-index:1}.review-tabs button{background:transparent;color:var(--muted);border-radius:0;border-bottom:2px solid transparent}.review-tabs button[aria-selected=true]{color:#B7481F;border-bottom-color:#B7481F}
 .voice-cards{display:block;margin:10px 0}.voice-card{display:grid;grid-template-columns:minmax(150px,1fr) minmax(120px,1fr) auto auto;gap:8px;align-items:center;padding:10px 0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:white}.voice-card h4{font-size:14px}.voice-card .hint{grid-column:1;grid-row:2;margin:0}.voice-card input{grid-column:2;grid-row:1 / span 2;margin:0}.voice-card button{grid-row:1 / span 2}.voice-card input{min-width:0}.voice-editor{margin:12px 0;padding:12px}.voice-failed-section{margin:0;padding:0;border:0}
 #voice-rows,#voice-failed-rows,#voice-cards{max-height:62dvh;overflow:auto;scrollbar-gutter:stable;overscroll-behavior:contain}.voice-failed-row h4{margin:4px 0}.voice-failed-row .play-actions{margin:6px 0}
-#voices-setup{padding:10px 12px}.speech-steps{gap:14px}.speech-steps>article{padding:12px}.speech-steps label{margin-top:10px}.help-details:has(.voice-editor){margin:12px 0}
+#voices-setup{padding:10px 12px}.speech-steps{gap:14px}.speech-steps>article{padding:12px}.speech-steps label{margin-top:10px}
 .unified-top{display:block}#explore-video video{display:block;margin:0 auto;max-height:clamp(180px,40dvh,420px)}.unified-timeline{margin:10px 0;padding:10px 0;border:0}.timeline-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.timeline-toolbar h3{margin-right:auto}.timeline-toolbar .inline-check{margin:0}.timeline-toolbar select{width:110px}#unified-graph{display:block;width:100%;height:214px;touch-action:none;cursor:crosshair}#unified-graph:focus-visible{outline:2px solid var(--green)}#explore-position{margin:8px 0;padding:0;height:24px;min-height:24px}
 .background-form{margin:12px 0;padding:12px 0;border-bottom:1px solid var(--line)}textarea{font-family:inherit;font-size:14px;line-height:1.5;color:inherit}.background-form textarea{width:100%;resize:vertical;padding:8px 10px;border:1px solid #CEC8C0;border-radius:6px;font:14px/1.5 sans-serif}.context-workspace{gap:14px}.context-section article{padding:10px 12px;margin:6px 0}.context-section details{padding:10px;margin:8px 0}.context-item .context-check{padding:0;margin:0 0 4px}.context-reaction-index{display:inline;font-size:12px;margin-left:8px}.context-preview{max-height:calc(100dvh - 24px)}.context-comment{margin-top:12px;padding-top:10px}#context-result h4{font-size:13px;margin:8px 0 4px}.context-reference{border-left:3px solid #DBB49D;padding-left:10px}.context-reference button{font-size:12px}.queue-url{display:flex;flex-wrap:wrap}.queue-background{flex:0 0 100%;margin-left:28px;max-width:calc(100% - 28px);border:1px solid #CEC8C0;border-radius:5px;padding:6px 10px;resize:vertical;font:13px/1.5 sans-serif}
 

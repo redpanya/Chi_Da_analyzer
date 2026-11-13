@@ -101,7 +101,7 @@
 :root[data-theme] .result-first button.danger,
 :root[data-theme] :is(button.danger,.danger,#speech-delete,#voices-delete) {background:var(--ds-danger-bg);color:var(--ds-danger);border-color:var(--ds-danger);}
 :root[data-theme] :is(button.danger):not(:disabled):hover {background:var(--ds-danger);color:var(--ds-bg);}
-:root[data-theme] :is(.help,.help-button,.text-button) {background:transparent;border-color:transparent;}
+:root[data-theme] :is(.help,.text-button) {background:transparent;border-color:transparent;}
 :root[data-theme] :is(.task,.workspace-job,.status-box,.voice-editor,.voice-group-review,.context-independent,.inline-note,.split-audio-preview,#split-timeline,#local-file-fields,.work-card,.work-detail,.settings-section) {
   background:var(--ds-surface-soft);color:var(--ds-text);border-color:var(--ds-line);
 }
@@ -131,7 +131,7 @@
 :root[data-theme] :is(.badge) {background:var(--ds-surface-soft);border-color:var(--ds-line);color:var(--ds-muted);}
 :root[data-theme] :is(.badge[data-state=error],.badge[data-state=failed]) {color:var(--ds-danger);border-color:var(--ds-danger);}
 :root[data-theme] :is(.dot) {background:var(--ds-success);}
-:root[data-theme] :is(#notice,#studio-notice,#inspector-alert,.preview-toast,.help-current,.preview-badge,#profile-preview-note) {background:var(--ds-warning-bg);color:var(--ds-warning);border-color:var(--ds-warning);}
+:root[data-theme] :is(#notice,#studio-notice,#inspector-alert,.preview-toast,.preview-badge,#profile-preview-note) {background:var(--ds-warning-bg);color:var(--ds-warning);border-color:var(--ds-warning);}
 :root[data-theme] :is(#split-error) {background:var(--ds-danger-bg);color:var(--ds-danger);border-color:var(--ds-danger);}
 :root[data-theme] :is(.clip-review,.context-kind,#model-folder-notice,#report-notice,[data-state=changed]) {color:var(--ds-warning);}
 :root[data-theme] :is(dialog,.version-details[open]>.version-body,.header-more[open]>.header-menu) {box-shadow:var(--ds-shadow);}
