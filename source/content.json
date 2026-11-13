@@ -39,7 +39,7 @@
     "rows": [
       [
         "내 운영체제에 맞게 다운로드",
-        "아래 릴리즈에서 macOS arm64 또는 Windows x64용 ZIP을 받아 압축을 풀어 주세요. Mac은 ChiDaanalyzer.app을, Windows는 압축을 푼 폴더 안 실행 파일을 열어요.\nhttps://github.com/redpanya/Chi_Da_analyzer/releases/tag/v1",
+        "아래 릴리즈에서 macOS arm64 또는 Windows x64용 ZIP을 받아 압축을 풀어 주세요. Mac은 ChiDaanalyzer.app을, Windows는 압축을 푼 폴더 안 실행 파일을 열어요.\nhttps://github.com/redpanya/Chi_Da_analyzer/releases/latest",
         "Windows는 실행 파일만 따로 옮기지 말고 함께 풀린 구성 파일을 그대로 두세요. Mac arm64 빌드는 Apple Silicon용이에요.",
         "소스 코드 ZIP은 실행용 앱이 아니에요. ZIP 안에서 바로 실행하지 마세요. 모델 파일은 필요 기능에서 별도 다운로드합니다."
       ],

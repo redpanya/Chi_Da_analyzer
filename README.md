@@ -1,6 +1,6 @@
 # 치다 분석기 HTML 사용설명서
 
-[매뉴얼 바로 열기](https://redpanya.github.io/Chi_Da_analyzer/) · [앱 다운로드](https://github.com/redpanya/Chi_Da_analyzer/releases/tag/v1)
+[매뉴얼 바로 열기](https://redpanya.github.io/Chi_Da_analyzer/) · [앱 다운로드](https://github.com/redpanya/Chi_Da_analyzer/releases/latest)
 
 2026-10-31, v1 정식 릴리즈 기준 (preview.8과 동일한 기능). 13개 주제·83개 안내·설명별 화면 37개입니다. 구간 다운로드·부분 분석, AI 세 모드, 댓글 시간 편집, 클립 편집·자막·PNG, 오디오 트랙을 선택하는 영상 나누기, 오류 기록 안내를 포함합니다.
 
@@ -12,6 +12,6 @@
 - 화면 배치·강조: `source/shots.json`, `source/images.json`
 - 생성: `python3 scripts/build.py`
 - 확인: `python3 scripts/check.py`, `node --check manual.js`
-- 이번 변경·검증: [작업 기록](docs/2026-10-31-매뉴얼-preview8-업데이트.md)
+- 정리와 확인: [정리 기록](docs/2026-11-13-불필요파일-정리.md)
 
 GitHub Pages는 `codex/manual-site` 브랜치 루트에서 게시합니다. 앱 코드·패키징과는 별개입니다. 오프라인에서는 `index.html`, CSS·JS 파일, `patterns/`, `screenshots/`를 함께 보관하세요.
