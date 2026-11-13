@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 
-const source=readFileSync(new URL('../web/video-split-page.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace('export function','function');
+const source=readFileSync(new URL('../web/video-split-page.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export function','function');
 function fixture(fetch){
  const root={hidden:true,childNodes:[],replaceChildren(...nodes){this.childNodes=nodes;}};
  const input={value:'00:10:00'},video={paused:false};
