@@ -22,7 +22,8 @@ class VideoTests(unittest.TestCase):
             with self.subTest(count=count), self.assertRaises(ValueError):
                 ydl_options(count)
 
-    def test_changed_source_and_playlist_never_append(self):
+    @patch('archive.video.shutil.which', return_value='test-media-tool')
+    def test_changed_source_and_playlist_never_append(self, _which):
         for protocol in ('https', 'm3u8_native'):
             with self.subTest(protocol=protocol), tempfile.TemporaryDirectory() as root:
                 path = Path(root) / 'vod-1'
@@ -52,7 +53,8 @@ class VideoTests(unittest.TestCase):
                     downloader.process_info.assert_not_called()
                     self.assertEqual(part.read_bytes(), b'original-part')
 
-    def test_disk_full_fails_before_network_and_keeps_partial(self):
+    @patch('archive.video.shutil.which', return_value='test-media-tool')
+    def test_disk_full_fails_before_network_and_keeps_partial(self, _which):
         with tempfile.TemporaryDirectory() as root:
             path = Path(root) / 'vod-1'
             with ProjectLock(path) as lock:

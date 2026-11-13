@@ -7,6 +7,7 @@ docs/third-party-source-guide.md text eol=lf
 packaging/release/legal.py text eol=lf
 packaging/release/legal_sources.json text eol=lf
 web/fonts/** -text
+web/vendor/** -text
 web/fonts/*/OFL.txt whitespace=-blank-at-eol
 tests/fixtures/https-* -text
 packaging/release/*.patch text eol=lf
