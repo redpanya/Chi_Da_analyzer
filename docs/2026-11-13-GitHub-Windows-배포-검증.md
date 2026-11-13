@@ -31,8 +31,39 @@
 
 ## GitHub 빌드
 
-진행 전. Windows의 소스 검사, 네이티브 기능 검사, 패키징, 실행 smoke와 다운로드 산출물 결과를 아래에 이어 기록한다.
+검사 범위를 확대한 첫 빌드에서 다음 문제가 발견되어 수정했다.
+
+- Windows checkout이 외부 디자인 라이브러리 라이선스의 줄바꿈을 변환해 manifest의 원문 해시 검사가 실패했다. `web/vendor/** -text` 규칙으로 원문 바이트를 유지한다.
+- FFmpeg 빌드 전 실행하는 다운로드 단위 검사 두 곳이 실제 FFmpeg 설치 여부에 의존했다. 이 검사는 네트워크 호출 전의 자료 변경과 디스크 부족 처리를 확인하므로 실행 도구 탐색을 fixture로 분리했다. 실제 FFmpeg 검사는 빌드 후 별도로 유지한다.
+- 영상 나누기 화면의 JavaScript 테스트가 LF 줄바꿈만 처리했다. CRLF도 처리하도록 수정했고 CRLF 임시 파일로 네 가지 동작 검사를 통과했다.
+
+첫 실행: [43418732008](https://github.com/redpanya/Chi_Da_analyzer/actions/runs/43418732008). 두 번째 실행: [43419203876](https://github.com/redpanya/Chi_Da_analyzer/actions/runs/43419203876). 최신 수정 빌드: [43419679131](https://github.com/redpanya/Chi_Da_analyzer/actions/runs/43419679131).
+
+최신 빌드의 소스 커밋은 `76611d2b314e29e1c219e0f6ddc326fe79d808f6`이다. 최신 실행은 Windows x64와 macOS arm64 모두 성공으로 종료됐다. 두 번째 실행의 macOS 빌드는 최신 수정본의 대기를 줄이기 위해 취소했다.
+
+| 항목 | Windows x64 | macOS arm64 |
+| --- | --- | --- |
+| 소스 검사 | Python 225개 모두 통과. JS 통과 | Python 225개 실행, 2개 건너뜀. JS 통과 |
+| 네이티브 기능 검사 | Python 219개 실행, 6개 건너뜀. 나머지와 JS 통과 | Python 219개 실행, 7개 건너뜀. 나머지와 JS 통과 |
+| HTTPS 검사 | 통과 | 통과 |
+| 패키징과 독립 실행 | 통과. 모델 추론 제외 | 통과. 모델 추론 제외 |
+| 업로드 | [package-Windows-x64](https://github.com/redpanya/Chi_Da_analyzer/actions/runs/43419679131/artifacts/14035517064), 232,026,328바이트 | [package-macOS-arm64](https://github.com/redpanya/Chi_Da_analyzer/actions/runs/43419679131/artifacts/14033882194), 209,991,461바이트 |
+
+Windows에서 건너뛴 6개는 AV1, HEVC와 open-GOP, MPEG-4/MP3, WebM VP8/Vorbis, WebM VP9/Opus 테스트 자료를 생성할 인코더가 없는 경우다. 이 형식들의 실제 분할 성공을 이번 CI에서 확인한 것으로 해석하지 않는다.
+
+두 OS의 패키지 검사에는 다음이 포함된다.
+
+- CPU 및 Windows Vulkan 실행 도구 빌드와 패키지 포함 여부.
+- HTTPS MP4, HLS, fMP4 구간 수신과 전체 디코딩. 신뢰하지 않는 인증서와 잘못된 HLS 형식 거부.
+- 한글과 공백 경로, 원음 추출, 기존 다운로드 자료 복구, 원본 해시 보존.
+- 무손실 분할과 선택한 오디오 트랙의 패킷 보존, 미리듣기 캐시.
+- 한글 글꼴과 자막 PNG 렌더링, 화면 영역 오류와 독립된 자막 미리보기, PNG 클립 합성.
+- 패키지 서버 시작, 화면 모듈 제공, 보안 응답과 정상 종료.
+
+GitHub Actions에서 일부 고정 버전 액션의 Node.js 20 지원 종료 경고가 남았다. 실행 환경은 Node.js 24로 강제 전환되어 이번 빌드는 성공했다. 앱 실행 실패와는 별개인 CI 의존성 갱신 항목이다.
+
+산출물은 Actions에 14일간 보관된다. artifact 다운로드 후 Windows 패키지 ZIP을 풀고 `ChiDaanalyzer.exe`를 실행한다. 기존 공식 릴리즈의 실행 파일은 교체하지 않았다.
 
 ## 검증 한계
 
-CI 기본 실행과 임시 미디어 검사는 실제 Windows 사용자 PC의 GPU 드라이버, 장시간 VOD, 외장 디스크, 모델 추론 품질을 대신하지 않는다. 해당 검증은 별도다.
+CI 기본 실행과 임시 미디어 검사는 실제 Windows 사용자 PC의 GPU 드라이버, 장시간 VOD, 외장 디스크, 모델 추론 품질을 대신하지 않는다. 실제 치지직 서버에서 동시 다운로드 16개를 장시간 실행하는 실측도 이번 배포 검사 범위에는 포함하지 않았다. 해당 검증은 별도다.
