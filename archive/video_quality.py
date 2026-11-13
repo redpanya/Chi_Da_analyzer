@@ -30,6 +30,8 @@ def sync_item(item, data):
 
 def change(manager, root, vod, expected, selected, existing=None):
     path = project_path(root, vod)
+    with manager.guard:
+        manager.project_idle(path)
     base = download_scope.base_root(root)
     def eligible(data):
         complete = data['tasks']['video']['state'] == 'complete'
@@ -95,6 +97,7 @@ def change(manager, root, vod, expected, selected, existing=None):
                 sync_item(item, data)
 
     with manager.guard:
+        manager.project_idle(path)
         manager.automation.idle()
         manager.automation.change(str(base), update_queue)
         if existing is not None:

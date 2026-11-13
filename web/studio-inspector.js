@@ -1,20 +1,15 @@
 // 편집값과 별개인 오른쪽 상세 패널 상태. 영상 영역의 너비는 바꾸지 않는다.
+import {enterView} from './workspace-motion.js';
 const $=id=>document.getElementById(id);
-const sections={layout:['frame','비율·화면 구성'],image:['frame','PNG 이미지'],effects:['frame','색감·효과'],volume:['frame','음량'],transcript:['caption','사용할 전사'],captions:['caption','자막 내용 수정'],font:['caption','자막 스타일·글꼴'],'caption-position':['caption','크기·위치']};
-const hints={
-  layout:['전체 보이기는 원본 전체를, 화면 채우기는 선택한 위치를 확대해 보여줍니다.','세로 2단은 원본의 게임·얼굴 영역을 나눠 배치합니다. 자동 추적은 하지 않습니다.'],
-  image:['PNG 한 장을 상단의 편집 대상에 올립니다. 자막은 이미지 위에 표시합니다.','이 패널에서 영상 위 PNG를 끌거나 모서리로 크기를 조절할 수 있습니다. 닫아도 이미지는 유지됩니다.'],
-  effects:['밝기·대비·채도는 미리보기에 즉시 적용합니다. 시작·끝 페이드는 저장 영상에 반영됩니다.'],
-  volume:['저장할 영상의 음량입니다. 가운데 플레이어의 소리 켜짐·꺼짐은 미리보기만 조절합니다.'],
-  transcript:['완료된 전사를 선택합니다. 원전사·화자 배정은 변경하지 않습니다.'],
-  captions:['시간 버튼을 누르면 해당 자막의 영상 시각부터 재생합니다.','담은 구간의 문장만 표시합니다. 교정은 이 편집 초안에만 저장하며 전사 버전마다 따로 보존합니다.'],
-  font:['기본 자막·박스 자막을 고르고 색상·효과를 직접 조절할 수 있습니다. 템플릿을 다시 선택하면 저장한 색상·효과로 돌아가며 글꼴·굵기는 유지합니다.','색상·효과 영역 아래의 템플릿 저장을 누르고 이름을 입력하면 다른 영상에서도 사용할 수 있습니다. 글꼴·크기·위치는 포함하지 않습니다.','내 템플릿을 선택하면 제거 버튼이 나타납니다. 제거해도 현재 적용한 디자인과 저장한 초안·출력 영상은 바뀌지 않습니다.','효과 두께·거리·여백은 글자 크기 22 기준으로 비례합니다. 외곽선·그림자·박스는 화면 경계에서 잘릴 수 있습니다.','글꼴 예시를 눌러 선택하고 설치된 굵기·스타일을 고르세요. 선택 언어를 지원하는 글꼴만 표시합니다.','실제 문장에 없는 글자가 있거나 렌더링에 실패하면 저장 전 안내합니다. 설치 글꼴의 사용 범위는 해당 라이선스를 확인하세요.'],
-  'caption-position':['글자 크기는 슬라이더 또는 숫자로 14~40 사이의 정수만 지정합니다. 이전 초안의 소수 크기는 가장 가까운 정수로 적용하고, 저장할 때 반영합니다.','가로·세로 미세 조정은 화면 크기 기준 %입니다. 오른쪽·아래가 + 방향이며 화면 밖 글자는 잘릴 수 있습니다.'],
-};
+const sections={sources:['range','구간 고르기'],'range-edit':['range','시작·끝 다듬기'],layout:['frame','비율·화면 구성'],image:['frame','PNG 이미지'],effects:['frame','색감·효과'],volume:['frame','음량'],'caption-content':['caption','자막 내용'],'caption-appearance':['caption','글꼴·색상'],transcript:['caption','사용할 전사'],captions:['caption','자막 내용 수정'],font:['caption','자막 스타일·글꼴'],'caption-position':['caption','크기·위치']};
+const parents={transcript:'caption-content',captions:'caption-content',font:'caption-appearance',effects:'layout',volume:'layout'};
+// 미리보기와 같은 내용/디자인 진입점에서 실제 기능을 바로 표시한다.
+const embedded={'caption-content':['transcript','captions'],'caption-appearance':['font']};
+const aliases={transcript:'caption-content',captions:'caption-content',font:'caption-appearance'};
 export function createStudioInspector(){
-  let tab='range',active='',help=false;
+  let tab='range',active='',stack=[];
   const body=document.querySelector('.inspector-body');
-  const text=(id,value)=>{if($(id).textContent!==value)$(id).textContent=value;};
+  const text=(id,value)=>{if($(id)&&$(id).textContent!==value)$(id).textContent=value;};
   const option=id=>$(id).selectedOptions?.[0]?.textContent||'선택 없음';
   function update(){
     text('summary-layout',`${document.querySelector('[data-ratio][aria-pressed=true]')?.dataset.ratio==='original'?'원본':document.querySelector('[data-ratio][aria-pressed=true]')?.dataset.ratio||'원본'} · ${option('frame-layout')}`);
@@ -27,35 +22,39 @@ export function createStudioInspector(){
     const split=$('frame-layout').value==='split';$('single-fit-controls').hidden=split;$('frame-position-controls').hidden=split||$('frame-fit').value!=='cover';
     const sources=[['caption-position','caption-size-error'],['font','caption-design-error'],['font','caption-font-note'],['font','decoration-state'],['transcript','caption-load-state'],['image','image-preview-state'],['image','image-status']];
     const errors=sources.filter(([,id])=>{const value=$(id).textContent.trim();return value&&(id.endsWith('-error')||(id==='decoration-state'&&$(id).classList.contains('error'))||/실패|없습니다|못했|지원하지|확인 필요|확인되지|초과/.test(value));});
-    for(const [key] of Object.entries(sections))document.querySelector(`[data-inspector-open="${key}"]`).classList.toggle('needs-attention',errors.some(([k])=>k===key));
+    for(const [key] of Object.entries(sections))document.querySelector(`[data-inspector-open="${key}"]`)?.classList.toggle('needs-attention',errors.some(([k])=>k===key||parents[k]===key));
     const alert=$('inspector-alert');alert.hidden=!errors.length;
     const message=errors.map(([,id])=>$(id).textContent).join(' · ');
     if(alert.dataset.message!==message){alert.dataset.message=message;alert.replaceChildren();if(errors.length){const p=document.createElement('p');p.textContent=message;const b=document.createElement('button');b.textContent='설정 확인';b.type='button';b.onclick=()=>{$('tab-'+sections[errors[0][0]][0]).click();open(errors[0][0]);};alert.append(p,b);}}
   }
-  function render(){
+  function render(direction=1){
     $('inspector-heading').hidden=!active;
-    for(const name of ['frame','caption'])$('overview-'+name).hidden=Boolean(active)&&sections[active][0]===name;
-    for(const panel of document.querySelectorAll('[data-inspector]'))panel.hidden=panel.dataset.inspector!==active||help;
+    for(const name of ['range','frame','caption'])$('overview-'+name).hidden=Boolean(active)&&sections[active][0]===name;
+    const visible=new Set([active,...embedded[active]||[]]);
+    for(const panel of document.querySelectorAll('[data-inspector]'))panel.hidden=!visible.has(panel.dataset.inspector);
     for(const button of document.querySelectorAll('[data-inspector-open]'))button.setAttribute('aria-expanded',String(button.dataset.inspectorOpen===active));
-    $('inspector-help-content').hidden=!help;
-    if(active)text('inspector-title',help?sections[active][1]+' 도움말':sections[active][1]);
-    $('inspector-help').hidden=help;
+    if(active)text('inspector-title',sections[active][1]);
     const sample=$('caption-sample-dock');
-    if(['font','caption-position'].includes(active)&&!help)$('inspector-'+active).prepend(sample);
+    if(['font','caption-position','caption-appearance'].includes(active))$('inspector-'+active).prepend(sample);
     else $('overview-caption').insertBefore(sample,$('overview-caption').querySelector('.inspector-cards'));
-    body.scrollTop=0;document.dispatchEvent(new CustomEvent('studio-inspector-change',{detail:{tab,panel:help?'':active}}));update();
+    body.scrollTop=0;document.dispatchEvent(new CustomEvent('studio-inspector-change',{detail:{tab,panel:active}}));update();enterView(body,direction);
   }
-  function open(key){active=key;help=false;render();$('inspector-title').focus({preventScroll:true});}
-  function close(){const previous=active;active='';help=false;render();document.querySelector(`[data-inspector-open="${previous}"]`)?.focus({preventScroll:true});}
+  function open(key){
+    if(!sections[key])return;
+    key=aliases[key]||key;
+    if(active&&active!==key)stack.push(active);active=key;render();
+    $('inspector-title').focus({preventScroll:true});
+  }
+  function close(){const previous=stack[0]||active;active='';stack=[];render(-1);document.querySelector(`[data-inspector-open="${previous}"]`)?.focus({preventScroll:true});}
+  function back(){if(stack.length){const previous=active;active=stack.pop();render(-1);document.querySelector(`[data-inspector-open="${previous}"]`)?.focus({preventScroll:true});}else close();}
   for(const button of document.querySelectorAll('[data-inspector-open]'))button.onclick=()=>open(button.dataset.inspectorOpen);
   $('inspector-close').onclick=close;
-  $('inspector-back').onclick=()=>{if(help){help=false;render();$('inspector-title').focus({preventScroll:true});}else close();};
-  $('inspector-help').onclick=()=>{if(!active)return;help=true;$('inspector-help-content').replaceChildren(...hints[active].map(line=>{const p=document.createElement('p');p.textContent=line;return p;}));render();$('inspector-title').focus({preventScroll:true});};
+  $('inspector-back').onclick=back;
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!event.defaultPrevented&&!event.isComposing&&!document.querySelector('dialog[open]')&&active){event.preventDefault();$('inspector-back').click();}});
   for(const kind of ['input','change','click'])document.addEventListener(kind,()=>queueMicrotask(update));
   const observer=new MutationObserver(update);
   for(const id of ['caption-count','caption-load-state','caption-font-note','caption-size-error','caption-design-error','caption-design-state','font-selected','image-name','image-status','decoration-state','image-preview-state'])observer.observe($(id),{childList:true,characterData:true,subtree:true});
   document.addEventListener('studio-profile-change',update);
   update();
-  return {setTab(name){tab=name;active='';help=false;render();}};
+  return {open,setTab(name){tab=name;active='';stack=[];render();}};
 }

@@ -63,11 +63,6 @@ export function createAnalysisScopePreview({api,onOpen}){
     }catch(e){error(e);}
   };
   action.onclick=async()=>{try{action.disabled=true;await api($('scope-remote').checked?'studio-remote':'studio-scope',{...identity(),request:request()});await refresh();}catch(e){error(e);action.disabled=false;}};
-  $('scope-help').onclick=()=>{
-    const box=el('div');box.append(el('h3','원본 VOD와 별개의 분석 범위'));
-    for(const text of ['범위를 정하면 그 구간의 영상과 저장 채팅을 별도 폴더로 준비합니다. 전체 범위는 같은 디스크에서 원본을 참조하므로 추가 영상 용량을 줄입니다. 기존 전사·수동 교정·화자 배정은 선택한 버전에서 복사하며 부모 결과는 바꾸지 않습니다.','새 전사는 원음 추출을 함께 진행합니다. 새 전사를 끄고 기존 전사를 선택하면 그 범위의 발언만 재사용합니다. AI 모드는 여러 개 선택할 수 있습니다.','서버에서 구간만 받기는 공개 VOD를 선택 범위만 새 파일로 받습니다. 실제 수신량은 서버와 키프레임에 따라 더 클 수 있습니다. 채팅은 이미 저장한 자료 중 해당 범위만 복사하며, 없으면 채팅 없이 분석합니다.','모델·도구가 준비되지 않은 단계는 오류로 남습니다. 도구 준비 후 이어하기를 누르면 완료 단계를 재사용합니다. 범위 결과의 미디어 시각은 해당 구간의 시작부터 계산하고 원본 VOD 시작 시각도 보존합니다.'])box.append(el('p',text));
-    panel.dialog.dispatchEvent(new CustomEvent('settings-help',{detail:box}));
-  };
   pagePolling(refresh,2000);
   return {setProject(value){
     const changed=project?.path!==value?.path;project=value;

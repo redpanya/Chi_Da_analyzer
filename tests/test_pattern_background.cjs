@@ -18,6 +18,7 @@ for (const random of [0, ...Array.from({length: 8}, (_, i) => (i + .5) / 8), 1 -
     replaceChildren(...children) { this.children = children; this.updates++; },
   });
   const document = {documentElement: {dataset: {}}, createElement: element,
+    querySelectorAll: () => [], querySelector: () => ({}),
     body: {prepend(layer) { layers.push(layer); }}};
   const math = Object.create(Math);
   math.random = () => random;

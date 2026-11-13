@@ -13,7 +13,7 @@ import {createCaptionDesign} from './studio-caption-design.js';
 import {captionTemplates} from './studio-caption-templates.js';
 const $=id=>document.getElementById(id);
 const el=(tag,text='')=>{const e=document.createElement(tag);e.textContent=text;return e;};
-export function createStudioTools({api,identity,video,selection,getRatio,setRatio,getActive,restore,rangeDrafts,restoreRangeDrafts,onCaptionPreview}){
+export function createStudioTools({api,identity,video,selection,getRatio,setRatio,getActive,restore,rangeDrafts,restoreRangeDrafts,onCaptionPreview,onUndoPoint}){
   let revision=0,catalog=[],origin=0,ready=false,running=false,refreshing=false,designs={};
   const status=$('render-state'),history=$('render-history');
   const captionSize=bindCaptionSize($('caption-size'),$('caption-size-input'),$('caption-size-error'));
@@ -56,7 +56,7 @@ export function createStudioTools({api,identity,video,selection,getRatio,setRati
     for(const id of ['caption-size','frame-fit','volume'])$(id).oninput?.();
     document.dispatchEvent(new Event('studio-profile-change'));
   }
-  const profiles=studioProfiles({api,read:options,write:writeProfile,selection,onChange:buttons,canSwitch,
+  const profiles=studioProfiles({api,identity,read:options,write:writeProfile,selection,onChange:buttons,canSwitch,onUndoPoint,
     valid:()=>captionSize.valid()&&captionDesign.valid()&&!Object.keys(frameErrors(options(),video.videoWidth,video.videoHeight)).length});
   document.addEventListener('input',buttons);document.addEventListener('change',buttons);
   document.addEventListener('click',()=>queueMicrotask(buttons));
@@ -83,7 +83,7 @@ export function createStudioTools({api,identity,video,selection,getRatio,setRati
   $('draft-save').onclick=()=>session.save().catch(error);
   $('render-start').onclick=async()=>{try{if(!profiles.previewCurrent()||$('render-start').disabled)return;$('render-start').disabled=true;status.textContent='영상 저장을 시작합니다.';await session.save();await api('studio-start',{...identity(),request:request()});await refresh();}catch(e){error(e);buttons();}};
   pagePolling(refresh,1500);
-  return {previewCurrent:profiles.previewCurrent,beforeSelect(){if(!canSwitch())return false;if(ready)profiles.capture();return true;},activeChanged(row){if(ready)profiles.select(row);},profileChecked:id=>profiles.checked(id),checkProfile:(id,value)=>profiles.check(id,value),selectionChanged(){captions.render();buttons();},async init(project){
+  return {preparePresets:profiles.preparePresets,previewCurrent:profiles.previewCurrent,beforeSelect(){if(!canSwitch())return false;if(ready)profiles.capture();return true;},activeChanged(row){if(ready)profiles.select(row);else profiles.labels(row);},profileChecked:id=>profiles.checked(id),checkProfile:(id,value)=>profiles.check(id,value),selectionChanged(){profiles.labels(getActive());captions.render();buttons();},async init(project){
     origin=Number(project.input?.start_vod_ms)||0;
     const data=await api('studio-info',identity());catalog=data.inputs.transcripts.filter(r=>r.complete);$('caption-version').replaceChildren(new Option('자막 사용 안 함',''),...catalog.map(r=>new Option(r.label,r.id)));
     if(catalog.length)$('caption-version').value=catalog[0].id;

@@ -1,10 +1,19 @@
 import {createQueueOptions,selectedSteps,selectionLabel} from './queue-options.js';
+import {queuePreflight} from './queue-preflight.js';
 import {vodLabel} from './vod-label.js';
 import {createSavedPicker,savedDescription,savedKey} from './queue-saved.js';
 const states={queued:'대기',running:'진행 중',paused:'일시정지',complete:'완료',partial:'일부 완료',error:'확인 필요',reused:'기존 자료 사용',skipped:'생략'};
 const stages={download:'영상·전체 채팅',audio:'원음 추출',transcribe:'음성 전사',diarize:'화자 구분',reactions:'채팅 반응 분석',summary:'상세 문맥 정리',timestamps:'빠른 타임스탬프',clips:'클립 후보'};
 const languages={ko:'한국어',auto:'자동 감지',ja:'일본어',en:'영어'},vads={standard:'표준',sensitive:'민감',off:'끄기'},backends={sherpa:'sherpa-onnx',pyannote:'pyannote · Community-1',fluid:'FluidAudio · Community-1'};
 const editable=item=>item.state==='queued'&&!item.report&&!item.stage&&!Object.keys(item.stages||{}).length;
+// 완료 기록은 진행 상태와 리포트에 남기고 등록 목록에서만 제외한다.
+export const registrationItems=data=>(data?.items||[]).filter(item=>item.state!=='complete');
+export function registrationSummary(data){
+ const items=registrationItems(data),running=items.findIndex(item=>item.state==='running');
+ if(!items.length)return data.items.length?'등록된 VOD가 없습니다. 완료 자료는 보관함에 유지됩니다.':'등록된 VOD가 없습니다. 자료를 등록해 순차 작업을 시작하세요.';
+ const message=data.state==='complete'?'목록 처리 종료':data.message||'등록 후 순차 작업을 시작하세요';
+ return `전체 ${items.length}개${running>=0?` / ${running+1}번째 처리 중`:''} / ${message}`;
+}
 export function createQueue({api,getRoot,onOpen,onChanged,onLock,onStatus}){
  const $=id=>document.getElementById(id);let busy=false,polling=false,last='',root=getRoot(),data=null,importBusy=false;const selected=new Set();
  const node=(tag,text='')=>{const n=document.createElement(tag);n.textContent=text;return n;};
@@ -48,15 +57,15 @@ export function createQueue({api,getRoot,onOpen,onChanged,onLock,onStatus}){
  function render(value){
    data=value;
    for(const id of selected)if(!data.items.some(i=>i.id===id&&editable(i)))selected.delete(id);
-   const running=data.items.findIndex(i=>i.state==='running');
-   $('queue-status').textContent=`전체 ${data.items.length}개${running>=0?` · ${running+1}번째 처리 중`:''} · ${data.message||'등록 후 순차 작업을 시작하세요'}`;
+   $('queue-status').textContent=registrationSummary(data);
    $('queue-list').replaceChildren();
-   for(const [i,item] of data.items.entries()){
+   for(const [i,item] of registrationItems(data).entries()){
      const article=node('article');const title=node('strong',`${i+1}. ${item.title} · VOD ${item.vod}`);
      if(editable(item)){const label=node('label');label.className='inline-check';const check=node('input');check.type='checkbox';check.checked=selected.has(item.id);check.disabled=busy||data.active;check.setAttribute('aria-label',`${item.title} 대기 설정 선택`);check.onchange=()=>{if(check.checked)selected.add(item.id);else selected.delete(item.id);controls();};label.append(check,title);article.append(label);}else article.append(title);
      const opts=item.options;const status=node('p',`${states[item.state]||item.state}${item.stage?' · '+stages[item.stage]:''} · ${selectionLabel(opts)} · 저장·이어받기 화질 ${item.quality||'기존 등록 화질'}`);status.className=item.state==='error'?'queue-error':'hint';
      article.append(status);
      const chosen=selectedSteps(opts),details=[];
+     if(chosen.includes('download'))details.push(`동시 다운로드 ${opts.concurrent_fragments??1}개`);
      if(chosen.includes('transcribe'))details.push(`전사 ${languages[opts.language]||opts.language} · 발화 검출 ${vads[opts.asr_options?.vad||'standard']||'표준'}${opts.asr_options?.prompt?' · 용어 힌트: '+opts.asr_options.prompt:''}`);
      if(chosen.includes('diarize'))details.push(`화자 ${backends[opts.backend]} · 화자 오류 ${opts.continue_voice_error?'계속':'중단'}`);
      if(chosen.includes('context'))details.push(`사고 ${opts.thinking?'켜기':'끄기'}`);
@@ -102,6 +111,6 @@ export function createQueue({api,getRoot,onOpen,onChanged,onLock,onStatus}){
    return `${added}개 등록 완료${errors.length?' · 실패한 자료는 남겨두었습니다.\n'+errors.join('\n'):'. 순차 작업 시작을 누르면 진행합니다'}`;
  });
  $('queue-apply').onclick=()=>action(async()=>{await api('queue-settings',{root:getRoot(),ids:[...selected],options:settings()});selected.clear();last='';return '선택한 미실행 대기 항목에 설정을 적용했습니다';});
- $('queue-start').onclick=()=>action(()=>api('queue-start',{root:getRoot()}).then(()=>''));$('queue-pause').onclick=()=>action(()=>api('queue-pause',{root:getRoot()}).then(()=>''));
+ $('queue-start').onclick=queuePreflight({api,getRoot,onStart:()=>action(()=>api('queue-start',{root:getRoot()}).then(()=>''))});$('queue-pause').onclick=()=>action(()=>api('queue-pause',{root:getRoot()}).then(()=>''));
  row();return {refresh,rootChanged,selectSaved,setImportBusy(value){importBusy=value;controls();}};
 }

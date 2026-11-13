@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, urlsplit, quote
 
 from .source import safe_error
 from . import error_log
+from .work_queue import HEAVY
 from .speech_media import local as speech_file
 from . import voice_store, explore, runtime, context_job
 from .storage import Conflict, asset_path, project_path
@@ -84,19 +85,43 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     self.close_connection = True
                     self.reply(410, {'error': '새 로컬 영상 가져오기는 제거되었습니다. 기존 완료 자료는 계속 사용할 수 있습니다'})
                     return
-                limit=16*1024**2 if self.path.endswith('/api/studio-image-add') else 22*1024**2 if self.path.endswith(('/api/context-exchange-preview','/api/context-exchange-receive','/api/context-exchange-check-files','/api/context-exchange-import-files')) else 4*1048576 if '/api/studio-' in self.path else 1048576 if self.path.endswith('/api/context-comment-save') else 65536
+                limit=16*1024**2 if self.path.endswith('/api/studio-image-add') else 22*1024**2 if self.path.endswith(('/api/context-exchange-preview','/api/context-exchange-receive','/api/context-exchange-check-files','/api/context-exchange-import-files','/api/context-exchange-repair-files')) else 4*1048576 if '/api/studio-' in self.path else 1048576 if self.path.endswith('/api/context-comment-save') else 65536
                 if length <= 0 or length > limit or self.headers.get('Content-Type') != 'application/json':
                     raise ValueError('요청 형식이 올바르지 않습니다')
                 data = json.loads(self.rfile.read(length))
                 if not isinstance(data, dict):
                     raise ValueError('요청 값이 올바르지 않습니다')
                 action = urlsplit(self.path).path[len(prefix):]
-                if action.startswith('/api/error-log-'):
+                if action.removeprefix('/api/') in HEAVY:
+                    result = manager.tasks.submit(action.removeprefix('/api/'), data)
+                elif action == '/api/work-queue':
+                    result = manager.tasks.status()
+                elif action == '/api/work-cancel':
+                    result = manager.tasks.cancel(data.get('id'))
+                elif action == '/api/job-detail':
+                    from .job_detail import detail
+                    result = detail(manager, data)
+                elif action == '/api/job-resume':
+                    from .job_detail import resume
+                    result = resume(manager, data)
+                elif action.startswith('/api/error-log-'):
                     result = error_log.dispatch(action.removeprefix('/api/error-log-'), data)
                 elif action.startswith('/api/split-'):
                     result = manager.splitter.dispatch(action.removeprefix('/api/split-'), data)
                 elif action.startswith('/api/studio-'):
                     result = manager.studio.dispatch(action.removeprefix('/api/studio-'), data)
+                elif action in ('/api/library-catalog', '/api/storage-info', '/api/queue-preflight'):
+                    from . import ui_workspace
+                    if action == '/api/library-catalog':
+                        result = ui_workspace.catalog(data['root'])
+                        if result['status'] in ('ready', 'empty', 'partial'):
+                            if result['root'] != manager.default_root:
+                                runtime.remember_library(result['root'])
+                            manager.default_root = result['root']
+                    elif action == '/api/storage-info':
+                        result = ui_workspace.storage_info(data['root'])
+                    else:
+                        result = ui_workspace.preflight(manager, data['root'])
                 elif action.startswith('/api/queue-'):
                     result = manager.automation.dispatch(action[len('/api/queue-'):], data)
                 elif action == '/api/report-config':
@@ -113,6 +138,9 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     return
                 elif action == '/api/folders':
                     result = manager.folders()
+                elif action == '/api/pick-path':
+                    from .split_picker import choose
+                    result = {'path': choose(kind=data.get('kind', 'folder'))}
                 elif action == '/api/model-folder':
                     result = manager.model_folder(data['path'])
                 elif action == '/api/compute':
@@ -126,13 +154,16 @@ def make_server(manager, port=0, *, annotation_preview=False):
                 elif action in ('/api/context-comment', '/api/context-comment-save'):
                     from . import context_comments
                     path = project_path(data['root'], data['vod_id'])
-                    result = context_comments.save(path, data['run'], data['draft']) if action.endswith('-save') else context_comments.read(path, data['run'])
+                    source = data.get('source', 'context')
+                    result = context_comments.save(path, data['run'], data['draft'], source) if action.endswith('-save') else context_comments.read(path, data['run'], source)
+                elif action in ('/api/context-review', '/api/context-review-save'):
+                    from . import context_review
+                    path = project_path(data['root'], data['vod_id'])
+                    result = context_review.save(path, data['run'], data['change']) if action.endswith('-save') else context_review.read(path, data['run'])
                 elif action in ('/api/context-background', '/api/context-background-save'):
                     from .context_background import validate
                     text=validate(data.get('text')) if action.endswith('-save') else None
                     result = manager.context_background(data['root'], data['vod_id'], text, data.get('mode'), data.get('custom_request'))
-                elif action == '/api/context-start':
-                    result = manager.context_start(data['root'], data['vod_id'], data['action'], data.get('options'))
                 elif action == '/api/context-stop':
                     result = manager.context_stop(data['root'], data['vod_id'])
                 elif action == '/api/context-delete':
@@ -151,15 +182,8 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     manager.default_root = root
                 elif action == '/api/state':
                     result = manager.view(data['root'], data['vod_id'])
-                elif action == '/api/start':
-                    result = manager.start(data['root'], data['vod_id'], data['format_id'], data['kind'])
-                elif action == '/api/video-quality':
-                    from .video_quality import change
-                    result = change(manager, data['root'], data['vod_id'], data['expected'], data['format_id'], data.get('existing'))
                 elif action == '/api/stop':
                     result = manager.stop(data['root'], data['vod_id'], data['kind'])
-                elif action == '/api/analyze':
-                    result = manager.analyze(data['root'], data['vod_id'], data.get('settings', {}), data.get('allow_partial', False))
                 elif action == '/api/analysis':
                     result = manager.analysis(data['root'], data['vod_id'])
                 elif action.startswith('/api/clips-'):
@@ -171,8 +195,6 @@ def make_server(manager, port=0, *, annotation_preview=False):
                 elif action == '/api/chats':
                     result = manager.chat_search(data['root'], data['vod_id'], query=data.get('query', ''),
                                                  start_ms=data.get('start_ms', 0), end_ms=data.get('end_ms'), cursor=data.get('cursor', 0))
-                elif action == '/api/voices-start':
-                    result = manager.voices_start(data['root'], data['vod_id'], data['action'], data.get('options', {}))
                 elif action == '/api/voices-stop':
                     result = manager.voices_stop(data['root'], data['vod_id'])
                 elif action == '/api/voices-result':
@@ -182,8 +204,6 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     result = manager.voices_edit(data['root'], data['vod_id'], data['action'], data.get('options', {}))
                 elif action == '/api/speech-info':
                     result = manager.speech_info(data['root'], data['vod_id'])
-                elif action == '/api/speech-start':
-                    result = manager.speech_start(data['root'], data['vod_id'], data['action'], data.get('track'), data.get('language', 'ko'), data.get('input_kind', 'original'), data.get('sam_profile'), data.get('asr_options'))
                 elif action == '/api/speech-stop':
                     result = manager.speech_stop(data['root'], data['vod_id'])
                 elif action == '/api/speech-result':
@@ -266,14 +286,31 @@ def make_server(manager, port=0, *, annotation_preview=False):
                                             ('css', 'text/css; charset=utf-8'),
                                             ('js', 'text/javascript; charset=utf-8')]})
             files['/video-split-model.js'] = ('video-split-model.js', 'text/javascript; charset=utf-8')
-            files['/video-split-delete.js'] = ('video-split-delete.js', 'text/javascript; charset=utf-8')
             files['/video-split-audio.js'] = ('video-split-audio.js', 'text/javascript; charset=utf-8')
+            for name in ('video-split-page', 'video-split-entry'):
+                files[f'/{name}.js'] = (f'{name}.js', 'text/javascript; charset=utf-8')
+            files['/work-queue.js'] = ('work-queue.js', 'text/javascript; charset=utf-8')
+            files['/job-detail.js'] = ('job-detail.js', 'text/javascript; charset=utf-8')
+            files['/panel-dismiss.js'] = ('panel-dismiss.js', 'text/javascript; charset=utf-8')
             for name in ('error-capture','error-log-ui','studio-frame-validation','studio-profiles','clip-studio-tools','clip-studio-preview','studio-decorations','studio-fonts-ui','studio-inspector', 'studio-caption-size','studio-caption-design','studio-caption-templates','studio-image-editor','studio-image-geometry','page-lifecycle','edit-session','studio-captions-ui','studio-export-check','result-browser','reaction-times','studio-history'):
                 files[f'/{name}.js'] = (f'{name}.js', 'text/javascript; charset=utf-8')
             files['/clip-studio-model.js'] = ('clip-studio-model.js', 'text/javascript; charset=utf-8')
             files['/analysis-scope-preview.js'] = ('analysis-scope-preview.js', 'text/javascript; charset=utf-8')
             files['/context-clips.js']=('context-clips.js','text/javascript; charset=utf-8')
             files['/context-clip-evidence.js']=('context-clip-evidence.js','text/javascript; charset=utf-8')
+            files.update({f'/{name}.js': (f'{name}.js', 'text/javascript; charset=utf-8')
+                          for name in ('ui-feedback','studio-workspace','step-workspace','workspace-motion','result-flow','theme','design-system','product-workspace','queue-preflight','desktop-panels','studio-edit-undo','studio-source-pages','context-review','context-review-model','result-playback','results-layout','result-quality','scene-usage')})
+            files.update({f'/{name}.css': (f'{name}.css', 'text/css; charset=utf-8')
+                          for name in ('studio-workspace','step-workspace','design-system','product-workspace','desktop-panels','results-redesign')})
+            vendor = WEB/'vendor/webawesome'
+            manifest = json.loads((vendor/'manifest.json').read_text(encoding='utf-8'))
+            for asset in manifest['files']:
+                name = asset['path']
+                if Path(name).is_absolute() or '..' in Path(name).parts:
+                    continue
+                mime = {'.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8'}.get(Path(name).suffix)
+                if mime:
+                    files['/vendor/webawesome/'+name] = ('vendor/webawesome/'+name, mime)
             files.update({f'/{name}.js': (f'{name}.js', 'text/javascript; charset=utf-8')
                           for name in ('video-quality', 'preview-toast', 'mini-player', 'workspace-layout', 'workspace-status', 'settings-panel', 'version-picker', 'context-clip-controls', 'queue', 'queue-saved', 'queue-options', 'vod-label', 'reports', 'help', 'help-content', 'voice-model-help', 'voice-tool-status', 'voice-tabs', 'context-background', 'context-inputs', 'context-external', 'context-fallback', 'reactions', 'player', 'speech', 'voices', 'voice-review', 'voice-suggestions', 'explore', 'timeline', 'context', 'project-delete', 'folders', 'compute', 'task-timing', 'audio-preview', 'context-reactions', 'context-copy', 'context-comment-model', 'context-comment-time', 'player-sequence', 'context-tree', 'context-interpretations')})
             if path in files:

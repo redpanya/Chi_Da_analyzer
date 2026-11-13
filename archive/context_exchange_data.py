@@ -1,6 +1,7 @@
 """빠른 주제·외부 결과의 공통 ID 계약. 외부 응답은 원본 시각을 쓸 수 없다."""
 import json
 import math
+import re
 from . import context_input, context_adaptive_input, context_evidence as ev
 from .context_job import local
 from .storage import read_json
@@ -39,7 +40,15 @@ def stale(path,vod,saved):
             from . import context_clip_chat
             if saved['clip_chat_revision']!=context_clip_chat.REVISION:return True
             source=context_clip_chat.attach(source)
-        return fingerprint(attach(source,saved.get('analysis_guidance')))!=saved['fingerprint']
+        source=attach(source,saved.get('analysis_guidance'))
+        if fingerprint(source)==saved['fingerprint']:return False
+        if not saved.get('clip_chat_revision'):return True
+        if not re.fullmatch(r'[a-f0-9]{32}',saved['id']):return True
+        group='runs' if saved.get('origin') in ('local','external') else 'exchange'
+        previous=read_json(local(path,f"{group}/{saved['id']}/source.json"))
+        if not isinstance(previous,dict) or fingerprint(previous)!=saved['fingerprint']:return True
+        # 구버전 집합 순회 차이는 저장 원문 확인 후 파생 단서만 메모리에서 재계산한다.
+        return fingerprint(context_clip_chat.attach(previous))!=fingerprint(source)
     except (ValueError,OSError,KeyError,TypeError):return True
 
 

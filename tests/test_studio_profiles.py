@@ -32,12 +32,12 @@ class Profiles(unittest.TestCase):
         fast={'clips':[self.raw['clips'][0]|{'options':{'ratio':'original','caption':False}}],
               'options':{'caption':True,'ratio':'9:16','speed':'fast','sidecar':False}}
         self.assertFalse(p.profiles(c.validate(fast,self.src))[0]['caption'])
-    def test_presets_reject_assets_and_preserve_applied(self):
+    def test_presets_reject_invalid_options_and_preserve_applied(self):
         opts=p.preset_options({'ratio':'9:16','caption':True,'font_size':24})
         with patch.object(p.runtime,'SUPPORT',self.path):
             saved=p.dispatch('save',{'name':'세로 자막','options':opts});id=saved['id']
             applied=copy.deepcopy(saved['presets'][0]['options'])
-            with self.assertRaises(ValueError):p.preset_options({'image':None})
+            self.assertIsNone(p.preset_options({'image':None})['image'])
             with self.assertRaises(ValueError):p.preset_options({'font_size':float('nan')})
             with self.assertRaises(Exception):p.dispatch('save',{'name':'세로 자막','options':opts})
             p.dispatch('delete',{'id':id})

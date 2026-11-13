@@ -9,4 +9,10 @@ video.currentTime=12.2;tick();assert.equal(video.currentTime,12);assert.equal(vi
 player.seek(10000,true,12000);player.seek(20000,true);video.currentTime=21;tick();assert.equal(video.paused,false);
 player.seek(10000,true,12000);player.clearRange();video.currentTime=13;tick();assert.equal(video.paused,false);
 player.seek(10000,true,12000);player.reset();video.currentTime=30;tick();assert.equal(video.currentTime,30);assert.equal(video.paused,true);
-console.log('문맥 구간 재생·끝 정지·일반 탐색·단계 전환·초기화 검사 8개 통과');
+player.seek(35000,true);player.reset();assert.equal(video.paused,true);assert.equal(video.currentTime,35);
+video.duration=NaN;player.seek(45000,true,50000);player.reset();video.duration=200;
+handlers.get('loadedmetadata').forEach(fn=>fn());assert.equal(video.paused,true);assert.equal(video.currentTime,35);
+player.playSequence([{start_ms:1000,end_ms:2000},{start_ms:5000,end_ms:6000}]);player.reset();
+assert.equal(player.sequenceState().active,false);video.currentTime=2;tick();assert.equal(video.currentTime,2);assert.equal(video.paused,true);
+player.seek(80000,true);assert.equal(video.currentTime,80);assert.equal(video.paused,false);
+console.log('문맥 구간과 일반 재생, 메뉴 이동 중 자동 재생 취소, 위치 유지, 재시작 검사 통과');

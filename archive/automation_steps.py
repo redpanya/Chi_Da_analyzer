@@ -80,7 +80,8 @@ def execute(queue, entry, stage):
             raise Paused() from error
         needed = [kind for kind, valid in prepared.items() if not valid]
         if needed:
-            manager.start(root, vod, entry['format'], 'all' if len(needed) == 2 else needed[0])
+            manager.start(root, vod, entry['format'], 'all' if len(needed) == 2 else needed[0],
+                          concurrent_fragments=settings.get('concurrent_fragments', 1))
             wait(queue, manager.job if manager.job and manager.job.project.path == path else None)
         else:
             manager.reports.skipped(path, stage)

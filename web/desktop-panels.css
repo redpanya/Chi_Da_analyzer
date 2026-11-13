@@ -1,0 +1,8 @@
+.desktop-panels{gap:0!important;isolation:isolate}
+.desktop-panel-gutter{position:relative;min-width:0;z-index:8;background:var(--bg);align-self:stretch}
+.desktop-panel-separator{height:100%;min-height:80px;cursor:col-resize;touch-action:none;position:relative;outline-offset:-2px}
+.desktop-panel-separator::after{content:'';position:absolute;left:4px;top:0;bottom:0;width:2px;background:var(--line);transition:background .12s}
+.desktop-panel-gutter:hover .desktop-panel-separator::after,.desktop-panel-gutter:focus-within .desktop-panel-separator::after,.desktop-panel-gutter.dragging .desktop-panel-separator::after{background:var(--accent)}
+.desktop-panel-controls{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:3px;padding:3px;background:var(--paper);border:1px solid var(--line);border-radius:8px;opacity:0;pointer-events:none;box-shadow:0 3px 12px #0002}
+.desktop-panel-gutter:hover .desktop-panel-controls,.desktop-panel-gutter:focus-within .desktop-panel-controls{opacity:1;pointer-events:auto}
+.desktop-panel-controls button{width:26px;min-width:26px;min-height:26px;padding:2px!important;font-size:14px;line-height:20px}

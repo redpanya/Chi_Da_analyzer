@@ -1,0 +1,233 @@
+/* 치다 공통 화면 토큰. 영상/자막/PNG 캔버스에는 색상 필터를 적용하지 않습니다. */
+:root {
+  --ds-bg:#f9f9f9; --ds-surface:#ffffff; --ds-card:#f0f1f2; --ds-surface-soft:#f0f1f2; --ds-raised:#ffffff;
+  --ds-input:#e1e1e5; --ds-secondary:#e1e1e5; --ds-line:#d0d1d3; --ds-border-strong:#d0d1d3;
+  --ds-text:#0e0f10; --ds-secondary-text:#202224; --ds-muted:#4d4d4d; --ds-weak:#6d6e70;
+  --ds-accent-base:#168f5c; --ds-accent:#107347; --ds-accent-strong:#34c88b; --ds-accent-fill:#1bb373; --ds-on-accent:#000000;
+  --ds-tint:#e7f5ee; --ds-selected:#d7efe2; --ds-focus:#168f5c;
+  --ds-danger:#c71919; --ds-danger-bg:#fff0f0; --ds-danger-fill:#e02020; --ds-on-danger:#ffffff;
+  --ds-warning:#865f00; --ds-warning-bg:#fff5d9; --ds-warning-fill:#cf9a12; --ds-on-warning:#000000;
+  --ds-success:#107347; --ds-success-bg:#e7f5ee; --ds-success-fill:#1bb373; --ds-on-success:#000000;
+  --ds-info:#236ba8; --ds-info-bg:#eef6fc; --ds-info-fill:#3b8fd8; --ds-on-info:#000000;
+  --ds-vod:#4e41db; --ds-vod-bg:#f0edff; --ds-vod-fill:#4e41db; --ds-on-vod:#ffffff;
+  --ds-shadow:0 10px 34px #00000014; --ds-backdrop:#0e0f10b3;
+  --ds-chart-bg:#f0f1f2; --ds-chart-grid:#d0d1d3; --ds-chart-label:#4d4d4d;
+  --ds-chart-chat:#168f5c; --ds-chart-reaction:#a1760b; --ds-chart-clip:#4e41db;
+  --ds-radius:10px; --ds-motion:140ms; --ds-motion-layout:280ms; --ds-ease:cubic-bezier(.2,.8,.2,1); --ds-scrollbar:#9da5b6;
+}
+:root[data-theme=dark] {
+  color-scheme:dark;
+  --ds-bg:#0e0f10; --ds-surface:#141517; --ds-card:#1c1d1f; --ds-surface-soft:#1c1d1f; --ds-raised:#1c1d1f;
+  --ds-input:#2e3033; --ds-secondary:#2e3033; --ds-line:#2e3033; --ds-border-strong:#2e3033;
+  --ds-text:#ffffff; --ds-secondary-text:#dfe2ea; --ds-muted:#9da5b6; --ds-weak:#697183;
+  --ds-accent-base:#00ffa3; --ds-accent:#00ffa3; --ds-accent-strong:#3dffb9; --ds-accent-fill:#00ffa3; --ds-on-accent:#000000;
+  --ds-tint:#132e24; --ds-selected:#194332; --ds-focus:#00ffa3;
+  --ds-danger:#ff7575; --ds-danger-bg:#321b1d; --ds-danger-fill:#e02020; --ds-on-danger:#ffffff;
+  --ds-warning:#cf9a12; --ds-warning-bg:#302919; --ds-warning-fill:#cf9a12; --ds-on-warning:#000000;
+  --ds-success:#00ffa3; --ds-success-bg:#132e24; --ds-success-fill:#00ffa3; --ds-on-success:#000000;
+  --ds-info:#58a6e7; --ds-info-bg:#152a3d; --ds-info-fill:#3b8fd8; --ds-on-info:#000000;
+  --ds-vod:#a99dff; --ds-vod-bg:#282441; --ds-vod-fill:#4e41db; --ds-on-vod:#ffffff;
+  --ds-shadow:0 12px 38px #0005; --ds-backdrop:#000000d4;
+  --ds-chart-bg:#1c1d1f; --ds-chart-grid:#2e3033; --ds-chart-label:#9da5b6;
+  --ds-chart-chat:#00ffa3; --ds-chart-reaction:#cf9a12; --ds-chart-clip:#a99dff; --ds-scrollbar:#697183;
+}
+:root[data-theme=light] { color-scheme:light; }
+.brand-mark {display:block;flex:none;}
+.brand-mark .brand-tile {fill:var(--ds-surface);}
+.brand-mark .brand-handle {fill:none;stroke:var(--ds-accent);stroke-width:5;stroke-linecap:round;}
+.brand-mark .brand-lens {fill:var(--ds-input);stroke:var(--ds-accent);stroke-width:2.8;}
+.brand-mark .brand-chzzk {fill:var(--ds-accent);}
+.brand-mark image {image-rendering:pixelated;}
+:root[data-theme] {
+  color:var(--ds-text); background:var(--ds-bg);
+  --text:var(--ds-text); --ink:var(--ds-text); --muted:var(--ds-muted); --line:var(--ds-line);
+  --paper:var(--ds-surface); --bg:var(--ds-bg); --green:var(--ds-accent); --accent:var(--ds-accent); --tint:var(--ds-tint); --accent-soft:var(--ds-tint); --success:var(--ds-success); --warning:var(--ds-warning); --danger:var(--ds-danger); --info:var(--ds-info); --vod:var(--ds-vod);
+  --wa-font-family-body:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --wa-font-family-heading:var(--wa-font-family-body); --wa-font-size-m:14px; --wa-border-radius-m:8px;
+  --wa-color-surface-default:var(--ds-surface); --wa-color-surface-raised:var(--ds-raised);
+  --wa-color-surface-lowered:var(--ds-surface-soft); --wa-color-surface-border:var(--ds-line);
+  --wa-color-text-normal:var(--ds-text); --wa-color-text-quiet:var(--ds-muted); --wa-color-text-link:var(--ds-accent);
+  --wa-color-brand-fill-loud:var(--ds-accent-fill); --wa-color-brand-on-loud:var(--ds-on-accent);
+  --wa-color-brand-fill-quiet:var(--ds-tint); --wa-color-brand-on-quiet:var(--ds-accent); --wa-color-brand-border-normal:var(--ds-border-strong);
+  --wa-focus-ring-color:var(--ds-focus); --wa-form-control-background-color:var(--ds-surface);
+  --wa-color-neutral-fill-normal:var(--ds-secondary); --wa-color-neutral-on-normal:var(--ds-secondary-text);
+  --wa-color-neutral-fill-quiet:var(--ds-surface); --wa-color-neutral-on-quiet:var(--ds-text);
+  --wa-color-neutral-border-normal:var(--ds-line);
+  --wa-color-brand-fill-normal:var(--ds-selected); --wa-color-brand-on-normal:var(--ds-accent);
+  --wa-color-brand-border-quiet:var(--ds-line); --wa-color-brand-border-loud:var(--ds-accent);
+  --wa-color-success-fill-quiet:var(--ds-success-bg); --wa-color-success-fill-normal:var(--ds-success-bg); --wa-color-success-fill-loud:var(--ds-success-fill);
+  --wa-color-success-on-quiet:var(--ds-success); --wa-color-success-on-normal:var(--ds-success); --wa-color-success-on-loud:var(--ds-on-success);
+  --wa-color-success-border-quiet:var(--ds-line); --wa-color-success-border-normal:var(--ds-border-strong); --wa-color-success-border-loud:var(--ds-success);
+  --wa-color-warning-fill-quiet:var(--ds-warning-bg); --wa-color-warning-fill-normal:var(--ds-warning-bg); --wa-color-warning-fill-loud:var(--ds-warning-fill);
+  --wa-color-warning-on-quiet:var(--ds-warning); --wa-color-warning-on-normal:var(--ds-warning); --wa-color-warning-on-loud:var(--ds-on-warning);
+  --wa-color-warning-border-quiet:var(--ds-line); --wa-color-warning-border-normal:var(--ds-warning); --wa-color-warning-border-loud:var(--ds-warning);
+  --wa-color-danger-fill-quiet:var(--ds-danger-bg); --wa-color-danger-fill-normal:var(--ds-danger-bg); --wa-color-danger-fill-loud:var(--ds-danger-fill);
+  --wa-color-danger-on-quiet:var(--ds-danger); --wa-color-danger-on-normal:var(--ds-danger); --wa-color-danger-on-loud:var(--ds-on-danger);
+  --wa-color-danger-border-quiet:var(--ds-line); --wa-color-danger-border-normal:var(--ds-danger); --wa-color-danger-border-loud:var(--ds-danger);
+}
+:root[data-theme] body {min-width:1024px;color:var(--ds-text);background-color:var(--ds-bg);}
+:root[data-theme] :is(aside,.studio-header,.source-panel,.inspector,.inspector-bottom,.settings-panel,.help-overlay,.panel,.card,main>header,dialog) {
+  background-color:var(--ds-surface);color:var(--ds-text);border-color:var(--ds-line);
+}
+:root[data-theme] :is(body>aside) {background:var(--ds-surface-soft);}
+:root[data-theme] :is(h1,h2,h3,h4,strong,label,legend,summary) {color:inherit;}
+:root[data-theme] :is(.hint,.muted,.small,.tagline,.workspace-subtitle,.workspace-utilities,.section-label,.path,time,.time-label,.time,.clock,output) {color:var(--ds-muted);}
+:root[data-theme] :is(a) {color:var(--ds-accent);}
+:root[data-theme] :is(hr,fieldset,article,details,footer,.context-section,.context-comment,.context-reference,.context-topic,.context-children,.result-toolbar,.play-actions,.assembly,.current-heading,.source-bottom,.background-form,.settings-heading,.settings-footer,.inspector-bottom,#inspector-heading) {border-color:var(--ds-line);}
+:root[data-theme] :is(input:not([type=range],[type=checkbox],[type=radio],[type=color],[type=hidden]),select,textarea) {
+  background:var(--ds-input);color:var(--ds-text);border-color:var(--ds-line);border-radius:8px;
+}
+:root[data-theme] :is(input,textarea)::placeholder {color:var(--ds-muted);opacity:.9;}
+:root[data-theme] :is(input[type=checkbox],input[type=radio],input[type=range],progress) {accent-color:var(--ds-accent);}
+:root[data-theme] :is(button,a[href],summary,wa-button,input,select,textarea):focus-visible {
+  outline:2px solid var(--ds-focus);outline-offset:3px;
+}
+:root[data-theme] :is(button,.back-button,.action-link) {
+  background:var(--ds-secondary);color:var(--ds-secondary-text);border-color:var(--ds-line);border-radius:8px;
+  transition:background-color var(--ds-motion) var(--ds-ease),border-color var(--ds-motion) var(--ds-ease),color var(--ds-motion) var(--ds-ease);
+}
+:root[data-theme] .result-first :is(button.subtle,button.secondary,button.candidate-jump,button:not([class]):not([role=tab]),a:not(.brand),summary) {
+  background:var(--ds-secondary);color:var(--ds-secondary-text);border-color:var(--ds-line);
+}
+:root[data-theme] :is(button,.back-button,.action-link):not(:disabled):not([aria-disabled=true]):hover,
+:root[data-theme] .result-first :is(button,a[href]:not(.brand),summary):not(:disabled):not([aria-disabled=true]):is(:hover,:focus-visible) {
+  background:var(--ds-tint);color:var(--ds-accent);border-color:var(--ds-accent);
+}
+:root[data-theme] :is(button.primary,#new-vod,#queue-start,#context-copy,#context-clips-copy,#split-plan) {
+  background:var(--ds-accent-fill);border-color:var(--ds-accent-fill);color:var(--ds-on-accent);
+}
+:root[data-theme] :is(button.primary):not(:disabled):hover {background:var(--ds-accent-strong);border-color:var(--ds-accent-strong);color:var(--ds-on-accent);}
+:root[data-theme] :is(button:disabled,[aria-disabled=true]) {cursor:not-allowed;opacity:.5;}
+:root[data-theme] .result-first button.danger,
+:root[data-theme] :is(button.danger,.danger,#speech-delete,#voices-delete) {background:var(--ds-danger-bg);color:var(--ds-danger);border-color:var(--ds-danger);}
+:root[data-theme] :is(button.danger):not(:disabled):hover {background:var(--ds-danger);color:var(--ds-bg);}
+:root[data-theme] :is(.help,.help-button,.text-button) {background:transparent;border-color:transparent;}
+:root[data-theme] :is(.task,.workspace-job,.status-box,.voice-editor,.voice-group-review,.context-independent,.inline-note,.split-audio-preview,#split-timeline,#local-file-fields,.work-card,.work-detail,.settings-section) {
+  background:var(--ds-surface-soft);color:var(--ds-text);border-color:var(--ds-line);
+}
+:root[data-theme] .result-first :is(.task,.workspace-job,.voice-editor,.voice-card,.voice-group-review,.voice-failed-section,.settings-panel,.settings-footer) {
+  background:var(--ds-surface-soft);color:var(--ds-text);border-color:var(--ds-line);
+}
+:root[data-theme] :is(.review-tabs,.inspector-tabs,.list-switch) {background:var(--ds-surface-soft);border-color:var(--ds-line);}
+:root[data-theme] .result-first .review-tabs {background:var(--ds-surface-soft);border-color:var(--ds-line);}
+:root[data-theme] :is(.review-tabs button,.inspector-tabs button,.list-switch button) {background:transparent;color:var(--ds-muted);border-color:transparent;}
+:root[data-theme] .result-first .review-tabs button[aria-selected=true],
+:root[data-theme] :is(.review-tabs button[aria-selected=true],.inspector-tabs button[aria-selected=true],.list-switch button[aria-pressed=true]) {
+  background:var(--ds-selected);color:var(--ds-accent);box-shadow:inset 0 0 0 1px var(--ds-border-strong);border-color:transparent;font-weight:700;
+}
+:root[data-theme] :is(.step) {background:transparent;color:var(--ds-muted);}
+:root[data-theme] :is(.step.current,.project-item.selected,.project-item:hover,.source-card.active,.assembly-select[aria-pressed=true],.unified-row.now,.candidate.selected,.font-choice[aria-pressed=true],#split-audio-toggle[aria-pressed=true]) {
+  background:var(--ds-tint);color:var(--ds-text);border-color:var(--ds-accent);
+}
+:root[data-theme] :is(.project-item) {background:transparent;color:var(--ds-text);}
+:root[data-theme] :is(.context-preview,.context-comment,.voice-card,.context-section article,.context-section details,.context-workspace .result-browser,.result-browser,.version-details[open]>.version-body,.header-more[open]>.header-menu,.settings-footer,.settings-heading) {
+  background-color:var(--ds-surface);border-color:var(--ds-line);color:var(--ds-text);
+}
+:root[data-theme] .result-first .context-section details {border-color:var(--ds-line);}
+:root[data-theme] .context-comment-row .comment-title {background:var(--ds-surface);color:var(--ds-text);border-color:var(--ds-border-strong);}
+:root[data-theme] :is(.error,.queue-error,.external-error,.context-failed,.context-failed-item h3,[data-state=error],#context-notice,#explore-message,#render-conflicts) {color:var(--ds-danger);}
+:root[data-theme] :is(.context-failed-item,.inspector-card.needs-attention) {border-color:var(--ds-danger);}
+:root[data-theme] :is(.badge[data-state=complete],.local-badge,#split-state[data-state=complete]) {color:var(--ds-success);}
+:root[data-theme] :is(.badge) {background:var(--ds-surface-soft);border-color:var(--ds-line);color:var(--ds-muted);}
+:root[data-theme] :is(.badge[data-state=error],.badge[data-state=failed]) {color:var(--ds-danger);border-color:var(--ds-danger);}
+:root[data-theme] :is(.dot) {background:var(--ds-success);}
+:root[data-theme] :is(#notice,#studio-notice,#inspector-alert,.preview-toast,.help-current,.preview-badge,#profile-preview-note) {background:var(--ds-warning-bg);color:var(--ds-warning);border-color:var(--ds-warning);}
+:root[data-theme] :is(#split-error) {background:var(--ds-danger-bg);color:var(--ds-danger);border-color:var(--ds-danger);}
+:root[data-theme] :is(.clip-review,.context-kind,#model-folder-notice,#report-notice,[data-state=changed]) {color:var(--ds-warning);}
+:root[data-theme] :is(dialog,.version-details[open]>.version-body,.header-more[open]>.header-menu) {box-shadow:var(--ds-shadow);}
+:root[data-theme] dialog::backdrop {background:var(--ds-backdrop);}
+:root[data-theme] :is(.assembly-remove,.assembly-select,.inspector-card,.font-choice,.ratio-grid button,.caption-browser-tools,.source-card button,.settings-panel footer) {background-color:var(--ds-surface);color:var(--ds-text);border-color:var(--ds-line);}
+:root[data-theme] .source-card button {background:transparent;border-color:transparent;}
+:root[data-theme] .assembly-select[aria-pressed=true] {background:var(--ds-tint);border-color:var(--ds-accent);}
+:root[data-theme] .ratio-grid button[aria-pressed=true] {background:var(--ds-tint);color:var(--ds-accent);border-color:var(--ds-accent);}
+:root[data-theme] :is(.profile-scope-bar,#caption-sample-dock) {background:var(--ds-surface);}
+:root[data-theme] :is(.image-transform .image-move) {background:transparent;color:inherit;}
+:root[data-theme] wa-button {font-family:inherit;vertical-align:middle;}
+:root[data-theme] wa-button::part(base) {font-weight:600;min-height:36px;transition:background-color var(--ds-motion),border-color var(--ds-motion);}
+:root[data-theme] wa-button[variant=brand]::part(base) {background:var(--ds-accent-fill);color:var(--ds-on-accent);border-color:var(--ds-accent-fill);}
+:root[data-theme] wa-button:not([disabled]):hover::part(base) {background:var(--ds-tint);color:var(--ds-accent);border-color:var(--ds-accent);}
+:root[data-theme] wa-button:not(:defined) {display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:8px 12px;border:1px solid var(--ds-border-strong);border-radius:8px;background:var(--ds-surface);color:var(--ds-text);}
+:root[data-theme] wa-badge::part(base) {font-family:inherit;}
+:root[data-theme] :is(*):not(video):not(canvas) {scrollbar-color:var(--ds-scrollbar) transparent;}
+@media(prefers-reduced-motion:reduce) {
+  :root {--ds-motion:0ms;--ds-motion-layout:0ms;}
+  :root[data-theme] :is(button,a,summary,dialog,wa-button) {transition:none;scroll-behavior:auto;}
+}
+/* 기존 화면의 ID/복합 선택자가 가진 고정 흰색 면도 같은 토큰으로 맞춥니다. */
+:root[data-theme] .result-first main>nav,
+:root[data-theme] .header-more-actions,
+:root[data-theme] .result-toolbar .version-details p,
+:root[data-theme] .result-first .workspace-details,
+:root[data-theme] .job-status details,
+:root[data-theme] .result-first .context-workspace .result-browser,
+:root[data-theme] .result-first #context-result .context-item,
+:root[data-theme] .result-first #context-clips-result .clip-item {
+  background:var(--ds-surface);color:var(--ds-text);border-color:var(--ds-line);
+}
+:root[data-theme] .job-status,
+:root[data-theme] .analysis-scope-preview {background:var(--ds-surface-soft);color:var(--ds-text);border-color:var(--ds-border-strong);}
+:root[data-theme] .global-jobs {background:var(--ds-surface-soft);border-color:var(--ds-line);}
+:root[data-theme] .global-job-row.needs-review>span,
+:root[data-theme] .needs-review [role=status],
+:root[data-theme] #comment-time-error {color:var(--ds-danger);}
+:root[data-theme] .needs-review {border-color:var(--ds-danger)!important;}
+:root[data-theme] .result-first #context-result .context-item.selected,
+:root[data-theme] .result-first #context-clips-result .clip-item.selected {background:var(--ds-tint);}
+:root[data-theme] .result-first .review-tabs>button:is([role=tab],[aria-pressed]) {background:transparent;color:var(--ds-muted);}
+:root[data-theme] .result-first .review-tabs>button:is([aria-selected=true],[aria-pressed=true]),
+:root[data-theme] .result-first .review-tabs>button:is([aria-selected=true],[aria-pressed=true]):not(:disabled):is(:hover,:focus-visible) {background:var(--ds-selected);color:var(--ds-accent);border-color:var(--ds-border-strong);}
+:root[data-theme] .result-first .workspace-utilities .current {background:var(--ds-tint);color:var(--ds-accent);border-color:var(--ds-accent);}
+:root[data-theme] .result-first button.primary:not(:disabled):not([aria-disabled=true]):is(:hover,:focus-visible) {background:var(--ds-accent-strong);border-color:var(--ds-accent);color:var(--ds-on-accent);}
+:root[data-theme] :is(.mini-player,#video-result,.cover) {background:var(--ds-surface);color:var(--ds-text);border-color:var(--ds-line);}
+:root[data-theme] :is(.empty,.bottom-note,.path) {color:var(--ds-muted);}
+:root[data-theme] .empty {background:var(--ds-card);padding:16px;line-height:1.6;}
+:root[data-theme] :is(#speech-notice,#voices-notice,.voice-status.failed,.inspector-card.needs-attention .card-arrow) {color:var(--ds-danger);}
+:root[data-theme] .badge[data-state=review] {color:var(--ds-warning);border-color:var(--ds-warning);}
+:root[data-theme] .result-first button.danger:not(:disabled):not([aria-disabled=true]):is(:hover,:focus-visible) {background:var(--ds-danger-bg);color:var(--ds-danger);border-color:var(--ds-danger);}
+
+/* 사용자 지정 표면·의미색. 레이아웃과 실제 미디어 출력은 변경하지 않습니다. */
+:root[data-theme] :is(.panel,.card,.library-card,.work-card,.work-detail,.settings-section) {background-color:var(--ds-card);}
+:root[data-theme] :is(input,textarea)::placeholder {color:var(--ds-muted);opacity:1;}
+:root[data-theme] :is(.context-comment-row .comment-title) {background:var(--ds-input);border-color:var(--ds-line);}
+:root[data-theme] wa-badge[variant=brand]::part(base) {background:var(--ds-tint);color:var(--ds-accent);border-color:var(--ds-accent);}
+:root[data-theme] wa-badge[variant=success]::part(base) {background:var(--ds-success-bg);color:var(--ds-success);border-color:var(--ds-success);}
+:root[data-theme] wa-badge[variant=warning]::part(base) {background:var(--ds-warning-bg);color:var(--ds-warning);border-color:var(--ds-warning);}
+:root[data-theme] wa-badge[variant=danger]::part(base) {background:var(--ds-danger-bg);color:var(--ds-danger);border-color:var(--ds-danger);}
+
+/* 카드·모달은 기본 헤더 면과 분리합니다. ID가 있는 기존 대기열 모달도 포함합니다. */
+:root[data-theme] :is(dialog,.help-overlay) {background-color:var(--ds-card);color:var(--ds-text);border-color:var(--ds-line);}
+:root[data-theme] dialog :is(.settings-heading,.settings-body,.settings-footer) {background-color:var(--ds-card);}
+
+/* 새 작업 화면은 단색 바탕을 사용합니다. 이전 패턴 파일은 보존합니다. */
+:root[data-theme] .pattern-background {display:none!important;}
+
+/* 접기 대신 내용을 기본 표시하고, 버전 설명은 문서 흐름 안에 둡니다. */
+:root[data-theme] body details.always-visible>summary{display:block!important;cursor:default;list-style:none;min-height:0;padding:8px 0!important;margin:0 0 10px;border:0!important;border-radius:0;background:transparent!important;box-shadow:none!important;white-space:normal;line-height:1.5;color:var(--ds-muted);font-weight:600}
+:root[data-theme] body details.always-visible>summary::-webkit-details-marker{display:none}
+:root[data-theme] body details.always-visible>summary::before,:root[data-theme] body details.always-visible>summary::after{content:none!important}
+:root[data-theme] body details.always-visible{min-width:0;max-width:100%;overflow-wrap:anywhere}
+:root[data-theme] body details.version-details.always-visible{flex:1 1 100%;width:100%;padding:8px 0}
+:root[data-theme] body details.version-details.always-visible :is(p,.version-info-popover){position:static!important;inset:auto;width:auto;max-width:100%;padding:10px 12px;margin:0;border:1px solid var(--ds-line);border-radius:7px;box-shadow:none;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+:root[data-theme] body details.version-details.always-visible .version-info-popover p{border:0;padding:0}
+:root[data-theme] body details.version-details.always-visible .version-info-popover>button{margin-top:10px}
+#ui-toasts{position:fixed;z-index:2200;top:auto;bottom:18px;right:18px;width:min(560px,calc(100vw - 48px));display:grid;gap:10px;pointer-events:none}
+:root[data-theme] .ui-toast{display:flex;gap:12px;align-items:center;padding:14px 16px;border:1px solid var(--ds-border-strong);border-radius:10px;background:var(--ds-raised);color:var(--ds-text);box-shadow:var(--ds-shadow);pointer-events:auto;font-size:13px;line-height:1.6;animation:toast-enter 180ms ease-out}
+.ui-toast>span{flex:1;min-width:0;overflow-wrap:anywhere;max-height:130px;overflow:auto}
+.ui-toast-countdown{flex:none;white-space:nowrap;font-size:11px;font-variant-numeric:tabular-nums;min-width:72px;text-align:right;color:var(--ds-muted)}
+:root[data-theme] .ui-toast>button{flex:none;min-height:32px;padding:6px 10px;font-size:12px;white-space:nowrap}
+@keyframes toast-enter{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.ui-toast{animation:none}}
+:root[data-theme] :is(.settings-grid,.play-actions,.result-toolbar)>*{min-width:0}
+:root[data-theme] :is(.path,article p,article small){overflow-wrap:anywhere}
+:root[data-theme] :is(.settings-body,.form-section) label{line-height:1.5}
+:root[data-theme] input[type=text][readonly]{cursor:default}
+
+/* 체크 항목은 일반 텍스트 입력의 높이와 안쪽 여백을 상속하지 않습니다. */
+:root[data-theme] body input:is([type=checkbox],[type=radio]){width:16px;height:16px;min-width:16px;min-height:16px;padding:0;flex:none;vertical-align:middle}
+
+/* 별도 모션이 있는 패널을 제외한 확인창에만 적용합니다. */
+dialog[open]:not(.settings-panel):not(.result-drawer):not(.inline-task){animation:dialog-enter 220ms cubic-bezier(.2,.8,.2,1)}
+@keyframes dialog-enter{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){
+ dialog[open]{animation:none!important}
+}

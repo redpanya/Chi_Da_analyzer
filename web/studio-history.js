@@ -3,7 +3,7 @@ import {latestResponse} from './page-lifecycle.js';
 const el=(tag,text='')=>{const n=document.createElement(tag);n.textContent=text;return n;};
 export function studioHistory({host,api,identity,refresh,onError}){
   let runs=[],page=0,signature='';const responses=latestResponse();
-  const tools=el('div');tools.className='play-actions';const search=el('input');search.type='search';search.placeholder='작업 날짜·상태·제목 검색';search.setAttribute('aria-label','클립 작업 검색');
+  const tools=el('div');tools.className='studio-history-tools';const search=el('input');search.type='search';search.placeholder='작업 날짜·상태·제목 검색';search.setAttribute('aria-label','클립 작업 검색');
   const prev=el('button','이전'),next=el('button','다음'),count=el('span');tools.append(search,prev,count,next);host.before(tools);
   search.oninput=()=>{page=0;draw();};prev.onclick=()=>{page--;draw();};next.onclick=()=>{page++;draw();};
   const dialog=el('dialog'),title=el('h2'),note=el('p'),error=el('p'),cancel=el('button','취소'),confirm=el('button','휴지통으로 이동');dialog.setAttribute('aria-label','클립 작업 정리 확인');dialog.append(title,note,error,cancel,confirm);document.body.append(dialog);cancel.onclick=()=>dialog.close();let pending=null,busy=false;
@@ -18,13 +18,16 @@ export function studioHistory({host,api,identity,refresh,onError}){
       const item=el('article');item.append(el('strong',`${r.kind==='start'?'영상 저장':'범위 분석'} · ${new Date(r.created_at).toLocaleString('ko-KR')}`),el('p',r.message||r.state));
       const progress=el('progress');progress.max=1;progress.value=r.progress||0;item.append(progress,el('p',`전체 ${Math.round((r.progress||0)*100)}% · ${r.phase_name||''}${r.state==='running'&&r.phase_progress!=null?' · 현재 단계 '+Math.round(r.phase_progress*100)+'%':''} · 실행 시간 ${timecode((r.elapsed_seconds||0)*1000)}`));
       item.append(el('p',`완성 영상 ${(r.output_bytes/1024**2||0).toFixed(1)}MiB · ${r.folder||''}`));
+      const files=el('div'),actions=el('div');files.className='studio-output-files';actions.className='studio-output-actions';
       if(r.state==='running'){const b=el('button','작업 중단');b.onclick=()=>api('studio-stop',identity()).then(refresh).catch(onError);item.append(b);}
       else if(r.state!=='complete'){const b=el('button','완료 자료에서 이어하기');b.onclick=()=>api('studio-resume',{...identity(),run:r.id}).then(refresh).catch(onError);item.append(b);}
-      for(const [key,out] of Object.entries(r.outputs||{}))for(const [kind,name] of Object.entries(out.assets)){const a=el('a',`${out.title} · ${kind.toUpperCase()}`);a.href='file?'+new URLSearchParams({...identity(),kind:'studio',run:r.id,key:key+':'+kind});a.className='back-button';a.download=name;item.append(a);}
+      for(const [key,out] of Object.entries(r.outputs||{}))for(const [kind,name] of Object.entries(out.assets)){const a=el('a',`${out.title} · ${kind.toUpperCase()}`);a.href='file?'+new URLSearchParams({...identity(),kind:'studio',run:r.id,key:key+':'+kind});a.className='studio-output-link';a.download=name;files.append(a);}
+      item.append(files);
       if(r.kind==='start'&&r.state!=='running'){
-        if(r.state==='complete'){const b=el('button','중간 파일 정리');b.disabled=!!r.intermediates_cleaned_at;b.onclick=()=>preview(r,'intermediate');item.append(b);}
-        const b=el('button','작업 삭제');b.onclick=()=>preview(r,'delete');item.append(b);
-      }else if(r.project){const a=el('a','이 범위 결과 열기');a.href='./?'+new URLSearchParams({root:r.project.root,vod_id:r.project.vod_id});item.append(a);if(r.state!=='running'){const b=el('button','범위 작업 삭제');b.onclick=()=>preview(r,'delete');item.append(b);}}
+        if(r.state==='complete'){const b=el('button','중간 파일 정리');b.disabled=!!r.intermediates_cleaned_at;b.onclick=()=>preview(r,'intermediate');actions.append(b);}
+        const b=el('button','작업 삭제');b.onclick=()=>preview(r,'delete');actions.append(b);
+      }else if(r.project){const a=el('a','이 범위 결과 열기');a.className='studio-output-link';a.href='./?'+new URLSearchParams({root:r.project.root,vod_id:r.project.vod_id});actions.append(a);if(r.state!=='running'){const b=el('button','범위 작업 삭제');b.onclick=()=>preview(r,'delete');actions.append(b);}}
+      item.append(actions);
       host.append(item);
     }
   }

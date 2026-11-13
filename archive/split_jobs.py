@@ -1,4 +1,4 @@
-"""독립 영상 분할 작업·기록. 보관함 프로젝트나 모델이 필요하지 않다."""
+"""현재 앱 실행 동안만 유지하는 독립 영상 분할 작업."""
 from . import error_log
 import copy
 import os
@@ -7,18 +7,38 @@ import tempfile
 import threading
 import time
 import uuid
-from . import runtime, processes, split_contract as contract, split_media as media, split_render, split_deletion, split_draft, split_audio
+from . import processes, split_contract as contract, split_media as media, split_render, split_deletion, split_audio
 from .source import Cancelled, safe_error
 from .storage import Conflict, ProjectLock, read_json, save_json, stamp
+
+
+def source_project(source):
+    # 보관함 영상을 독립 분할 도구로 열어도 교체·삭제 잠금을 공유한다.
+    from .storage import load_project, vod_id
+    for parent in Path(source['path']).resolve().parents:
+        if parent.name.startswith('vod-') and (parent/'project.json').is_file():
+            load_project(parent, vod_id(parent.name[4:]))
+            return parent
+    return None
 
 
 class Splitter:
     def __init__(self, manager, root=None):
         self.manager = manager
-        self.root = Path(root) if root else runtime.SUPPORT/'video-split'
+        self._temp_parent = Path(root) if root else None
+        self._temp = None
         self.sources = {}
         self.job = None
         self.audio_preview = split_audio.Preview()
+
+    @property
+    def root(self):
+        if self._temp is None:
+            if self._temp_parent:
+                self._temp_parent.mkdir(parents=True, exist_ok=True)
+            self._temp = tempfile.TemporaryDirectory(prefix='chida-video-split-', dir=self._temp_parent,
+                                                     ignore_cleanup_errors=True)
+        return Path(self._temp.name).resolve()
 
     def idle(self):
         if self.job and not self.job.closed:
@@ -28,6 +48,11 @@ class Splitter:
         if self.job and not self.job.closed:
             self.job.stop.set(); self.job.thread.join()
         self.audio_preview.close()
+        # 출력 폴더는 임시 작업 폴더 밖에 있으며 완료 영상과 원본은 정리하지 않는다.
+        if self._temp:
+            self._temp.cleanup()
+        self.job = None
+        self.sources.clear()
 
     def file(self, id):
         file = self.root/contract.run_id(id)/'manifest.json'
@@ -51,21 +76,17 @@ class Splitter:
             source_id = contract.run_id(data.get('source_id'))
             return self.audio_preview.prepare(source_id, self.sources[source_id], data.get('track'), data.get('at'))
         if action == 'draft-get':
-            return split_draft.read(self.root)
+            return {'revision': 0, 'draft': None}
+        if action == 'draft-save':
+            raise ValueError('영상 나누기는 초안이나 최근 작업을 저장하지 않습니다')
+        if action == 'current':
+            with self.manager.guard:
+                return {'run': self.state(self.job.value['id']) if self.job else None}
         if action == 'status':
             return self.state(data['id'])
         if action == 'list':
-            result = []
-            for file in sorted(self.root.glob('*/manifest.json'), key=lambda f: f.stat().st_mtime, reverse=True):
-                try:
-                    value = self.state(file.parent.name)
-                    result.append({k: value[k] for k in ('id', 'created_at', 'state', 'message', 'source_id')} | {'name': value['source']['name']})
-                except (OSError, ValueError, KeyError):
-                    continue
-            query=str(data.get('query','')).casefold()
-            result=[r for r in result if query in (r['name']+' '+r['created_at']).casefold()]
             offset=max(0,int(data.get('offset',0)));limit=min(100,max(1,int(data.get('limit',30))))
-            return {'runs':result[offset:offset+limit],'total':len(result),'offset':offset,'limit':limit}
+            return {'runs': [], 'total': 0, 'offset': offset, 'limit': limit}
         if action == 'stop':
             with self.manager.guard:
                 if self.job and self.job.value['id'] == data.get('id') and not self.job.closed:
@@ -83,16 +104,20 @@ class Splitter:
             else: processes.popen(['/usr/bin/open', str(folder)])
             return {'ok': True}
         with self.manager.guard:
-            self.manager.speech_idle()
+            if action in ('register', 'delete-preview', 'delete'):
+                self.idle()
+                if action in ('delete-preview', 'delete'):
+                    self.manager.tasks.split_idle()
+            else:
+                self.manager.speech_idle()
             if action == 'register':
                 source = media.inspect(data.get('path'), threading.Event())
                 id = uuid.uuid4().hex; self.sources[id] = source
+                self.job = None
                 return {'source_id': id, 'source': source}
             lock = ProjectLock(self.root)
+            work = None
             try:
-                if action == 'draft-save':
-                    try:return split_draft.save(self.root,data,self.sources)
-                    finally:lock.close()
                 if action in ('delete-preview', 'delete'):
                     try:
                         file = self.file(data['id'])
@@ -130,16 +155,22 @@ class Splitter:
                     else:
                         if not value.get('folder'):
                             base = contract.local_path(data.get('folder'), directory=True)
+                            if base == self.root or self.root in base.parents:
+                                raise ValueError('앱 임시 폴더 밖의 저장 폴더를 선택하세요')
                             folder = Path(tempfile.mkdtemp(prefix=contract.safe_stem(value['source']['name'])+'_분할_', dir=base))
                             value.update(folder=str(folder), folder_identity=[folder.stat().st_dev, folder.stat().st_ino])
                         value['state'] = 'running'
                 else:
                     raise ValueError('지원하지 않는 영상 나누기 요청입니다')
-                self.job = Work(self.file(value['id']), copy.deepcopy(value), lock)
+                work = Work(self.file(value['id']), copy.deepcopy(value), lock)
+                self.job = work
                 self.job.update(message='분할 경계를 확인합니다' if value['state'] == 'planning' else '분할을 준비합니다', progress=0)
                 self.job.thread.start()
                 return self.job.snapshot()
             except BaseException:
+                if work:
+                    if work.source_lock: work.source_lock.close()
+                    work.closed = True
                 lock.close(); raise
 
     def media_file(self, source_id=None, run=None, index=None):
@@ -158,6 +189,8 @@ class Splitter:
 class Work:
     def __init__(self, file, value, lock):
         self.file, self.value, self.lock = file, value, lock
+        owner = source_project(value['source'])
+        self.source_lock = ProjectLock(owner) if owner else None
         self.stop = threading.Event(); self.closed = False
         self.started = time.monotonic(); self.elapsed = value.get('elapsed_seconds', 0); self.last_save = 0
         self.guard = threading.RLock()
@@ -190,4 +223,6 @@ class Work:
             except OSError:
                 pass
         finally:
+            if self.source_lock:
+                self.source_lock.close()
             self.lock.close(); self.closed = True

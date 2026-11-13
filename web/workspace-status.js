@@ -1,6 +1,6 @@
 import {timecode} from './player.js';
 import {vodDuration} from './vod-label.js';
-import {elapsedText} from './task-timing.js';
+import {showToast} from './ui-feedback.js';
 const $ = id => document.getElementById(id);
 const active = new Set(['queued','running','downloading','verifying','exporting','stopping']);
 const needsReview = new Set(['error','review','paused']);
@@ -9,7 +9,7 @@ const modes = {whole:'상세 문맥',timestamps:'타임스탬프',clips:'클립 
 // 화면의 작업 상태만 반영한다. 옵션·결과 선택·데이터 파일에는 쓰지 않는다.
 export function createWorkspaceStatus(layout) {
   let project = null, path = null, page = 1, queue = null;
-  const rows = new Map();
+  const seenStates = new Map();
   const setText = (id, text) => { if ($(id).textContent !== text) $(id).textContent = text; };
   function readiness() {
     const speech = project?.speech, model = $('speech-model').dataset;
@@ -25,28 +25,21 @@ export function createWorkspaceStatus(layout) {
       ['speech','음성 전사',3,'speech-stop',project?.speech], ['voices','화자 구분',4,'voices-stop',project?.voices],
       ['context','AI 문맥',6,'context-stop',project?.context],
     ];
-    const shown = new Set();
-    for (const [key, name, step, stopId, state] of descriptors) {
-      if (!state || !(active.has(state.state) || needsReview.has(state.state)) || step === page) continue;
-      shown.add(key);
-      if (!rows.has(key)) {
-        const row = document.createElement('div'); row.className = 'global-job-row';
-        const text = document.createElement('span'), open = document.createElement('button'), stop = document.createElement('button');
-        open.className = stop.className = 'subtle'; open.textContent = '작업 열기'; stop.textContent = '중단';
-        open.onclick = () => $('step'+step).click(); stop.onclick = () => $(stopId).click(); row.append(text, open, stop);
-        rows.set(key, row); $('global-job-rows').append(row);
-      }
-      const row = rows.get(key), [text, , stop] = row.children;
-      text.textContent = `${name} · ${state.message || state.state} · ${elapsedText(state)}`;
-      row.classList.toggle('needs-review', needsReview.has(state.state)); stop.disabled = $(stopId).disabled; stop.hidden = !active.has(state.state);
+    const sourcePath = project?.path;
+    for (const [key, name, step, , state] of descriptors) {
+      if (!project || !state) continue;
+      const identity = `${project.path}:${key}`;
+      const signature = `${state.state}:${state.action || ''}:${state.run || ''}`;
+      const previous = seenStates.get(identity);
+      if (previous === signature) continue;
+      seenStates.set(identity, signature);
+      if (step === page || !(active.has(state.state) || needsReview.has(state.state) || (previous && state.state === 'complete'))) continue;
+      showToast(`${project.metadata.title} · ${name} · ${state.message || state.state}`, {
+        key:identity+':'+signature, action:() => {if (project?.path === sourcePath) $('step'+step).click(); else $('nav-jobs').click();},
+      });
     }
-    for (const [key, row] of rows) if (!shown.has(key)) {row.remove(); rows.delete(key);}
-    const queueText = $('queue-status').textContent;
-    const queueActive = !!(project && queue?.active && queue.items?.some(item => item.state === 'running' && (item.project_root||queue.root) === project.root && String(item.vod) === String(project.vod_id)));
-    setText('global-queue-state', queueActive ? '보관함 순차 작업 · '+queueText : '');
-    $('global-queue-state').hidden = !queueActive || page === 1;
-    $('global-queue-state').nextElementSibling.hidden = $('global-queue-state').hidden;
-    $('global-jobs').hidden = !shown.size && $('global-queue-state').hidden;
+    $('global-jobs').hidden = true;
+
   }
   function update(value = project) {
     const changed = path !== value?.path, previous = project; project = value;
@@ -67,11 +60,11 @@ export function createWorkspaceStatus(layout) {
     }
     $('download-details').hidden = !value || page !== 2;
     document.querySelector('.queue-section').hidden = page !== 1;
-    $('project-assets').hidden = !value;
+    $('project-assets').hidden = true;
     $('step2').hidden = true;
     $('download-panel').hidden = !value;
     $('lock-note').hidden = !value?.locked && !value?.analysis_running;
-    setText('workspace-subtitle', page === 9 ? '보관함·모델 폴더와 처리 장치를 관리하세요.' : page === 1 ? '보관함 전체 · 주소를 등록하고 순서대로 작업하세요.' : value ? `${value.metadata.title} (${timecode(Math.round((vodDuration(value) ?? 0)*1000))})` : '저장한 VOD를 선택하세요.');
+    setText('workspace-subtitle', [1,9].includes(page) ? '' : value ? `${value.metadata.title} (${timecode(Math.round((vodDuration(value) ?? 0)*1000))})` : '저장한 VOD를 선택하세요.');
     const state = value?.context;
     const tab=document.querySelector('#context-panel [role=tab][aria-selected=true]')?.id?.replace('context-tab-','')||'detail';
     const jobMode=state?.action?.startsWith('clips')?'clips':state?.action?.startsWith('timestamps')?'timestamps':'detail';
@@ -79,9 +72,10 @@ export function createWorkspaceStatus(layout) {
       const details=$(id);if(!details)continue;
       const ownId=jobMode==='clips'?state?.clip_run:jobMode==='detail'?state?.full_run:state?.run;
       const matching=jobMode===tab&&ownId===selected;
-      const automatic=!!state?.owned||matching;
+      details.hidden=!state?.action||!matching;
+      const automatic=!!state?.owned;
       if(details.dataset.automatic!==String(automatic)){details.open=automatic;details.dataset.automatic=String(automatic);}
-      details.querySelector('summary').textContent=matching?'선택 결과의 작업 진행·기록':state?.owned?'다른 결과의 실행 중인 작업':'다른 결과의 이전 작업 상태';
+      details.querySelector('summary').textContent='선택 결과의 작업 진행과 기록';
     }
     if (state?.action) $('context-job').dataset.mode = modes[state.action.replace('-resume','')] || 'AI 문맥';
     jobs();

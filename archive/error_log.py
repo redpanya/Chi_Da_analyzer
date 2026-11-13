@@ -112,7 +112,7 @@ def record(operation, error, *, path=None, vod=None, run=None):
         _warning = '오류 로그를 저장하지 못했습니다. 저장 공간·접근 권한을 확인하세요. 원래 작업 결과는 유지합니다.'
 
 
-def snapshot(*, export=False):
+def snapshot(*, export=False, ids=None):
     global _warning
     with _guard:
         try: rows = _read()
@@ -122,7 +122,13 @@ def snapshot(*, export=False):
         # 메시지·경로·본문·명령줄은 이메일 첨부 사본에 넣지 않는다.
         fields = ('at','last_at','operation','vod_id','run','error_type','code','summary','frames','count')
         if not export: fields += ('message',)
-        events = [{k:r.get(k) for k in fields} for r in rows]
+        events = [{**{k:r.get(k) for k in fields}, 'event_id': hashlib.sha256((str(r.get('_key'))+'|'+str(r.get('at'))).encode()).hexdigest()[:24]} for r in rows]
+        if ids is not None:
+            if not isinstance(ids, list) or len(ids)>1000 or any(not isinstance(value,str) or not re.fullmatch(r'[a-f0-9]{24}',value) for value in ids):
+                raise ValueError('내보낼 오류 기록을 다시 선택하세요')
+            if set(ids) - {event['event_id'] for event in events}:
+                raise ValueError('선택한 오류 기록이 변경됐습니다. 새로고침 후 다시 선택하세요')
+            events = [event for event in events if event['event_id'] in ids]
         return dict(schema=1, app_version='1.1.0', system=platform.system(), architecture=platform.machine(), created_at=stamp(), **config(), events=events)
 
 
@@ -143,7 +149,7 @@ def dispatch(action, data):
     if action == 'config': return config()
     if action == 'settings': return configure(data.get('enabled'))
     if action == 'list': return snapshot()
-    if action == 'export': return snapshot(export=True)
+    if action == 'export': return snapshot(export=True, ids=data.get('ids'))
     if action == 'client':
         page, kind = data.get('page'), data.get('kind')
         if page not in ('index','clip-studio','video-split') or kind not in ('script','promise','network','response','media'):

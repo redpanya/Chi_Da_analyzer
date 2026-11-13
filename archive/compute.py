@@ -86,5 +86,5 @@ def visible_execution(value):
 
 
 def failure_hint(plan):
-    return (' GPU 오류·메모리 부족이면 가져오기에서 CPU만 사용으로 변경한 뒤 이어서 처리하세요. 완료 결과는 유지됩니다.'
+    return (' GPU 오류·메모리 부족이면 설정의 처리 장치에서 CPU만 사용으로 변경한 뒤 이어서 처리하세요. 완료 결과는 유지됩니다.'
             if plan.get('backend') == 'vulkan' else '')

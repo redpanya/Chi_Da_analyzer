@@ -5,14 +5,16 @@ import threading
 import uuid
 
 from . import automation_steps as steps, speech_options, automation_summary, automation_plan, download_scope
+from .source import fragment_concurrency
 from .storage import library, project_path, ProjectLock, Conflict, load_project, create_or_load, save_json, read_json, stamp
 
 
 def options(value):
-    if not isinstance(value, dict) or set(value) - {'mode', 'steps', 'height', 'download_range', 'language', 'asr_options', 'speakers_enabled', 'backend', 'thinking', 'allow_partial_chat', 'continue_voice_error', 'background', 'summary_modes'}:
+    if not isinstance(value, dict) or set(value) - {'mode', 'steps', 'height', 'download_range', 'concurrent_fragments', 'language', 'asr_options', 'speakers_enabled', 'backend', 'thinking', 'allow_partial_chat', 'continue_voice_error', 'background', 'summary_modes'}:
         raise ValueError('작업 설정을 확인하세요')
-    result = dict(mode='download', height=480, language='ko', asr_options=speech_options.validate(),
+    result = dict(mode='download', height=480, concurrent_fragments=1, language='ko', asr_options=speech_options.validate(),
                   speakers_enabled=False, backend='sherpa', thinking=True, allow_partial_chat=False, continue_voice_error=True) | value
+    result['concurrent_fragments'] = fragment_concurrency(result['concurrent_fragments'])
     if result['mode'] not in ('download', 'analysis') or type(result['height']) is not int or result['height'] not in (0, 1080, 720, 480):
         raise ValueError('작업 범위와 화질을 확인하세요')
     # 구버전의 '제공 최고 화질' 요청도 신규 등록에서는 1080p를 넘지 않는다.
@@ -54,6 +56,7 @@ class Automation:
         self.root = None
         self.lock = None
         self.report_id = None
+        self.current_path = None
 
     def owns_thread(self):
         return self.thread is threading.current_thread()
@@ -149,8 +152,8 @@ class Automation:
 
     @staticmethod
     def check_add(data, vod, target=None, base=None):
-        if len(data['items']) >= 100:
-            raise ValueError('작업 목록은 최대 100개입니다. 완료 항목을 목록에서 제거하세요')
+        if sum(item['state'] != 'complete' for item in data['items']) >= 100:
+            raise ValueError('미완료 작업 목록은 최대 100개입니다. 항목을 처리하거나 목록에서 제거하세요')
         if any(item['vod'] == vod and (item.get('project_root') or base) == (target or base) and item['state'] != 'complete' for item in data['items']):
             raise Conflict('이미 미완료 목록에 있는 VOD입니다. 기존 항목의 설정 적용·이어가기 또는 목록 제거 후 다시 등록하세요')
 
@@ -291,6 +294,7 @@ class Automation:
                 entry = claimed[0]
                 target_root = download_scope.entry_root(self.root, entry)
                 path = project_path(target_root, entry['vod'])
+                self.current_path = path
                 self.report_id = entry.get('report') or self.manager.reports.new(target_root, entry['vod'], entry['options'])
                 self.update_item(entry['id'], state='running', report=self.report_id, message='기존 완료 자료부터 확인합니다')
                 outcomes = {}
@@ -327,6 +331,7 @@ class Automation:
                     token = self.manager.reports.begin(path, report_stage, report_settings)
                     self.manager.reports.finish(path, token, report_stage, 'error', str(error))
                 self.report_id = None
+                self.current_path = None
             self.change(self.root, lambda data: data.update(state='paused' if self.stop.is_set() else 'complete', message=completion_message(data['items'],self.stop.is_set())))
         except (steps.Paused, steps.Prerequisite, OSError) as error:
             if not isinstance(error,steps.Paused): error_log.record('queue-prerequisite',error)
@@ -353,4 +358,5 @@ class Automation:
                 self.lock.close()
                 self.lock = None
                 self.running = False
+                self.current_path = None
                 self.report_id = None

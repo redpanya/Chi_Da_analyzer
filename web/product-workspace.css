@@ -1,0 +1,58 @@
+body{min-width:1024px}body.result-first{grid-template-columns:224px minmax(800px,1fr)}body>aside{width:224px}body>main{margin-left:0;min-width:800px}
+.workspace-navigation{display:grid;gap:7px;margin:8px 0 12px}.workspace-navigation wa-button{display:block;width:100%}.workspace-navigation wa-button::part(base){justify-content:flex-start;width:100%}#workspace-search-open{font-size:12px;color:var(--ds-muted,#706d68);text-align:left}
+.library-intro{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:6px 0 22px}.library-intro h2{font-size:28px;letter-spacing:-.04em;margin:4px 0}.library-searchbar{display:grid;grid-template-columns:minmax(180px,1fr) 145px 150px auto;gap:10px}#library-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.library-card{border:1px solid var(--ds-line,#dedad5);border-radius:12px;padding:20px;background:var(--ds-surface,#fff)}.library-card h3{font-size:17px;line-height:1.5;min-height:50px;margin:0}.library-card .play-actions{margin:20px 0 0}.library-statuses{display:flex;flex-wrap:wrap;gap:6px;min-height:40px}.library-pagination{display:flex;gap:18px;align-items:center;justify-content:center;padding-top:24px}
+.workspace-palette{width:600px;max-height:70vh;padding:24px}.workspace-palette>.play-actions{justify-content:space-between}.workspace-palette h2{margin:0}#workspace-search-results{display:grid;gap:6px;margin-top:16px;max-height:50vh;overflow:auto}#workspace-search-results button{text-align:left}.workspace-job{display:grid;grid-template-columns:145px minmax(150px,1fr) auto;gap:8px;padding:16px 0;border-bottom:1px solid var(--ds-line,#dedad5);align-items:center}.workspace-job p{margin:0}.workspace-job small{grid-column:2;grid-row:2;color:var(--ds-muted,#686868)}.workspace-job button{grid-column:3;grid-row:1 / 3}.workspace-job[data-state=error]>strong,.notice-warning{color:var(--ds-danger,#b42318)}.settings-appearance{margin-bottom:28px}.settings-appearance select{max-width:320px}.project-tools{display:flex;justify-content:flex-end;gap:8px;margin:0 0 12px}.project-tools button{font-size:12px}.result-first .project-tools[hidden],.workspace-navigation[hidden],#library-page[hidden],#jobs-page[hidden]{display:none}.result-first #projects .project-item{padding:12px}.result-first #projects .project-row{padding:0;border:0}.result-first #projects{display:grid;align-content:start;gap:6px}.result-first main>header{margin-bottom:12px}.result-first #step4{display:none}
+body[data-workspace-page="0"] #global-jobs,body[data-workspace-page="10"] #global-jobs,body[data-workspace-page="9"] #global-jobs,body[data-workspace-page="1"] #global-jobs{display:none}.library-statuses wa-badge{font-size:11px;white-space:normal;border-radius:6px;background:var(--ds-surface-soft);color:var(--ds-muted);padding:4px 7px}.library-statuses wa-badge[data-state=complete]{background:var(--ds-success-bg);color:var(--ds-success)}.library-statuses wa-badge:is([data-state=error],[data-state=review]){background:var(--ds-danger-bg);color:var(--ds-danger)}
+@media(min-width:1600px){#library-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(prefers-reduced-motion:no-preference){.library-card{transition:border-color 140ms,box-shadow 140ms}.library-card:focus-within,.library-card:hover{border-color:var(--ds-accent,#b74821);box-shadow:0 2px 12px #0000000a}}
+
+.error-log-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.error-log-filters input{max-width:180px}.error-log-filters select{min-width:0;max-width:150px}
+#error-log-rows{padding:12px;border:1px solid var(--ds-line,var(--line));border-radius:8px;scrollbar-gutter:stable;overscroll-behavior:contain}
+#error-log-rows:empty{display:none}
+.error-select-row{display:flex;gap:10px;align-items:start}
+.error-select-row details{flex:1;min-width:0}
+#error-log-rows .error-select-row>label{flex:none;margin:0;padding-top:22px}
+#error-log-rows .error-select-row input{margin:0}
+#error-log-rows .error-log-message{margin:10px 0 0;padding:10px 12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.error-export-box{display:grid;gap:12px;min-width:0;margin-top:24px;padding:20px;border:1px solid var(--ds-line,var(--line));border-radius:8px}
+.error-export-box>h3,.error-export-box>p{margin:0;line-height:1.6;overflow-wrap:anywhere}
+.error-export-box>button,.error-export-box>a{justify-self:start;max-width:100%;white-space:normal}
+.error-export-box #error-export-preview{display:block;min-width:0;max-width:100%;padding:12px;resize:vertical;font:12px/1.6 ui-monospace,monospace}
+.error-export-box .error-export-consent{display:flex;align-items:flex-start;gap:8px;margin:0;line-height:1.6}
+.error-export-box .error-export-consent input{flex:none;margin:3px 0 0}
+.error-export-consent span{min-width:0;overflow-wrap:anywhere}
+.queue-preflight{max-width:680px;padding:24px;max-height:85vh;overflow:auto}
+
+/* 결과 탐색의 첫 화면에는 목록과 영상이 함께 보인다. 보조 기능은 기존 더보기/버전 정보에서 연다. */
+.result-first #context-external-open,.result-first #context-clips-external{display:none}
+.result-first #context-panel .result-toolbar{gap:6px;margin:6px 0 8px}
+.result-first #context-panel .result-toolbar select{min-width:0}
+.result-first #context-panel .result-toolbar>label{flex:1;min-width:180px}
+.result-first #context-panel .result-toolbar .version-details{margin:0}
+.result-first #context-panel .result-toolbar .version-details[open]{position:relative}
+.version-info-popover{position:absolute;right:0;top:100%;z-index:21;width:360px;max-width:60vw;padding:14px;background:var(--ds-raised);border:1px solid var(--ds-line);border-radius:8px;box-shadow:var(--ds-shadow)}.result-first #context-panel .result-toolbar .version-info-popover p{position:static;width:auto;max-width:none;box-shadow:none;border:0;padding:0;margin:0 0 12px}.version-details:not([open]) .version-info-popover{display:none}
+.result-first #context-panel .result-toolbar button,.result-first #context-panel .result-toolbar summary{padding:7px 9px;font-size:12px}
+.result-first #context-readiness,.result-first #clips-readiness{font-size:12px;margin:4px 0}
+.result-first #context-job-history,.result-first #clips-job-history{padding:4px 8px;margin:8px 0}
+.result-first #context-panel>.review-tabs{margin:0 0 12px}
+
+.jobs-filter{display:flex;gap:12px;align-items:center;margin:18px 0}.jobs-filter select{max-width:220px}.analysis-method{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--ds-line);padding-bottom:12px;margin-bottom:14px}
+
+/* 보관함은 썸네일 없이 제목·상태·길이와 개별 삭제를 한 행에 둔다. */
+#library-cards{display:block;border-top:1px solid var(--ds-line)}
+#library-cards>.library-card{display:flex;align-items:center;gap:12px;padding:0 12px 0 0;border:0;border-bottom:1px solid var(--ds-line);border-left:2px solid transparent;border-radius:0;background:transparent;box-shadow:none;min-width:0}
+#library-cards>.library-card:hover,#library-cards>.library-card:focus-within{border-left-color:var(--ds-accent);background:var(--ds-card)}
+:root[data-theme] #library-cards .library-open{display:grid;grid-template-columns:minmax(160px,1fr) minmax(150px,220px) 80px 20px;gap:18px;align-items:center;flex:1;min-width:0;text-align:left;padding:18px 12px;border:0;border-radius:0;background:transparent;box-shadow:none;white-space:normal;color:var(--ds-text);font-weight:400}
+:root[data-theme] #library-cards .library-open:hover{color:var(--ds-accent);background:transparent}
+.library-card-heading{display:block;min-width:0;margin:0}.library-card-heading strong{display:block;font-size:14px;line-height:1.5;font-weight:650;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.library-card-heading small{display:block;margin-top:5px;font-size:12px;color:var(--ds-muted);line-height:1.5}
+#library-cards .library-statuses{display:grid;gap:6px;justify-items:start;min-height:0}.library-statuses>small{font-size:11px;color:var(--ds-muted);line-height:1.5;overflow-wrap:anywhere}
+.library-card time{font:12px ui-monospace,SFMono-Regular,Consolas,monospace;white-space:nowrap;text-align:right;color:var(--ds-muted)}.library-row-arrow{color:var(--ds-weak);text-align:right}
+#library-cards .library-delete{flex:none;padding:8px 10px;white-space:nowrap;font-size:12px}
+/* VOD 이름은 한 번만 표시하고 작업별 상태와 조작은 오른쪽 열에 모은다. */
+.workspace-job-group{display:grid;grid-template-columns:minmax(160px,0.8fr) minmax(360px,2fr);gap:24px;padding:18px 0;border-bottom:1px solid var(--ds-line);align-items:start}
+.workspace-job-title{min-width:0;display:grid;gap:7px}.workspace-job-title strong{font-size:14px;line-height:1.5;overflow-wrap:anywhere}.workspace-job-title small{font-size:11px;color:var(--ds-muted);line-height:1.5}
+.workspace-job-stages{display:grid;gap:8px;min-width:0}.workspace-job-stage{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 12px;border:1px solid var(--ds-line);border-radius:8px;min-width:0}
+.workspace-job-stage>strong{font-size:12px;line-height:1.5}.workspace-job-stage[data-state=active]>strong{color:var(--ds-accent)}.workspace-job-stage[data-state=review]>strong{color:var(--ds-danger)}
+.workspace-job-stage>p,.workspace-job-stage>small{grid-column:1;margin:0;overflow-wrap:anywhere;white-space:pre-wrap;font-size:11px;color:var(--ds-muted);line-height:1.5}
+.workspace-job-actions{grid-column:2;grid-row:1 / span 3;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.workspace-job-actions button{font-size:11px;padding:7px 10px;white-space:nowrap}

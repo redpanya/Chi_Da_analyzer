@@ -20,7 +20,9 @@ export function createQueueOptions($){
     const steps=checked('queue-steps'),summary_modes=checked('queue-summary-modes');
     if(!steps.length)throw Error('진행할 단계를 하나 이상 선택하세요');
     if(steps.includes('context')&&!summary_modes.length)throw Error('AI 문맥 모드를 하나 이상 선택하세요');
-    return {steps,summary_modes,download_range:scope(steps),height:Number($('queue-height').value),language:$('queue-language').value,
+    const concurrent_fragments=Number($('queue-fragments').value);
+    if(!Number.isInteger(concurrent_fragments)||concurrent_fragments<1||concurrent_fragments>16)throw Error('동시 다운로드 개수는 1~16 사이의 정수로 입력하세요');
+    return {steps,summary_modes,concurrent_fragments,download_range:scope(steps),height:Number($('queue-height').value),language:$('queue-language').value,
       asr_options:{vad:$('queue-vad').value,prompt:$('queue-prompt').value},backend:$('queue-backend').value,
       thinking:$('queue-thinking').checked,allow_partial_chat:$('queue-partial-chat').checked,continue_voice_error:$('queue-continue-voice').checked};
   }

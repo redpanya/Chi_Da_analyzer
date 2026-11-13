@@ -1,3 +1,4 @@
+import {navigateDocument} from './workspace-motion.js';
 // 저장 대상 스냅샷을 비교해 미저장 편집의 이탈을 보호한다.
 export function createEditSession({read,save,status}){
   let baseline=null,saving=null,failure='',pending=null,departing=false,savedAt='';
@@ -22,7 +23,7 @@ export function createEditSession({read,save,status}){
   async function allow(){if(!dirty()&&!saving)return true;if(pending)return false;dialog.showModal();return new Promise(resolve=>pending=resolve);}
   document.addEventListener('click',async event=>{const link=event.target.closest?.('a[href]');if(!link||link.download||link.target==='_blank'||event.metaKey||event.ctrlKey||event.defaultPrevented)return;
     if(new URL(link.href,location.href).pathname===location.pathname&&link.hash)return;
-    if(dirty()||saving){event.preventDefault();if(await allow()){departing=true;location.assign(link.href);}}});
+    if(dirty()||saving){event.preventDefault();if(await allow()){departing=true;navigateDocument(link.href);}}});
   globalThis.addEventListener('beforeunload',event=>{if(!departing&&(dirty()||saving)){event.preventDefault();event.returnValue='';}});
   return {changed:render,dirty,save:persist,allow,accept(at,value=read()){baseline=JSON.stringify(value);failure='';if(at&&!Number.isNaN(Date.parse(at)))savedAt=new Date(at).toLocaleString('ko-KR');render();}};
 }

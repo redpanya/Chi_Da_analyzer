@@ -51,3 +51,11 @@ def receive(path,vod,values):
     if values.get('token')!=info['token']:raise Conflict('파일·입력 또는 가져오기 내역이 바뀌었습니다. 결과를 다시 검사하세요')
     if info['errors'] and values.get('allow_partial') is not True:raise ValueError('오류 묶음을 제외한 부분 저장에 먼저 동의하세요')
     return exchange.save_replies(path,saved,source,replies)
+
+
+def repair(path,vod,values):
+    saved,source,replies,info=checked(path,vod,values)
+    if not saved:raise ValueError('내보내기 ID를 확인할 수 없습니다. 외부 작업 목록에서 미수신 보완 ZIP을 저장하세요')
+    if values.get('token')!=info['token']:raise Conflict('파일·입력 또는 가져오기 내역이 바뀌었습니다. 결과를 다시 검사하세요')
+    if not info['missing']:raise ValueError('미수신·오류 묶음이 없습니다. 기존 정상 결과는 유지합니다')
+    return zipper.pack_snapshot(saved,source,info['missing'])

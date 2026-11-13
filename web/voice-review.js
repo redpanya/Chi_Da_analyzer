@@ -22,7 +22,7 @@ export function createVoiceReview({listen, save, search, jump, suggest}) {
     $('voice-failed-query').value='';$('voice-failed-rows').replaceChildren();
     $('voice-failed-count').textContent='';$('voice-failed-empty').textContent='화자 분석을 완료하면 실패 발언을 검토할 수 있습니다.';
     $('voice-failed-prev').disabled=$('voice-failed-next').disabled=true;
-    $('voice-failed-status').textContent='발언의 음성을 듣고 대상 화자를 선택하세요.';
+    $('voice-failed-status').textContent='';
     $('voice-failed-group').replaceChildren();$('voice-failed-group').value='';$('voice-failed-group-review').hidden=true;
   }
   $('voice-failed-search').onsubmit=e=>{e.preventDefault();cursor=0;search();};

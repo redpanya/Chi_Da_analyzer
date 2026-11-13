@@ -1,3 +1,5 @@
+import {animateUI,cancelMotion} from './workspace-motion.js';
+import {bindOutsideDismiss} from './panel-dismiss.js';
 // 기존 폼 노드를 이동해 이벤트·입력값을 유지한다. 닫기는 실행 중 작업을 중단하지 않는다.
 export function createSettingsPanel(id, title, nodes, actions = []) {
   const make = (tag, text, cls) => { const n = document.createElement(tag); n.textContent = text || ''; if (cls) n.className = cls; return n; };
@@ -14,14 +16,20 @@ export function createSettingsPanel(id, title, nodes, actions = []) {
   const status = make('p', '', 'settings-notice'); status.setAttribute('role', 'status');
   footer.append(cancel, ...actions);
   dialog.append(header, body, status, footer); document.body.append(dialog);
-  let opener = null, snapshot = [], help = null;
+  let opener = null, snapshot = [], help = null, presentation=null, presentationClosed=true;
+  function clearHelp(){if(!help)return;help.remove();help=null;body.hidden=false;footer.hidden=false;close.textContent='닫기 ×';close.setAttribute('aria-label',title+' 닫기');}
+  function closedPresentation(){if(!presentationClosed){presentationClosed=true;presentation?.closed();}}
+  function closePanel(){cancelMotion(dialog);if(dialog.open){clearHelp();dialog.close();closedPresentation();}}
   const fields = () => [...dialog.querySelectorAll('input:not([type=file]),select,textarea:not([readonly])')];
   function remember() { snapshot = fields().filter(el => !el.disabled).map(el => [el, el.value, el.checked]); }
-  function dismiss() { if (help) { help.remove(); help = null; body.hidden = false; footer.hidden = false; close.textContent = '닫기 ×'; close.setAttribute('aria-label', title + ' 닫기'); } else dialog.close(); }
+  function dismiss() { if (help) clearHelp(); else animateUI(dialog,[{opacity:1,transform:'translateX(0)'},{opacity:0,transform:'translateX(16px)'}],{duration:180},closePanel); }
+  bindOutsideDismiss(dialog,dismiss,{isOpen:()=>dialog.open&&!presentation});
   close.onclick = dismiss;
   dialog.addEventListener('cancel', e => { e.preventDefault(); dismiss(); });
   dialog.addEventListener('close', () => {
-    if (help) { help.remove(); help = null; body.hidden = false; footer.hidden = false; close.textContent = '닫기 ×'; close.setAttribute('aria-label', title + ' 닫기'); }
+    if(dialog.open)return;
+    cancelMotion(dialog);closedPresentation();
+    clearHelp();
     if (opener?.isConnected && opener.getClientRects().length) opener.focus({preventScroll:true});
   });
   cancel.onclick = () => {
@@ -29,7 +37,7 @@ export function createSettingsPanel(id, title, nodes, actions = []) {
       el.value = value; el.checked = checked;
       el.dispatchEvent(new Event('input', {bubbles:true})); el.dispatchEvent(new Event('change', {bubbles:true}));
     }
-    dialog.close();
+    dismiss();
   };
   // 도움말은 같은 패널 안에서 열어 중첩 모달을 만들지 않는다.
   dialog.addEventListener('settings-help', e => {
@@ -38,14 +46,17 @@ export function createSettingsPanel(id, title, nodes, actions = []) {
   });
   return {
     dialog, body, footer, note, status,
-    open(button) { if (document.querySelector('dialog[open]')) return; opener = button; remember(); dialog.showModal(); body.scrollTop = 0; heading.focus(); },
-    close() { if (dialog.open) dialog.close(); },
+    setPresentation(value){presentation=value;},
+    open(button) { if (document.querySelector('dialog[open]')) return; opener = button; remember();presentationClosed=false; if(presentation)presentation.open();else {dialog.showModal();animateUI(dialog,[{opacity:0,transform:'translateX(24px)'},{opacity:1,transform:'translateX(0)'}],{duration:280});} body.scrollTop = 0; heading.focus(); },
+    close:closePanel,
     reset() { snapshot = []; this.close(); },
     accepted() { remember(); },
     mirror(ids) {
-      const update = () => { status.textContent = ids.map(id => document.getElementById(id)?.textContent).filter(Boolean).join('\n'); };
+      const update = () => { status.textContent = ids.map(id => document.getElementById(id)).filter(el => el && !(dialog.open && body.contains(el) && el.getClientRects().length)).map(el => el.textContent).filter(Boolean).join('\n'); };
       const observer = new MutationObserver(update);
       for (const id of ids) { const el = document.getElementById(id); if (el) observer.observe(el, {childList:true,characterData:true,subtree:true}); }
+      observer.observe(body, {attributes:true,attributeFilter:['hidden'],subtree:true});
+      observer.observe(dialog, {attributes:true,attributeFilter:['open']});
       update();
     },
   };

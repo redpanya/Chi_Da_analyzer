@@ -52,6 +52,26 @@ class QueueRegistrationTests(unittest.TestCase):
     def register(self, vod='1', settings=None):
         return self.queue.add_saved(self.root, [vod], settings or {})['items'][-1]
 
+    def test_fragment_count_validation_and_resume(self):
+        self.assertEqual(options({})['concurrent_fragments'], 1)
+        for count in (0, 17, 1.5, True, '4', None):
+            with self.subTest(count=count), self.assertRaises(ValueError):
+                options({'concurrent_fragments': count})
+        path=self.project(complete=False)
+        seen=[]
+        def paused(project,stop):
+            seen.append(project.snapshot()['tasks']['video']['concurrent_fragments'])
+            raise Cancelled()
+        with patch('archive.jobs.video.download',paused):
+            self.manager.start(self.root,'1','720p','video',concurrent_fragments=16)
+            self.manager.job.thread.join(5)
+            self.assertTrue(self.manager.job.closed)
+            self.assertEqual(load_project(path,'1')['tasks']['video']['concurrent_fragments'],16)
+            self.manager.start(self.root,'1','720p','video')
+            self.manager.job.thread.join(5)
+            self.assertTrue(self.manager.job.closed)
+        self.assertEqual(seen,[16,16])
+
     def test_per_vod_background_is_kept_when_applying_common_settings(self):
         self.project('1');self.project('2')
         a=self.register('1',{'background':'게임 방송'})
@@ -99,6 +119,23 @@ class QueueRegistrationTests(unittest.TestCase):
                 item=self.queue.add(self.root,'https://naver.me/test',settings)['items'][-1]
             self.assertEqual(item['format'],f'{expected}p')
             self.assertEqual(load_project(project_path(self.root,vod),vod)['format_id'],f'{expected}p')
+
+    def test_completed_history_does_not_block_registration_limit(self):
+        self.project()
+        entry=self.register()
+        completed=[dict(entry,id=f'completed-{i}',state='complete',report=f'report-{i}') for i in range(100)]
+        self.queue.change(self.root,lambda data:data.update(items=completed))
+        before=self.queue.read(self.root)['items']
+        added=self.register(settings={'mode':'analysis'})
+        self.assertEqual(added['state'],'queued')
+        self.assertEqual(self.queue.read(self.root)['items'][:100],before)
+
+        pending=[dict(entry,id=f'pending-{i}',vod=str(i+2),state=['queued','paused','partial','error'][i%4]) for i in range(100)]
+        self.queue.change(self.root,lambda data:data.update(items=completed+pending))
+        result=self.queue.add_saved(self.root,['1'],{})
+        self.assertEqual(result['added'],[])
+        self.assertIn('최대 100개',result['errors'][0]['message'])
+        self.assertEqual(self.queue.read(self.root)['items'],completed+pending)
 
     def test_quality_uses_available_lower_format_and_rejects_only_higher(self):
         with patch.object(self.manager,'inspect',return_value=meta('1')):
@@ -149,22 +186,27 @@ class QueueRegistrationTests(unittest.TestCase):
     def test_chat_only_resume_preserves_video_and_saved_pages(self):
         path=self.project();data=load_project(path,'1');data['tasks']['chat']['state']='paused';save_json(path/'project.json',data)
         page=path/'chat-pages/000001.json';page.parent.mkdir();page.write_text('저장 응답 유지')
-        item=self.register()
+        item=self.register(settings={'concurrent_fragments':16})
         def collect(project,stop):
             self.assertEqual(page.read_text(),'저장 응답 유지')
             project.update('chat',state='complete')
         with patch('archive.jobs.video.download',side_effect=AssertionError('영상 재수신 금지')),patch('archive.jobs.chat.collect',collect),patch.object(self.manager,'start',wraps=self.manager.start) as start:
             self.assertEqual(self.run_queue()['items'][0]['state'],'complete')
         self.assertEqual(start.call_args.args[-1],'chat')
+        self.assertNotIn('concurrent_fragments',load_project(path,'1')['tasks']['video'])
         self.assertEqual((path/'media/original.mp4').read_bytes(),b'original-video-1')
 
     def test_unverified_video_uses_existing_verification_worker(self):
         path=self.project();data=load_project(path,'1');data['tasks']['video'].pop('verification');save_json(path/'project.json',data)
-        self.register()
-        def verify(project,stop):project.update('video',state='complete',verification={'duration':5})
+        item=self.register(settings={'concurrent_fragments':4})
+        self.assertEqual(item['options']['concurrent_fragments'],4)
+        def verify(project,stop):
+            self.assertEqual(project.snapshot()['tasks']['video']['concurrent_fragments'],4)
+            project.update('video',state='complete',verification={'duration':5})
         with patch('archive.jobs.video.download',verify),patch('archive.jobs.chat.collect',side_effect=AssertionError('채팅 재수신 금지')),patch.object(self.manager,'start',wraps=self.manager.start) as start:
             self.assertEqual(self.run_queue()['items'][0]['state'],'complete')
         self.assertEqual(start.call_args.args[-1],'video')
+        self.assertEqual(start.call_args.kwargs['concurrent_fragments'],4)
 
     def test_legacy_local_ready_and_incomplete_local_never_online_download(self):
         path=self.project(local=True,legacy=True);item=self.register()

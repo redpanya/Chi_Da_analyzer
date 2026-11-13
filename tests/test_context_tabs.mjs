@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {createContext} from '../web/context.js';
+import {createContext,initialContextMode} from '../web/context.js';
 const created=[];
 class Element{
   constructor(){created.push(this);}
@@ -12,9 +12,10 @@ class Element{
   remove(){if(this.parentElement)this.parentElement.children=this.parentElement.children.filter(c=>c!==this);this.parentElement=null;}
   replaceChildren(...values){for(const c of this.children)if(typeof c==='object')c.parentElement=null;this.children=[];this.append(...values);}
   setAttribute(k,v){this.attributes[k]=v;} removeAttribute(k){delete this.attributes[k];}
+  querySelector(selector){return this.children.find(child=>selector==='input'?child.tagName==='INPUT':false)||null;}
   querySelectorAll(){return [];} focus(){this.focused=true;} pause(){this.paused=true;}
 }
-const elements=new Map();globalThis.document={addEventListener(){},createElement:()=>new Element(),querySelectorAll:()=>created.filter(n=>n.commentSource),getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);}};
+const elements=new Map();globalThis.document={addEventListener(){},createElement:tag=>Object.assign(new Element(),{tagName:tag.toUpperCase()}),querySelectorAll:selector=>created.filter(n=>selector==='.scene-selection-button'?n.sceneUpdate:n.commentSource),getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);}};
 globalThis.Option=class extends Element{constructor(text,value){super();this.textContent=text;this.value=value;}};
 const $=id=>document.getElementById(id),calls=[],flush=()=>new Promise(resolve=>setImmediate(resolve));
 let delay=null,external=false,clears=0,deleteFailure=false,lastProject;const drafts=new Map();
@@ -23,6 +24,7 @@ const api=async(action,args)=>{
   calls.push({action,args});
   if(action==='context-delete'){if(deleteFailure)throw Error('휴지통 사용 불가');return {...lastProject,context:{...lastProject.context,run:lastProject.context.run===args.run?null:lastProject.context.run,clip_run:lastProject.context.clip_run===args.run?null:lastProject.context.clip_run,runs:lastProject.context.runs.filter(r=>r.id!==args.run)}};}
   if(action==='context-background')return {text:''};
+  if(action==='context-review')return {revision:0,items:{}};
   if(action==='analysis')return null;
   if(action==='context-comment')return structuredClone(drafts.get(args.run)||{revision:0,rows:[],format:2,legacy_text:''});
   if(action==='context-comment-save'){const value={...structuredClone(args.draft),revision:args.draft.revision+1};drafts.set(args.run,value);return value;}
@@ -35,16 +37,20 @@ const api=async(action,args)=>{
 const view=createContext({api,player:{clearRange(){clears++;}},onProject(value){lastProject=value;view.setProject(value);},onExternal(){external=true;}});
 const project={path:'/test/vod-1',root:'/test',vod_id:'1',metadata:{title:'가상 VOD'},tasks:{video:{state:'complete'},chat:{state:'complete'}},context:{state:'complete',run:'detail',clip_run:'clips',runs:['detail','timestamps','clips'].map(mode=>({id:mode,mode,label:mode,title:'검증'}))}};
 lastProject=project;view.setProject(project);await flush();
+assert.equal(view.mode(),'clips'); // 첫 진입은 사용 가능한 클립 → 타임스탬프 → 상세 문맥 순서.
+view.selectMode('detail');await flush();
 assert.equal($('context-view-panel').hidden,false);assert.equal($('context-clips-panel').hidden,true);
 assert.equal($('context-version').value,'detail');assert.equal($('context-clips-version').value,'clips');
 assert.equal($('video-result').parentElement,$('context-video'));
+view.setProject({...project,context:{...project.context,run:'new-detail',runs:[...project.context.runs,{id:'new-detail',mode:'detail',label:'새 결과'}]}});await flush();
+assert.equal($('context-version').value,'detail'); // 폴링은 사용자가 읽고 있는 기존 버전을 유지한다.
 $('context-tab-detail').onkeydown({key:'End',preventDefault(){}});await flush();
 assert.equal($('context-tab-clips').attributes['aria-selected'],'true');assert($('context-tab-clips').focused);
 assert.equal($('context-view-panel').hidden,true);assert.equal($('context-clips-panel').hidden,false);
 assert.equal(view.videoTarget(),'context-clips-video');assert.equal($('video-result').parentElement,$('context-clips-video'));
-assert.equal($('context-comment-panel').parentElement,$('context-clips-preview'));
-const check=$('context-clips-result').children[0].children.find(e=>e.className==='inline-check context-check').children[0];
-assert.equal(check.disabled,false);check.checked=true;check.onchange();
+assert.equal($('context-comment-panel').parentElement.parentElement,$('context-clips-preview'));
+const selection=()=>$('context-clips-result').children[0].children.find(e=>e.className==='play-actions scene-actions').children.find(e=>e.className.includes('scene-selection-button'));
+const check=selection();assert.equal(check.disabled,false);assert.equal(check.textContent,'댓글 담기');check.onclick();
 const line=$('context-comment-list').children[0];assert.equal(line.children[0].textContent,'00:00:01');assert.equal(line.children[1].value,'클립 제목');
 line.children[1].value='편집한 클립 제목';line.children[1].oninput();
 assert.equal($('player').paused,true);assert.equal($('context-generate').disabled,true);
@@ -52,13 +58,18 @@ view.setProject(structuredClone(project));await flush();assert.equal($('context-
 $('context-clips-external').onclick();assert(external);
 $('context-tab-clips').onkeydown({key:'ArrowLeft',preventDefault(){}});await flush();
 assert.equal($('context-tab-timestamps').attributes['aria-selected'],'true');assert.equal($('context-version').value,'timestamps');
-assert.equal($('context-comment-panel').parentElement,$('context-preview'));assert.equal($('context-comment-list').children.length,0);
+assert.equal($('context-comment-panel').parentElement.parentElement,$('context-preview'));assert.equal($('context-comment-list').children.length,0);
 assert.equal(drafts.get('clips').rows[0].title,'편집한 클립 제목');
 view.setProject({...project,context:{...project.context,action:'clips',updated_at:'후보 갱신'}});await flush();
 assert.equal($('context-comment-list').children.length,0); // 숨긴 클립 응답이 타임스탬프 목록을 덮지 않음
 await view.openRun('clips','clips');assert.equal($('context-clips-panel').hidden,false);
 assert.equal($('context-comment-list').children[0].children[1].value,'편집한 클립 제목');
-assert.equal($('context-clips-result').children[0].children.find(e=>e.className==='inline-check context-check').children[0].checked,true);
+assert.equal(selection().attributes['aria-pressed'],'true');assert.equal(selection().textContent,'댓글에서 제거');
+$('context-panel').hidden=true;view.mountUsage('speech-results-preview','clips');
+view.setProject({...project,context:{...project.context,updated_at:'전사 탭에서 폴링'}});await flush();
+assert.equal($('context-comment-panel').parentElement.parentElement,$('speech-results-preview')); // 숨겨진 문맥 폴링은 전사 미리보기 목록을 빼앗지 않는다.
+$('context-panel').hidden=false;view.selectMode('clips');
+assert.equal($('context-comment-panel').parentElement.parentElement,$('context-clips-preview'));
 $('context-tab-clips').onkeydown({key:'Home',preventDefault(){}});await flush();assert.equal($('context-version').value,'detail');
 delay={};view.refresh();await flush();const waiting=delay;
 $('context-tab-clips').onclick();waiting.resolve();delay=null;await flush();
@@ -83,4 +94,14 @@ view.setProject({...project,path:'/test/vod-2',vod_id:'2',context:{state:'idle',
 assert.equal($('context-clips-version').disabled,true);assert.equal($('context-clips-result').children.length,0);
 assert.equal($('context-comment-list').children.length,0);assert.equal(clip.title,'클립 제목');
 assert.equal($('context-view-panel').hidden,false);assert.ok(clears>=5);
+const clipsOnly={...project,path:'/test/vod-3',vod_id:'3',context:{state:'complete',run:null,clip_run:'clips',runs:[{id:'clips',mode:'clips',label:'완료 후보'}]}};
+assert.equal(initialContextMode(clipsOnly),'clips');
+assert.equal(initialContextMode(clipsOnly,'detail'),'clips'); // 삭제됐거나 없는 결과 탭은 기본 선택에서 제외한다.
+assert.equal(initialContextMode({...clipsOnly,context:{runs:[{id:'timestamps',mode:'timestamps'}]}}),'timestamps');
+assert.equal(initialContextMode(project),'clips');
+view.setProject(clipsOnly);await flush();assert.equal(view.mode(),'clips');assert.equal($('context-clips-panel').hidden,false);
+$('context-tab-detail').onclick();await flush();assert.equal(view.mode(),'clips');assert.equal($('context-tab-detail').disabled,true);
+view.setProject(structuredClone(clipsOnly));await flush();assert.equal(view.mode(),'clips');
+view.setProject({...project,path:'/test/vod-4',vod_id:'4'});await flush();
+view.setProject(clipsOnly);await flush();assert.equal(view.mode(),'clips');assert.equal($('context-view-panel').hidden,true);
 console.log('문맥 3개 탭: 키보드 이동·플레이어 배치·이전 선택 복원·숨긴 응답 무시·프로젝트 전환·외부 분석 연결 통과');

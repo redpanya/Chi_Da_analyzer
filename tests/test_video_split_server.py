@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 from urllib.parse import urlsplit
 from archive.jobs import Manager
 from archive.server import make_server
@@ -34,10 +35,20 @@ class SplitServer(unittest.TestCase):
                 self.assertEqual(call('GET','split-file?source='+'2'*32)[0],404)
                 self.assertEqual(call('GET','split-file?source='+source,{'Origin':'https://example.com'})[0],403)
                 self.assertEqual(call('POST','api/split-register',{'Origin':'https://example.com','Content-Type':'application/json'},json.dumps({'path':str(file)}))[0],403)
+                with patch('archive.split_picker.choose',return_value='/임시/선택 폴더') as picker:
+                    body=json.dumps({'kind':'folder'})
+                    self.assertEqual(call('POST','api/pick-path',{'Origin':'https://example.com','Content-Type':'application/json'},body)[0],403)
+                    picker.assert_not_called()
+                    code,_,data=call('POST','api/pick-path',{'Content-Type':'application/json'},body)
+                    self.assertEqual(code,200);self.assertEqual(json.loads(data),{'path':'/임시/선택 폴더'})
+                    picker.assert_called_once_with(kind='folder')
                 self.assertEqual(call('GET','video-split.html',{'Host':'example.com'})[0],403)
                 self.assertEqual(call('GET','video-split.html')[0],200)
-                self.assertEqual(call('GET','video-split-delete.js')[0],200)
                 self.assertEqual(call('GET','video-split-audio.js')[0],200)
+                for script in ('video-split-page.js', 'video-split-entry.js'):
+                    self.assertEqual(call('GET',script)[0],200)
+                code,_,data=call('POST','api/split-current',{'Content-Type':'application/json'},'{}')
+                self.assertEqual(code,200);self.assertEqual(json.loads(data),{'run':None})
                 code,headers,data=call('GET','split-audio?id='+token,{'Range':'bytes=2-5'})
                 self.assertEqual((code,data),(206,b'2345'));self.assertEqual(headers['Content-Type'],'audio/mp4')
                 self.assertEqual(call('GET','split-audio?id='+token,{'Origin':'https://example.com'})[0],403)

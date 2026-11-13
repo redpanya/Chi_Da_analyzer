@@ -6,7 +6,7 @@ function node() {
   return {value:'', dataset:{}, children:[], textContent:'', disabled:false,
     append(...items){this.children.push(...items);if(this.value==='')this.value=String(items[0]?.value ?? '');},
     replaceChildren(...items){this.children=[];this.value='';this.append(...items);},
-    pause(){},load(){},addEventListener(){},removeAttribute(){},setAttribute(){}};
+    before(){},querySelectorAll(){return [];},pause(){},load(){},addEventListener(){},removeAttribute(){},setAttribute(){}};
 }
 globalThis.document = {
   getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},
@@ -22,7 +22,7 @@ const responses=[],actions=[];
 const project=(state='downloading',extra={})=>({path:'/검증/vod-1',root:'/검증',vod_id:'1',model_root:'/모델',
   metadata:{title:'검증'},locked:false,voices:{},tasks:{video:{state,assets:{playback:'media/original.mp4'}}},
   speech:{state:'idle',message:'',versions:[],options:{}},...extra});
-const view=createSpeech({player:{reset(){}},onProject:value=>select(value),api:async(action,data)=>{
+const view=createSpeech({sceneUsage:{setTranscript(){}},player:{reset(){}},onProject:value=>select(value),api:async(action,data)=>{
   if(action==='speech-info'){
     infoCalls++;
     if(current.tasks.video.state!=='complete')throw Error('영상 다운로드와 검사를 먼저 완료하세요');

@@ -20,11 +20,11 @@ export function connectSplitAudio({video, api, changed, error}) {
     toggle.setAttribute('aria-pressed',String(enabled));
     $('split-audio-volume-row').hidden=!enabled;
     $('split-audio-summary').textContent=tracks().length
-      ? (kept().length?`저장할 오디오 ${kept().length}/${tracks().length}개 · 원본 순서 유지 · 재인코딩 없음`:'유지할 오디오를 하나 이상 선택하세요.')
+      ? (kept().length?`저장할 오디오 ${kept().length}/${tracks().length}개, 원본 순서 유지`:'유지할 오디오를 하나 이상 선택하세요.')
       : '오디오가 없는 영상입니다. 영상만 그대로 나눕니다.';
     $('split-preview-note').textContent=enabled
-      ? '선택한 트랙 하나만 영상에 맞춰 듣습니다. 원본 소리는 끄고 아래 음량으로 조절합니다.'
-      : '기본 재생은 브라우저의 기본 트랙을 사용합니다. 저장할 트랙은 아래에서 고르세요.';
+      ? '선택 트랙 하나만 재생 중입니다. 오른쪽에서 음량을 조절하세요.'
+      : tracks().length>1?'기본 트랙으로 재생합니다. 다른 트랙은 오른쪽에서 미리 들을 수 있습니다.':'';
     if(!canListen())status.textContent='이 오디오 코덱은 미리듣기 미지원입니다. 분할 저장에는 그대로 유지됩니다.';
   }
   function stop() {

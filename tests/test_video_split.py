@@ -12,7 +12,7 @@ from archive import split_contract as contract, split_media as media
 from archive import split_audio
 from archive.split_jobs import Splitter
 from archive.split_storage import check_volume
-from archive.storage import Conflict
+from archive.storage import Conflict, ProjectLock, create_or_load
 
 
 def packets(path):
@@ -93,7 +93,6 @@ class VideoSplit(unittest.TestCase):
             result=self.finish()
         self.assertEqual(result['state'],'paused');self.assertEqual(len(result['outputs']),1)
         kept=self.splitter.media_file(run=result['id'],index='0');before=contract.identity(kept)
-        second=Splitter(self.manager,self.root/'state');self.manager.splitter=second;self.splitter=second
         self.splitter.dispatch('resume',{'id':result['id']});result=self.finish()
         self.assertEqual(result['state'],'complete',result['message']);self.assertEqual(contract.identity(kept),before)
         expected=packets(self.source);actual={i:[] for i in expected}
@@ -114,8 +113,6 @@ class VideoSplit(unittest.TestCase):
             result=self.finish()
         self.assertEqual(result['state'],'paused',result['message'])
         kept=self.splitter.media_file(run=result['id'],index='0');before=contract.identity(kept)
-        self.splitter.close()
-        self.splitter=Splitter(self.manager,self.root/'state');self.manager.splitter=self.splitter
         self.splitter.dispatch('resume',{'id':result['id']})
         result=self.finish();self.assertEqual(result['state'],'complete',result['message'])
         self.assertEqual(contract.identity(kept),before)
@@ -126,15 +123,15 @@ class VideoSplit(unittest.TestCase):
             for stream,rows in packets(self.splitter.media_file(run=result['id'],index=index)).items():actual[stream].extend(rows)
         self.assertEqual(actual,{0:expected[0],1:expected[3],2:expected[6]})
 
-    def test_audio_selection_validation_and_draft(self):
+    def test_audio_selection_validation_without_saved_draft(self):
         source=self.registered['source']
         for value in ({'mode':'other'}, {'mode':'selected','tracks':[]}, {'mode':'selected','tracks':[0]},
                       {'mode':'selected','tracks':[99]}, {'mode':'selected','tracks':[True]}, {'mode':'selected','tracks':[2,2]}):
             with self.subTest(value=value), self.assertRaises(ValueError):split_audio.selection(source,value)
         draft={'source_id':self.registered['source_id'],'points':[2], 'audio_selection':{'mode':'selected','tracks':[4]}}
-        saved=self.splitter.dispatch('draft-save',{'revision':0,'draft':draft})
-        self.assertEqual(saved['draft']['audio_selection'],{'mode':'selected','tracks':[4]})
-        self.assertEqual(self.splitter.dispatch('draft-get',{})['draft']['audio_selection'],saved['draft']['audio_selection'])
+        with self.assertRaisesRegex(ValueError, '저장하지 않습니다'):
+            self.splitter.dispatch('draft-save',{'revision':0,'draft':draft})
+        self.assertEqual(self.splitter.dispatch('draft-get',{}), {'revision':0,'draft':None})
 
     def test_preview_contains_only_requested_audio_without_reencoding(self):
         source_id=self.registered['source_id']
@@ -179,11 +176,14 @@ class VideoSplit(unittest.TestCase):
         source=self.registered['source']
         with self.assertRaises(ValueError):media.boundaries(source,[2.1,2.2],threading.Event(),lambda **v:None)
         result=self.plan()
+        other=self.root/'vod-1'
+        with ProjectLock(other):
+            create_or_load(other, {'id':'1','title':'다른 VOD','duration':4,'formats':[{'id':'test'}]}, 'test')
         self.splitter.job.closed=False
         try:
             with self.assertRaises(Conflict):self.manager.speech_idle()
             with self.assertRaises(Conflict):self.manager.start(str(self.root),'1',None,'all')
-            with self.assertRaises(Conflict):self.manager.deletion_preview(str(self.root),'1')
+            self.assertEqual(self.manager.deletion_preview(str(self.root),'1')['vod_id'], '1')
         finally:self.splitter.job.closed=True
         changed=dict(source);changed['identity']={**source['identity'],'mtime_ns':0}
         with self.assertRaises(ValueError):contract.unchanged(changed)

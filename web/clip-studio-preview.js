@@ -5,6 +5,9 @@ export function createFramePreview(video,read){
   const source=document.createElement('canvas');source.id='crop-source';source.width=480;source.height=270;
   document.getElementById('split-controls').append(source);
   let frame=null,last='',running=false;
+  let guides=[];
+  function guideColors(){const theme=getComputedStyle(document.documentElement);guides=[['game',theme.getPropertyValue('--ds-chart-chat').trim()||'#00FFA3'],['face',theme.getPropertyValue('--ds-chart-clip').trim()||'#A99DFF']];last='';}
+  guideColors();document.addEventListener('chida-themechange',guideColors);
   function draw(){
     if(!running)return;frame=requestAnimationFrame(draw);
     if(video.readyState>=2){
@@ -27,7 +30,7 @@ export function createFramePreview(video,read){
       canvas.style.filter=`brightness(${1+o.brightness}) contrast(${o.contrast}) saturate(${o.saturation})`;
       if(o.layout==='split'){
         source.height=Math.round(source.width*sh/sw);const g=source.getContext('2d');g.drawImage(video,0,0,source.width,source.height);g.lineWidth=3;
-        for(const [key,color] of [['game','#36d1ac'],['face','#ff78cc']]){g.strokeStyle=color;const r=o[key];g.strokeRect(r[0]*source.width/100,r[1]*source.height/100,r[2]*source.width/100,r[3]*source.height/100);}
+        for(const [key,color] of guides){g.strokeStyle=color;const r=o[key];g.strokeRect(r[0]*source.width/100,r[1]*source.height/100,r[2]*source.width/100,r[3]*source.height/100);}
       }
     }
   }

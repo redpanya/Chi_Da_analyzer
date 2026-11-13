@@ -31,3 +31,16 @@ view.setProject({...project,path:'/vod-2'});assert.equal($('external-json').valu
 next={...value,accepted:0,errors:[{file:'bad.json',chunk:'',message:'잘못된 JSON'}]};$('external-json').value='{';$('external-json').oninput();await $('external-preview').onclick();
 assert.equal($('external-import').disabled,true);assert.equal($('external-partial-label').hidden,true);
 console.log('외부 파일 UI: ZIP 선택·오류 표시·부분 저장 동의·편집/파일 교체/프로젝트 전환 무효화 검사 통과');
+// 보완 ZIP은 검사 토큰/입력으로 다시 검사하며 결과 저장 API를 호출하지 않는다.
+Element.prototype.click=function(){this.clicked=true;};Element.prototype.remove=function(){};
+document.body=new Element();
+$('external-json').value='{"results":[]}';$('external-json').oninput();
+next={...value,export_id:'a'.repeat(32)};await $('external-preview').onclick();
+const repair=$('external-preview-result').children.find(e=>e.textContent==='미수신·오류 보완 ZIP 저장');assert.ok(repair);
+const beforeImports=calls.filter(c=>c.action.endsWith('-import-files')).length;
+next={name:'보완.zip',base64:btoa('ZIP'),chunks:['002']};await repair.onclick();
+assert.equal(calls.at(-1).action,'context-exchange-repair-files');assert.equal(calls.at(-1).args.token,'valid');
+assert.equal(calls.filter(c=>c.action.endsWith('-import-files')).length,beforeImports);
+assert.match($('external-import-status').textContent,/정상 결과는 별도로 저장/);
+$('external-json').oninput();const beforeCalls=calls.length;await repair.onclick();assert.equal(calls.length,beforeCalls);
+console.log('보완 ZIP UI: 토큰 재검사·정상 결과 자동저장 없음·입력 변경 후 이전 버튼 무효화 통과');

@@ -25,13 +25,15 @@ const api=async(action,data)=>{const value=saved.get(data.run)||{revision:0,text
 let playback=[],seq={active:false},stops=0;
 const player={sequenceState:()=>seq,onSequence(fn){this.listener=fn;},stopSequence(){stops++;seq={active:false};this.listener?.();},playSequence(value){playback=structuredClone(value);seq={active:true,index:0,total:value.length};this.listener();return true;},toggleSequence(){seq.paused=!seq.paused;this.listener();},seek(...args){this.stopSequence();this.sought=args;}};
 let beforeUnload;globalThis.addEventListener=(event,fn)=>{if(event==='beforeunload')beforeUnload=fn;};
-let copy=createContextCopy({api,player});
+let snapshot;
+let copy=createContextCopy({api,player,onChange:value=>snapshot=value});
 const check=(item,checked=true)=>{const input=copy.checkbox(item).children[0];input.checked=checked;input.onchange();return input;};
 await copy.setItems(source,'VOD/요약',0,identity);
 for(const i of [1,2,3,6,10])check(source[i-1]);
 rows()[1].children[1].value='편집 <제목>';rows()[1].children[1].oninput();
 check(source[3]);check(source[6]);
 assert.deepEqual(titles(),['주제 1','편집 <제목>','주제 3','주제 4','주제 6','주제 7','주제 10']);
+assert.deepEqual(snapshot.rows.map(row=>row.title),titles());assert.equal(snapshot.rows[1].time,'00:00:20');const earlierSnapshot=snapshot;
 const editedNode=rows()[1].children[1];await copy.setItems(source,'VOD/요약',0,identity);
 assert.equal(rows()[1].children[1],editedNode);assert.equal(titles()[1],'편집 <제목>');
 check(source[3]);assert.equal(rows().length,7);
@@ -44,9 +46,10 @@ let copied='';Object.defineProperty(globalThis,'navigator',{value:{clipboard:{as
 await $('context-copy').onclick();assert.equal(copied,'00:00:10 주제 1\n00:00:20 편집 <제목>\n00:00:30 주제 3\n00:01:00 주제 6\n00:01:10 주제 7\n00:01:40 주제 10');
 navigator.clipboard=undefined;await $('context-copy').onclick();assert.equal($('context-copy-fallback').value,copied);assert.equal($('context-copy-fallback').selectionEnd,copied.length);
 rows()[0].children[1].onblur();await new Promise(r=>setTimeout(r,5));
-copy=createContextCopy({api,player});await copy.setItems(source,'VOD/요약',0,identity);assert.equal(titles()[1],'편집 <제목>');assert.equal(copy.checkbox(source[1]).children[0].checked,true);
+copy=createContextCopy({api,player,onChange:value=>snapshot=value});await copy.setItems(source,'VOD/요약',0,identity);assert.equal(titles()[1],'편집 <제목>');assert.equal(copy.checkbox(source[1]).children[0].checked,true);
 await copy.setItems(source.filter(r=>r.id!=='item-2'),'VOD/요약',0,identity);assert.equal(titles()[1],'편집 <제목>'); // 결과 갱신으로 직접 편집한 줄을 삭제하지 않음
 const stale=copy.checkbox(source[0]).children[0];await copy.setItems(source,'다른 결과',0,{...identity,run:'b'.repeat(32)});stale.checked=true;stale.onchange();assert.equal(rows().length,0);
+assert.equal(snapshot.rows.length,0);assert.equal(earlierSnapshot.rows[1].title,'편집 <제목>');
 await copy.setItems(source,'VOD/요약',0,identity);globalThis.confirm=()=>false;$('context-copy-reset').onclick();assert.equal(rows().length,6);
 globalThis.confirm=()=>true;$('context-copy-reset').onclick();assert.equal(rows().length,0);assert.equal(copy.checkbox(source[0]).children[0].checked,false);
 assert.equal($('context-copy').disabled,true);assert.equal($('context-list-play').disabled,true);
@@ -133,3 +136,18 @@ const errorCheck=errorCopy.checkbox(source[0]).children[0];errorCheck.checked=tr
 await assert.rejects(()=>errorCopy.deleteVersion('실패 검증',async()=>deleteCalls++),/저장 공간 부족/);
 assert.equal(deleteCalls,1);assert.equal(rows()[0].children[1].disabled,false);assert.equal(rows()[0].children[1].value,'주제 1');
 console.log('삭제 전 댓글 저장 대기·저장 실패 시 삭제 차단·편집 내용 유지 검사 통과');
+
+// 숨겨진 결과 탭에서 먼저 만든 체크박스도 자기 범위가 열리면 정상 선택한다.
+const scoped=createContextCopy({player});
+await scoped.setItems(source,'detail-scope');
+const speechCheck=scoped.checkbox(source[0],'speech-scope').children[0];
+assert.equal(speechCheck.commentState().disabled,true);
+await scoped.setItems(source,'speech-scope');
+assert.equal(speechCheck.commentState().disabled,false);
+speechCheck.checked=true;speechCheck.onchange();assert.equal(rows().length,1);
+await scoped.setItems(source,'detail-scope');
+assert.equal(speechCheck.commentState().disabled,true);assert.equal(rows().length,0);
+speechCheck.checked=false;speechCheck.onchange();assert.equal(rows().length,0);
+await scoped.setItems(source,'speech-scope');
+assert.equal(speechCheck.commentState().checked,true);
+await scoped.setItems([],'');assert.equal(speechCheck.commentState().disabled,true);assert.equal(rows().length,0);

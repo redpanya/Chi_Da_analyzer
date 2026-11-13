@@ -5,14 +5,25 @@ from .context_job import local, state
 from .storage import ProjectLock, Conflict, read_json, save_json
 
 
-def target(path, run):
-    if not isinstance(run, str) or not re.fullmatch(r'[a-f0-9]{32}', run) or run not in [r['id'] for r in state(path)['runs']]:
-        raise ValueError('저장된 문맥 버전을 선택하세요')
-    return local(path, f'comments/{run}.json')
+def target(path, run, source='context'):
+    if source not in ('context', 'speech'):
+        raise ValueError('댓글 목록의 자료 종류를 확인하세요')
+    if not isinstance(run, str) or not re.fullmatch(r'[a-f0-9]{32}', run):
+        raise ValueError('저장된 결과 버전을 선택하세요')
+    if source == 'speech':
+        from .analysis_inputs import transcripts
+        if run not in {item['id'] for item in transcripts(path)}:
+            raise ValueError('저장된 전사 버전을 선택하세요')
+        name = f'speech-{run}'
+    else:
+        if run not in {item['id'] for item in state(path)['runs']}:
+            raise ValueError('저장된 문맥 버전을 선택하세요')
+        name = run
+    return local(path, f'comments/{name}.json')
 
 
-def read(path, run):
-    file = target(path, run)
+def read(path, run, source='context'):
+    file = target(path, run, source)
     return read_json(file) if file.exists() else {'revision': 0, 'text': '', 'selected': [], 'edited': False, 'basis': ''}
 
 
@@ -48,7 +59,7 @@ def validate_rows(value):
         raise ValueError('댓글 제목 합계는 5만 자 이내로 입력하세요')
 
 
-def save(path, run, value):
+def save(path, run, value, source='context'):
     if not isinstance(value, dict):
         raise ValueError('댓글 초안 형식을 확인하세요')
     structured = value.get('format') == 2
@@ -62,15 +73,15 @@ def save(path, run, value):
                 or not isinstance(value['selected'], list) or len(value['selected']) > 5000
                 or any(not isinstance(k, str) or len(k) > 500 for k in value['selected'])):
             raise ValueError('댓글은 5만 자·선택 5천 개 이내로 입력하세요')
-    file = target(path, run)
+    file = target(path, run, source)
     with ProjectLock(file.parent):
-        previous = read(path, run)
+        previous = read(path, run, source)
         if previous['revision'] != value['revision']:
             raise Conflict('다른 창에서 댓글 목록을 변경했습니다. 현재 내용을 복사해 보관한 뒤 새로고침하세요')
         if previous.get('format') == 2 and not structured:
             raise Conflict('목록형 댓글로 변경됐습니다. 최신 앱에서 다시 열어주세요')
         if structured and previous.get('format') != 2 and file.exists():
-            backup = local(path, f'comments/{run}.legacy.json')
+            backup = local(path, f'comments/{file.stem}.legacy.json')
             if not backup.exists():
                 save_json(backup, previous)
         result = value | {'revision': previous['revision'] + 1}

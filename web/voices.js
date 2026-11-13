@@ -208,7 +208,7 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
     if(changed){$('voices-number').value='0';suggestions.reset();$('voices-backend').value=['sherpa','pyannote','fluid'].includes(value?.voices.backend)?value.voices.backend:'sherpa';}
     project=value;
     const nextPreviewKey=value?`${value.path}:${value.voices.run}:${value.voices.revision}:${value.voices.stale}:${value.speech.audio?.file}:${value.speech.stale}`:'';
-    if(nextPreviewKey!==previewKey){stopPreview();previewAudio.removeAttribute('src');previewAudio.load();previewKey=nextPreviewKey;$('voice-preview-status').textContent='이름 카드의 듣기 버튼으로 목소리를 확인하세요.';}
+    if(nextPreviewKey!==previewKey){stopPreview();previewAudio.removeAttribute('src');previewAudio.load();previewKey=nextPreviewKey;$('voice-preview-status').textContent='';}
     if(changed){tabs.reset();failedReview.reset();tab(false);generation++;key='';result=null;cursor=0;notice('');$('voices-query').value='';$('voice-rows').replaceChildren();$('voice-cards').replaceChildren();playingStem=null;
       for(const name of ['original','vocals','background']){const audio=$('stem-'+name);audio.pause();audio.removeAttribute('src');audio.load();audio.dataset.file='';}
       for(const prefix of ['voice']){$(prefix+'-start').value=0;$(prefix+'-end').value=10;}

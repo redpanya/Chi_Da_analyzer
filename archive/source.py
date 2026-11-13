@@ -85,11 +85,17 @@ class Logger:
         pass
 
 
-def ydl_options():
+def fragment_concurrency(value):
+    if type(value) is not int or not 1 <= value <= 16:
+        raise ValueError('동시 다운로드 개수는 1~16 사이의 정수로 입력하세요')
+    return value
+
+
+def ydl_options(concurrent_fragments=1):
     return {'quiet': True, 'logger': Logger(), 'noplaylist': True, 'socket_timeout': 20,
             'retries': 3, 'fragment_retries': 3, 'skip_unavailable_fragments': False,
             'continuedl': True, 'overwrites': False, 'fixup': 'never',
-            'concurrent_fragment_downloads': 1}
+            'concurrent_fragment_downloads': fragment_concurrency(concurrent_fragments)}
 
 
 def metadata(vod, stop=None):

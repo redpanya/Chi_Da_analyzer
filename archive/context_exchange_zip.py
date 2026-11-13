@@ -34,12 +34,42 @@ ZIP을 읽지 못하는 서비스에는 압축을 푼 후 이 작업서와 자�
 
 def pack(path,id):
     target=exchange.folder(path,id);saved=read_json(target/'manifest.json');source=read_json(target/'source.json')
-    buffer=io.BytesIO();order=work_order(saved)
+    return pack_snapshot(saved,source)
+
+
+def pack_snapshot(saved,source,selected=None):
+    id=saved['id'];buffer=io.BytesIO();order=work_order(saved)
+    names=None if selected is None else set(selected)
     with zipfile.ZipFile(buffer,'w',compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr('작업서.txt',order.encode('utf-8'))
+        if names is not None:
+            ordered=[c['id'] for c in saved['chunks'] if c['id'] in names]
+            request=f'''치다분석기 외부 AI 보완 요청 — 이 파일을 먼저 읽으세요.
+내보내기 ID: {id}
+보완 대상: {', '.join(ordered)} ({len(ordered)}묶음)
+
+이번 요청의 처리 범위는 위 보완 대상과 이 ZIP의 자료 JSON뿐입니다.
+작업서.txt는 최초 요청을 보존한 원문이며 전체 목록이 들어 있습니다. 작업서의 "전체 파일"은 이번 보완에서는 이 ZIP에 들어 있는 대상 전체로 한정합니다. 이전에 정상 처리한 다른 묶음을 다시 만들지 마세요.
+분석 기준·추가 요청·방송 상황·결과 형식은 원래 작업서를 그대로 따르세요. export_id·chunk_id·mode·coverage·발언 ID를 변경하지 마세요.
+각 입력 JSON의 previous_reference·following_reference는 앞뒤 문맥 참고용입니다. 참고 자료 자체를 추가 결과로 만들지 마세요.
+대상 파일을 번호순으로 모두 처리하고 chida-result-{id[:8]}-묶음ID.json으로 하나씩 저장하세요. 모든 대상이 완료되면 결과 JSON만 ZIP으로 제공하세요.
+일부만 완료했으면 완료·미완료 번호를 알려주세요. 실제 파일 생성이 불가능하면 그 한계를 알리세요. 원본 전체 작업이 완료되었다고 표현하지 마세요.
+'''
+            archive.writestr('먼저읽기-보완요청.txt',request.encode('utf-8'))
         for c,content in exchange.documents(saved,source):
-            archive.writestr(f'자료/chida-{id[:8]}-{c["id"]}.json',json.dumps(content,ensure_ascii=False,indent=2).encode('utf-8'))
-    return {'name':f'chida-{id[:8]}-자료.zip','base64':base64.b64encode(buffer.getvalue()).decode('ascii'),'work_order':order}
+            if names is None or c['id'] in names:
+                archive.writestr(f'자료/chida-{id[:8]}-{c["id"]}.json',json.dumps(content,ensure_ascii=False,indent=2).encode('utf-8'))
+    suffix='자료' if names is None else '보완자료'
+    result={'name':f'chida-{id[:8]}-{suffix}.zip','base64':base64.b64encode(buffer.getvalue()).decode('ascii'),'work_order':order}
+    if names is not None:result['chunks']=ordered
+    return result
+
+
+def repair(path,vod,id):
+    saved,source=exchange.load_active(path,vod,id)
+    missing=[c['id'] for c in saved['chunks'] if c['id'] not in saved['replies']]
+    if not missing:raise ValueError('미수신 묶음이 없습니다. 정상 결과는 다시 요청하지 않습니다')
+    return pack_snapshot(saved,source,missing)
 
 
 def unpack(encoded):

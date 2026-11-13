@@ -5,7 +5,7 @@ export function createFolders({api, onApplied}) {
   const compute = createCompute({api, onApplying: () => {serial++;}});
   function controls() {
     $('model-root').disabled = saving || busy;
-    $('apply-model-folder').disabled = saving || busy || $('model-root').value === applied;
+    $('apply-model-folder').disabled = saving || busy;
   }
   function set(value) {
     compute.set(value.compute, value.busy);
@@ -16,17 +16,16 @@ export function createFolders({api, onApplied}) {
     $('model-folder-state').textContent = (busy ? '작업 완료 또는 중단 정리 후 경로를 변경할 수 있습니다. ' : '') + (value.problem || Object.entries(names).map(([key, name]) => `${name}: ${value.ready[key] ? '준비됨' : '준비 필요'}`).join(' · '));
     controls();
   }
-  $('model-root').oninput = () => {
-    $('model-folder-notice').textContent = $('model-root').value === applied ? '' : '입력한 경로는 ‘경로 적용’을 누른 뒤 사용합니다.';
-    controls();
-  };
   $('model-folder-form').onsubmit = async event => {
     event.preventDefault();
     if (saving || busy) return;
     saving = true; serial++; controls();
-    $('model-folder-notice').textContent = '폴더의 접근 권한과 저장 상태를 확인하고 있습니다…';
+    $('model-folder-notice').textContent = '';
     try {
-      const value = await api('model-folder', {path: $('model-root').value});
+      const selected = await api('pick-path', {kind:'folder'});
+      if (!selected.path || selected.path === applied) return;
+      $('model-folder-notice').textContent = '폴더의 접근 권한과 저장 상태를 확인하고 있습니다…';
+      const value = await api('model-folder', {path: selected.path});
       $('model-root').value = value.models; set(value);
       $('model-folder-notice').textContent = '경로를 적용했습니다. 다음 앱 실행에도 유지됩니다. 기존 파일은 그대로 보존했습니다.';
       await onApplied();

@@ -43,7 +43,7 @@ def sample(rows, limit=12):
 
 
 def attach(source):
-    """새 클립 작업만 호출한다. 과거 파일은 당시 fingerprint와 시각 규칙을 유지한다."""
+    """메모리에서 채팅 단서를 구성한다. 저장된 원문과 결과는 변경하지 않는다."""
     if not source.get('include_chat'):
         return source | {'clip_chat':{'revision':REVISION,'cues':[],'unanchored':[],'sample_policy':'채팅 미사용'}}
     rows=source['rows']; starts=[r['start_ms'] for r in rows]
@@ -56,7 +56,7 @@ def attach(source):
     cues=[];missing=[]
     for number,group in sorted(bins.items()):
         counts=Counter(term for r in group for term in features(r['text'])[0])
-        repeats=[{'kind':kind,'term':term,'messages':count} for (kind,term),count in counts.most_common()
+        repeats=[{'kind':kind,'term':term,'messages':count} for (kind,term),count in sorted(counts.items(),key=lambda item:(-item[1],item[0]))
                  if count>=3 and count/len(group)>=.3][:6]
         baseline=sum(len(bins.get(n,())) for n in range(max(0,number-6),number))/max(1,min(number,6))
         ratio=len(group)/max(1,baseline)

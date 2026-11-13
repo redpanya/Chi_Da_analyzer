@@ -1,0 +1,250 @@
+/* 결과 검토는 댓글 선택과 독립된 표시다. 테마 색상은 공통 디자인 토큰을 따른다. */
+.candidate-review-bar{padding:4px 0 6px;border-bottom:1px solid var(--line);margin-bottom:6px}
+.candidate-review-bar .play-actions{justify-content:flex-start;gap:6px;align-items:center;margin:0;flex-wrap:wrap}
+.candidate-review-bar label,.candidate-review-control{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600}
+.candidate-review-bar select,.candidate-review-control select{width:auto;min-height:32px;font-size:12px}
+.candidate-review-bar .hint{margin:4px 0 0;font-size:11px}
+.candidate-review-bar .hint:empty{display:none}
+.candidate-review-bar span{font-size:11px;color:var(--muted);white-space:nowrap}
+.candidate-review-bar button{font-size:11px;min-height:30px;padding:4px 8px}
+.candidate-result-notes{padding:6px 0;margin:0 0 6px;border:0;border-bottom:1px solid var(--line)}
+.candidate-result-notes>summary{font-size:12px}
+.candidate-review-control{float:right;margin:0 0 8px 12px}
+.clip-item::after{content:'';display:block;clear:both}
+.clip-item[data-review=accepted]{border-left:3px solid var(--success,var(--accent))}
+.clip-item[data-review=held]{border-left:3px solid var(--warning,#dcad50)}
+.clip-item[data-review=excluded]{border-left:3px solid var(--muted);opacity:.78}
+.result-follow{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;white-space:nowrap}
+.result-follow input{width:14px;min-height:14px;height:14px;margin:0;accent-color:var(--accent)}
+.context-item.is-playing,.clip-item.is-playing,.transcript-row.is-playing{outline:2px solid var(--accent);outline-offset:-2px;background:var(--accent-soft)}
+.context-item.is-playing::before,.clip-item.is-playing::before,.transcript-row.is-playing::before{content:'현재 재생 위치';display:block;font-size:11px;color:var(--accent);font-weight:700;margin-bottom:8px}
+.result-quality{display:inline-flex;border:1px solid var(--line);border-radius:6px;padding:3px 7px;font-size:11px;font-weight:600;margin:0 6px 8px 0}
+.result-error,.result-quality.error{color:var(--danger,#ed7373)}
+.result-source-review,.result-quality.review,.result-quality.chat-error{color:var(--warning,#d5aa65)}
+.result-quality.gap{color:var(--muted)}
+.candidate-failures{margin:0 0 12px;border:1px solid var(--line);border-radius:8px;padding:10px}
+.candidate-failures>summary{color:var(--danger,#ed7373);font-weight:600}
+.candidate-failures .result-error{padding:8px 0;border-top:1px solid var(--line)}
+.transcript-row .speech-text{font-size:15px;line-height:1.75;margin:12px 0}
+.speech-review-notice{font-size:12px;color:var(--warning,#d5aa65)}
+.candidate-review-memo{margin:12px 0;border-top:1px solid var(--line);padding-top:10px}
+.candidate-review-memo>label{display:block;margin-top:10px;font-size:12px}
+.candidate-review-memo textarea{display:block;width:100%;margin-top:6px;min-height:76px;resize:vertical}
+.candidate-review-memo .hint{font-size:12px}
+.scene-timeline{margin:10px 0;border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0}
+.scene-timeline>.unified-timeline{margin:8px 0 0;padding:0;border:0}
+.scene-timeline .timeline-toolbar{gap:5px;flex-wrap:wrap}
+.scene-timeline .timeline-toolbar h3{display:none}
+.scene-timeline .timeline-toolbar button,.scene-timeline .timeline-toolbar select{min-height:30px;padding:5px 8px;font-size:12px}
+.scene-timeline #explore-window{font-size:11px}
+.scene-timeline #unified-graph{width:100%;min-width:0}
+.scene-timeline .timeline-clip-picker{font-size:12px}
+.scene-usage{margin-top:12px;border-top:1px solid var(--line);padding-top:12px;min-width:0}
+.scene-usage>.review-tabs{margin:0 0 12px}
+.scene-usage>.hint:empty{display:none}
+.scene-clip-basket article{padding:8px 0;border-bottom:1px solid var(--line)}
+.scene-clip-basket article>button{max-width:100%;text-align:left;white-space:normal}
+.scene-clip-basket small{display:block;color:var(--muted);margin-top:5px}
+
+/* 공통 분석 탐색. 전사와 AI 결과가 동일한 탐색/미리보기 구조를 사용한다. */
+.analysis-results-nav{margin:0 0 12px;padding:0;border:0;background:transparent}
+.analysis-results-nav>.result-mode-tabs{display:flex;gap:4px;margin:0;padding:5px;border:1px solid var(--line);border-radius:10px;background:var(--ds-surface-soft)}
+.analysis-results-nav .result-mode-tabs>button{flex:1;min-width:0;min-height:38px;border:1px solid transparent;border-radius:7px;font-size:13px;color:var(--muted);background:transparent}
+.analysis-results-nav .result-mode-tabs>button[aria-selected=true]{background:var(--ds-surface-raised,var(--ds-surface));color:var(--text,var(--ds-text));border-color:var(--accent);box-shadow:0 1px 4px #0002}
+.analysis-results-nav .result-mode-tabs>button:not(:disabled):hover{background:var(--accent-soft);color:var(--accent)}
+.analysis-results-nav .result-mode-tabs>button:disabled{opacity:.45;cursor:not-allowed}
+.analysis-results-nav .result-mode-tabs>button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.result-navigation-empty{padding:14px 16px;border:1px dashed var(--line);border-radius:8px}
+.result-first .speech-results-tools{position:sticky;top:12px;z-index:2;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--ds-surface);box-shadow:0 3px 8px #0001}
+.speech-results-tools #speech-search{margin:0;gap:6px}
+.speech-results-tools .play-actions{margin:6px 0 0;gap:6px;flex-wrap:wrap}
+.speech-results-tools #speech-count{flex:1;text-align:center;font-size:12px}
+.speech-results-tools .speech-follow-tools{font-size:12px}
+.speech-results-workspace #transcript-rows{margin-top:8px}
+.speech-results-workspace .transcript-row{padding:12px 10px;border-bottom:1px solid var(--line)}
+.speech-results-workspace .transcript-row .speech-text{margin:8px 0;line-height:1.6}
+.speech-results-workspace .transcript-row .play-actions{gap:5px;margin:0;flex-wrap:wrap}
+.speech-results-workspace .transcript-row .play-actions button{min-height:30px;padding:5px 8px;font-size:12px}
+.result-first #speech-video video{margin-top:0;max-height:34dvh}
+.result-first .context-workspace>.context-preview{max-height:calc(100dvh - 24px);overflow:auto;scrollbar-gutter:stable}
+.scene-usage #context-comment-list,.scene-clip-basket>div:nth-child(2){max-height:25dvh;overflow:auto;scrollbar-gutter:stable}
+.scene-usage .context-comment-row{padding:6px 0}
+
+/* 승인한 단계형 미리보기와 같은 얇은 결과 행. 데이터·동작은 기존 DOM을 쓴다. */
+:root[data-theme] body.step-workspace .analysis-results-nav{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;margin:0 0 18px}
+:root[data-theme] body.step-workspace .analysis-results-nav>.result-mode-tabs{display:flex;min-width:0;gap:3px;width:max-content;max-width:100%;padding:3px;border:1px solid var(--ds-line);border-radius:8px;background:var(--ds-card)}
+:root[data-theme] body.step-workspace .analysis-results-nav .result-mode-tabs>button{flex:none;min-width:0;min-height:32px;padding:7px 10px;border:0;border-radius:5px;font-size:12px;font-weight:500;box-shadow:none}
+:root[data-theme] body.step-workspace .analysis-results-nav .result-mode-tabs>button[aria-selected=true]{background:var(--ds-input);color:var(--ds-text);box-shadow:none}
+:root[data-theme] body.step-workspace .result-primary-actions{display:flex;align-items:center;gap:7px;white-space:nowrap}
+:root[data-theme] body.step-workspace .result-primary-actions>button{min-height:34px;font-size:12px;padding:7px 10px}
+:root[data-theme] body.step-workspace .result-navigation-empty,:root[data-theme] body.step-workspace .result-options{grid-column:1/-1}
+:root[data-theme] body.step-workspace .result-options{padding:16px;background:var(--ds-card);border:1px solid var(--ds-line);border-radius:8px}
+:root[data-theme] body.step-workspace .result-options>h3{font-size:12px;font-weight:600;margin:0 0 10px;color:var(--ds-muted)}
+:root[data-theme] body.step-workspace .result-options .result-toolbar{padding:0;margin:0;gap:8px;border:0;box-shadow:none;background:transparent}
+:root[data-theme] body.step-workspace .result-options .result-toolbar :is(button,select){font-size:12px;min-height:32px;padding:6px 9px}
+:root[data-theme] body.step-workspace .result-options .readiness{margin:10px 0 0;font-size:11px}
+:root[data-theme] body.step-workspace .result-options .version-details{margin:0}
+:root[data-theme] body.step-workspace :is(#context-panel,#speech-panel){padding:0;border:0;background:transparent;box-shadow:none}
+:root[data-theme] body.step-workspace .context-workspace{margin-top:12px;gap:10px;align-items:start}
+:root[data-theme] body.step-workspace .context-workspace>.context-preview{padding:0;background:transparent;border:0;border-radius:0;box-shadow:none}
+:root[data-theme] body.step-workspace .context-workspace :is(.result-browser,.speech-results-tools){border:0;border-bottom:1px solid var(--ds-line);border-radius:0;margin:0;padding:0 0 10px;background:var(--ds-bg);box-shadow:none}
+:root[data-theme] body.step-workspace .context-workspace :is(.result-browser,.speech-results-tools) :is(input,button){min-height:31px;font-size:12px;padding:6px 8px}
+:root[data-theme] body.step-workspace .result-browser input[type=search]{min-width:140px}
+:root[data-theme] body.step-workspace .result-browser input:not([type=search]){width:100px}
+:root[data-theme] body.step-workspace :is(.result-pagination,.result-follow){font-size:11px}
+:root[data-theme] body.step-workspace :is(#context-result,#context-clips-result,#transcript-rows){border-top:1px solid var(--ds-line);margin-top:8px}
+:root[data-theme] body.step-workspace :is(#context-result .context-item,#context-clips-result .clip-item,#transcript-rows .transcript-row){position:relative;padding:16px 12px;margin:0;border:0;border-left:2px solid transparent;border-bottom:1px solid var(--ds-line);border-radius:0;background:transparent;box-shadow:none;overflow-wrap:anywhere}
+:root[data-theme] body.step-workspace :is(#context-result .context-item,#context-clips-result .clip-item,#transcript-rows .transcript-row):hover{background:var(--ds-card)}
+:root[data-theme] body.step-workspace :is(#context-result .context-item,#context-clips-result .clip-item,#transcript-rows .transcript-row):is(.selected,.is-playing){border-left-color:var(--ds-accent);background:var(--ds-tint);outline:none}
+:root[data-theme] body.step-workspace :is(#context-result,#context-clips-result) h3{font-size:14px;line-height:1.55;font-weight:650;margin:7px 0 8px}
+:root[data-theme] body.step-workspace :is(#context-result,#context-clips-result,#transcript-rows) :is(p,li){font-size:12px;line-height:1.7;margin:6px 0;color:var(--ds-muted)}
+:root[data-theme] body.step-workspace :is(#context-result,#context-clips-result)>.empty{padding:18px 12px}
+:root[data-theme] body.step-workspace :is(#context-result,#context-clips-result) .scene-summary{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+:root[data-theme] body.step-workspace #transcript-rows .speech-text{font-size:13px;line-height:1.8;color:var(--ds-text);margin:10px 0 7px}
+:root[data-theme] body.step-workspace :is(.context-item,.clip-item,.transcript-row) button{min-height:28px;padding:5px 8px;font-size:11px;border-radius:5px}
+:root[data-theme] body.step-workspace :is(.context-item,.clip-item,.transcript-row) .play-actions{gap:5px;flex-wrap:wrap;margin:7px 0}
+:root[data-theme] body.step-workspace :is(.result-time,.scene-time,.transcript-time){font:11px ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ds-muted)}
+:root[data-theme] body.step-workspace .context-reaction-index{display:inline-block;font-size:10px;font-weight:500;margin-left:7px;vertical-align:middle}
+:root[data-theme] body.step-workspace :is(.result-quality,.speech-review-notice){font-size:10px;padding:3px 5px;margin-bottom:4px}
+:root[data-theme] body.step-workspace :is(#context-result,#context-clips-result,#transcript-rows) details{margin:8px 0 0;padding:0;border:0;border-radius:0;background:transparent}
+:root[data-theme] body.step-workspace :is(#context-result,#context-clips-result,#transcript-rows) details>summary{display:list-item;padding:6px 0;min-height:0;border:0;border-radius:0;background:transparent;box-shadow:none;font-size:11px;font-weight:500;color:var(--ds-muted)}
+:root[data-theme] body.step-workspace :is(#context-result,#context-clips-result,#transcript-rows) details[open]>summary{color:var(--ds-text)}
+:root[data-theme] body.step-workspace :is(#context-result,#context-clips-result,#transcript-rows) details :is(h4,label){font-size:12px;margin:12px 0 5px}
+:root[data-theme] body.step-workspace .candidate-review-control{float:none;margin:8px 0}
+:root[data-theme] body.step-workspace .candidate-review-bar{margin:0;padding:0 0 9px;border:0}
+:root[data-theme] body.step-workspace .candidate-review-bar :is(button,select){font-size:11px;min-height:29px;padding:4px 7px}
+:root[data-theme] body.step-workspace .candidate-result-notes{margin:0;padding:4px 0 8px;border:0}
+:root[data-theme] body.step-workspace .candidate-result-notes>summary{font-size:11px;min-height:0;padding:5px 0;border:0;background:transparent}
+:root[data-theme] body.step-workspace .scene-usage{padding-top:14px;margin-top:16px}
+:root[data-theme] body.step-workspace .scene-usage>.review-tabs{display:flex;justify-content:flex-start;gap:4px;padding:3px;margin:0 0 10px;border:1px solid var(--ds-line);border-radius:7px;background:var(--ds-card);width:100%;max-width:100%}
+:root[data-theme] body.step-workspace .scene-usage>.review-tabs>button{flex:1;min-height:29px;padding:5px 9px;font-size:11px;font-weight:500;border:0;border-radius:4px}
+:root[data-theme] body.step-workspace .scene-usage>.review-tabs>button[aria-selected=true]{background:var(--ds-input);color:var(--ds-text);box-shadow:none}
+:root[data-theme] body.step-workspace .scene-usage .context-comment{margin:0;padding:0;border:0;background:transparent}
+:root[data-theme] body.step-workspace .scene-usage .context-comment>h3{font-size:12px;margin:8px 0}
+:root[data-theme] body.step-workspace .scene-usage :is(.play-actions,article){padding:0;gap:6px}
+:root[data-theme] body.step-workspace .scene-usage :is(button,input){font-size:11px;min-height:29px;padding:5px 7px}
+:root[data-theme] body.step-workspace .scene-usage :is(.hint,small){font-size:11px}
+:root[data-theme] body.step-workspace .scene-clip-list{margin-top:10px;border-top:1px solid var(--ds-line)}
+:root[data-theme] body.step-workspace .scene-clip-list article{padding:10px 8px;border-bottom:1px solid var(--ds-line)}
+:root[data-theme] body.step-workspace .scene-clip-list .scene-basket-play{display:grid;grid-template-columns:70px minmax(0,1fr);gap:8px;align-items:center;width:100%;padding:5px 4px;border:0;background:transparent;color:var(--ds-secondary-text);font-weight:500;text-align:left;line-height:1.5}
+:root[data-theme] body.step-workspace .scene-basket-play :is(time,span){min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+:root[data-theme] body.step-workspace .scene-clip-list small{padding-left:82px;margin-top:5px;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+:root[data-theme] body.step-workspace .scene-usage .context-comment-row{margin:0;padding:7px 0;border-bottom:1px solid var(--ds-line)}
+:root[data-theme] body.step-workspace .scene-usage .comment-title{font-size:11px;min-height:29px;background:transparent}
+:root[data-theme] body.step-workspace .scene-timeline{border:0;border-top:1px solid var(--ds-line);padding:10px 0;margin:14px 0 0;border-radius:0;background:transparent}
+:root[data-theme] body.step-workspace .scene-timeline>summary{font-size:11px;min-height:0;padding:5px 0;background:transparent;border:0}
+:root[data-theme] body.step-workspace :is(#speech-job,#context-job,#clips-job){padding:10px 12px;margin:0 0 12px;border:0;border-left:2px solid var(--ds-line);border-radius:0;background:var(--ds-card)}
+:root[data-theme] body.step-workspace :is(#speech-job,#context-job,#clips-job) p{font-size:12px;margin:4px 0}
+:root[data-theme] body.step-workspace :is(#speech-job,#context-job,#clips-job) progress{height:4px;margin:6px 0}
+:root[data-theme] body.step-workspace :is(#speech-job,#context-job,#clips-job) button{min-height:28px;font-size:11px;padding:5px 8px}
+:root[data-theme] body.step-workspace :is(#context-job-history,#clips-job-history){margin:0 0 12px;padding:0;border:0;border-bottom:1px solid var(--ds-line);border-radius:0;background:transparent}
+:root[data-theme] body.step-workspace :is(#context-job-history,#clips-job-history)>summary{min-height:0;padding:7px 0;font-size:11px;background:transparent;border:0}
+:root[data-theme] body.step-workspace :is(#context-result-state,#context-clips-status){font-size:11px;color:var(--ds-muted);margin:0 0 9px}
+:root[data-theme] body.step-workspace :is(#context-result,#context-clips-result,#transcript-rows) :is(.result-error,.result-quality.error,.context-failed){color:var(--ds-danger)}
+:root[data-theme] body.step-workspace :is(#context-result,#context-clips-result,#transcript-rows) :is(.clip-review,.speech-review-notice,.result-source-review,.result-quality.review,.result-quality.chat-error){color:var(--ds-warning)}
+:root[data-theme] body.step-workspace .context-workspace :is(.result-browser,.speech-results-tools) input[type=checkbox]{width:14px;height:14px;min-height:14px;padding:0;margin:0;flex:none}
+:root[data-theme] body.step-workspace .context-preview #video-result{padding:0;border:0;background:transparent}
+:root[data-theme] body.step-workspace .context-preview #video-result>.play-actions{flex-wrap:nowrap;gap:5px;margin:9px 0 0;align-items:center}
+:root[data-theme] body.step-workspace .context-preview #video-result>.play-actions>button{flex:none;min-width:0;min-height:28px;padding:5px 6px;font-size:10px;white-space:nowrap}
+:root[data-theme] body.step-workspace .context-preview #player-clock{flex:1;min-width:0;font:10px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:nowrap;text-align:center}
+:root[data-theme] body.step-workspace .context-preview :is(#player-status,#context-playing,#context-clips-playing){font-size:11px;line-height:1.6;margin:7px 0;color:var(--ds-muted)}
+:root[data-theme] body.step-workspace .context-preview #player-status:empty{display:none}
+
+/* 결과 탐색은 행 자체를 재생 대상으로 쓰고, 설정·근거·댓글 교정은 단일 우측 패널로 연다. */
+:root[data-theme] body.step-workspace :is(.context-item,.clip-item,.transcript-row)>.scene-copy{display:block;width:100%;min-height:0;padding:0;margin:0;border:0;border-radius:0;background:transparent;box-shadow:none;text-align:left;white-space:normal;font-weight:400;color:var(--ds-text)}
+:root[data-theme] body.step-workspace :is(.context-item,.clip-item,.transcript-row)>.scene-copy:hover{background:transparent;color:var(--ds-text)}
+:root[data-theme] body.step-workspace .scene-copy:focus-visible{outline:2px solid var(--ds-accent);outline-offset:5px}
+:root[data-theme] body.step-workspace .scene-copy :is(time,.transcript-time){display:block;font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ds-muted)}
+:root[data-theme] body.step-workspace #speech-results-tools{display:grid;gap:8px}
+:root[data-theme] body.step-workspace #speech-results-tools :is(.play-actions,label,#speech-count){margin:0}
+:root[data-theme] body.step-workspace #transcript-rows .speech-text{margin:6px 0 8px;line-height:1.65}
+:root[data-theme] body.step-workspace .transcript-row>.scene-transcript-actions{margin:0}
+:root[data-theme] body.step-workspace .transcript-row>p[role=status]:empty{display:none}
+:root[data-theme] body.step-workspace .scene-selection-list{max-height:200px;overflow:auto;border:1px solid var(--ds-line);border-radius:8px}
+:root[data-theme] body.step-workspace .scene-selection-list>p{font-size:11px;color:var(--ds-muted);margin:12px}
+:root[data-theme] body.step-workspace .scene-selected-row{display:grid;grid-template-columns:minmax(0,1fr) 27px;gap:5px;align-items:center;padding:7px 9px;border-bottom:1px solid var(--ds-line)}
+:root[data-theme] body.step-workspace .scene-selected-row:last-child{border-bottom:0}
+:root[data-theme] body.step-workspace .scene-selected-copy{display:grid;grid-template-columns:65px minmax(0,1fr);gap:6px;align-items:center;min-width:0;min-height:24px;padding:0;background:transparent;border:0;border-radius:4px;text-align:left;font-weight:400;color:var(--ds-text)}
+:root[data-theme] body.step-workspace .scene-selected-copy>time{font:10px ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ds-muted)}
+:root[data-theme] body.step-workspace .scene-selected-copy>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+:root[data-theme] body.step-workspace .scene-selected-remove{min-height:25px;padding:0;background:transparent;border-color:transparent;color:var(--ds-muted)}
+:root[data-theme] body.step-workspace .scene-comment-selection>.play-actions{margin:9px 0 7px;flex-wrap:wrap}
+:root[data-theme] body.step-workspace .scene-comment-selection>button{margin-bottom:5px}
+:root[data-theme] body.step-workspace .scene-comment-selection :is(#context-draft-state,#context-copy-notice,#context-list-playing):empty{display:none}
+:root[data-theme] body.step-workspace dialog.result-drawer{position:fixed;inset:0 0 0 auto;width:360px;max-width:calc(100vw - 20px);height:100dvh;max-height:100dvh;margin:0;padding:0;border:0;border-left:1px solid var(--ds-line);border-radius:0;box-shadow:-12px 0 30px #0003;background:var(--ds-bg);color:var(--ds-text);z-index:120;overflow:hidden}
+:root[data-theme] body.step-workspace dialog.result-drawer[open]{display:flex;flex-direction:column}
+:root[data-theme] body.step-workspace dialog.result-drawer:not([open]){display:none}
+/* 작업 목록은 상세 패널 옆에 남겨 다른 항목도 바로 선택할 수 있게 한다. */
+:root[data-theme] body.step-workspace[data-job-detail="open"]>main{width:calc(100% - 400px);padding-right:20px}
+:root[data-theme] body.step-workspace dialog.job-detail{width:400px}
+.step-workspace[data-job-detail="open"] .workspace-job-group{grid-template-columns:minmax(0,1fr);gap:10px}
+.step-workspace .workspace-job-stage.selected{border-color:var(--ds-accent);background:var(--ds-tint)}
+:root[data-theme] body.step-workspace .job-detail-title{font-size:15px;line-height:1.6;margin:0 0 12px;overflow-wrap:anywhere}
+.job-detail .job-detail-state{font-weight:700;margin:0 0 10px}
+.job-detail-state[data-state="error"],.job-detail-state[data-state="review"],.job-detail .job-detail-error{color:var(--ds-danger)}
+.job-detail progress{width:100%;margin:8px 0}
+.job-detail .job-detail-fields{display:grid;grid-template-columns:100px minmax(0,1fr);gap:10px 14px;margin:20px 0;padding:18px 0;border-block:1px solid var(--ds-line);font-size:12px;line-height:1.6}
+.job-detail-fields dt{color:var(--ds-muted)}.job-detail-fields dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.job-detail-fields:empty{display:none}
+.job-detail .job-detail-records{padding:0;margin:12px 0;list-style:none}
+.job-detail-records li{padding:12px 0;border-bottom:1px solid var(--ds-line)}
+.job-detail-records time{font-size:11px;color:var(--ds-muted)}
+.job-detail-records li p{margin:5px 0 0;white-space:pre-wrap}
+.job-detail .job-detail-actions{display:flex;flex-wrap:wrap;gap:8px;padding:16px 20px;border-top:1px solid var(--ds-line);margin:0;background:var(--ds-surface)}
+.job-detail-actions:empty{display:none}
+.job-detail-actions button{font-size:12px;min-height:34px;padding:7px 11px}
+.job-detail .job-detail-feedback{margin:12px 0;line-height:1.6;color:var(--ds-text);overflow-wrap:anywhere}
+:root[data-theme] body.step-workspace .result-drawer-header{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:70px;padding:18px 20px;margin:0;border:0;border-bottom:1px solid var(--ds-line);background:transparent;box-shadow:none;border-radius:0;position:static}
+:root[data-theme] body.step-workspace .result-drawer-header h2{font-size:15px;margin:0;line-height:1.4}
+:root[data-theme] body.step-workspace .result-drawer-close{width:30px;min-height:30px;padding:0;background:transparent;border:0;color:var(--ds-muted);font-size:22px}
+:root[data-theme] body.step-workspace .result-drawer-context{padding:12px 20px;margin:0;border-bottom:1px solid var(--ds-line);font-size:11px;color:var(--ds-muted);line-height:1.6;overflow-wrap:anywhere}
+:root[data-theme] body.step-workspace .result-drawer-body{padding:20px;min-height:0;overflow:auto;flex:1}
+:root[data-theme] body.step-workspace .result-drawer .result-options{padding:0;border:0;background:transparent;border-radius:0}
+/* 가로 도구 모음의 flex-basis가 세로 패널에서 빈 높이로 적용되지 않게 한다. */
+:root[data-theme] body.step-workspace .result-drawer .result-toolbar{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;align-content:start;gap:12px}
+:root[data-theme] body.step-workspace .result-drawer :is(label,select,textarea,input){max-width:100%;min-width:0}
+:root[data-theme] body.step-workspace .result-drawer .result-toolbar :is(select,.version-select){width:100%;flex:auto}
+:root[data-theme] body.step-workspace .result-drawer .version-details[open]>p{position:static;width:auto;max-width:none;margin-top:8px}
+:root[data-theme] body.step-workspace .result-drawer .scene-details{padding:0;border:0;background:transparent;margin:0}
+:root[data-theme] body.step-workspace .result-drawer .scene-details>summary{display:none}
+:root[data-theme] body.step-workspace .result-drawer :is(p,li){font-size:12px;line-height:1.8;overflow-wrap:anywhere}
+:root[data-theme] body.step-workspace .result-drawer h4{font-size:12px;margin:20px 0 7px}
+:root[data-theme] body.step-workspace .result-drawer .play-actions{flex-wrap:wrap;gap:7px}
+:root[data-theme] body.step-workspace .result-drawer .context-comment{padding:0;margin:0;border:0;background:transparent}
+:root[data-theme] body.step-workspace .result-drawer .context-comment>h3{display:none}
+:root[data-theme] body.step-workspace .result-drawer .context-comment-list{max-height:none;padding:0}
+:root[data-theme] body.step-workspace .result-drawer .context-comment-row{grid-template-columns:82px minmax(0,1fr) 30px 30px;gap:8px 6px;padding:12px 0;margin:0;border-bottom:1px solid var(--ds-line)}
+:root[data-theme] body.step-workspace .result-drawer .context-comment-row :is(button,input){font-size:11px;min-height:30px;padding:5px 6px}
+:root[data-theme] body.step-workspace .result-drawer .context-comment-row>.comment-time{grid-column:1;grid-row:1}
+:root[data-theme] body.step-workspace .result-drawer .context-comment-row>.comment-title{grid-column:2;grid-row:1}
+:root[data-theme] body.step-workspace .result-drawer .context-comment-row>.comment-time-edit{grid-column:3;grid-row:1}
+:root[data-theme] body.step-workspace .result-drawer .context-comment-row>.comment-remove{grid-column:4;grid-row:1;min-width:30px}
+:root[data-theme] body.step-workspace .result-drawer .context-comment-row>.subtle:last-child{grid-column:2;grid-row:2;justify-self:start}
+:root[data-theme] body.step-workspace .result-drawer .scene-detail-actions{padding-top:12px;border-top:1px solid var(--ds-line)}
+:root[data-theme] body.step-workspace .result-drawer .candidate-review-memo{min-height:76px}
+:root[data-theme] body.step-workspace .result-drawer :is(.result-source-review,.speech-review-notice,.clip-review){color:var(--ds-warning)}
+@media(min-width:1600px){:root[data-theme] body.step-workspace[data-result-drawer="open"]>main{width:calc(100% - 360px)}}
+
+/* 재생 전 사용법은 목록 버튼의 접근성 이름/도움말로 안내한다. 실제 재생 상태·오류는 표시한다. */
+#context-playing:empty,#context-clips-playing:empty{display:none}
+.speech-corrected{font-size:11px;color:var(--ds-muted)}
+
+/* 결과 설정에 옮긴 기록도 좁은 패널 안에서 문단과 조작 영역을 구분합니다. */
+:root[data-theme] body.step-workspace .result-drawer :is(#context-job-history,#clips-job-history){margin:18px 0 0;padding-top:14px;border:0;border-top:1px solid var(--ds-line)}
+:root[data-theme] body.step-workspace .result-drawer :is(#context-job-history,#clips-job-history)>summary{padding:0 0 10px;line-height:1.5}
+:root[data-theme] body.step-workspace .result-drawer :is(#context-job,#clips-job){padding:12px;margin:0;min-width:0}
+:root[data-theme] body.step-workspace .result-drawer :is(#context-job,#clips-job)>p{margin:0 0 8px;line-height:1.65}
+:root[data-theme] body.step-workspace .result-drawer :is(#context-job,#clips-job)>button{margin-top:8px;max-width:100%;white-space:normal}
+:root[data-theme] body.step-workspace .result-drawer #context-log{margin:12px 0 0;padding:10px 0 0;border:0;border-top:1px solid var(--ds-line);background:transparent}
+:root[data-theme] body.step-workspace .result-drawer #context-overview{padding:8px 2px 2px;line-height:1.65}
+:root[data-theme] body.step-workspace .result-drawer #context-overview>h3{font-size:12px;line-height:1.5;margin:0 0 10px}
+:root[data-theme] body.step-workspace .result-drawer #context-overview>p{margin:0 0 9px}
+
+.scene-clip-list>article{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 8px;align-items:center}
+.scene-clip-list>article>small{grid-column:1/-1}
+
+/* 모든 결과의 담기와 근거 버튼은 같은 위치와 크기를 사용한다. */
+:root[data-theme] body.step-workspace :is(.context-item,.clip-item,.transcript-row)>.scene-actions{display:flex;gap:8px;margin:12px 0 0}
+:root[data-theme] body.step-workspace .scene-actions>button{min-height:32px;padding:6px 10px;font-size:12px;border:1px solid var(--ds-line);background:var(--ds-input);color:var(--ds-text)}
+:root[data-theme] body.step-workspace .scene-actions>button:not(:disabled):hover{background:var(--ds-tint);border-color:var(--ds-accent);color:var(--ds-accent)}
+:root[data-theme] body.step-workspace .scene-actions>button[aria-pressed=true]{border-color:var(--ds-accent);color:var(--ds-accent)}

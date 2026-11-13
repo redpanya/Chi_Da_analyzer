@@ -21,6 +21,7 @@ def main():
     assert any(' png ' in line for line in decoders.splitlines()), '배포 FFmpeg에 자막·이미지용 PNG 디코더가 없습니다'
     subprocess.run([sys.executable, str(ROOT/'packaging/release/check_media_colors.py')], cwd=ROOT, env=env, check=True)
     modules = (
+        'test_work_queue', 'test_split_session', 'test_studio_preset_assets',
         'test_video_quality', 'test_video_replacement', 'test_replacement_timeline',
         'test_caption_sync', 'test_vod_extractor', 'test_explore_clips',
         'test_studio_transcript.TranscriptClips', 'test_studio_profiles', 'test_split_formats',
@@ -33,7 +34,7 @@ def main():
         'test_video_split', 'test_video_split_server', 'test_split_deletion', 'test_split_audio_cache', 'test_media_https', 'test_media_errors',
     )
     subprocess.run([sys.executable, str(ROOT/'tests/run_isolated.py'), *modules, '-v'], cwd=ROOT, env=env, check=True)
-    for name in ('queue_options', 'workspace_ui', 'context_guidance', 'context_external_prompt', 'context_clip_evidence',
+    for name in ('work_queue', 'queue_options', 'workspace_ui', 'context_guidance', 'context_external_prompt', 'context_clip_evidence',
                  'mini_player', 'polish', 'video_split', 'clip_studio',
                  'studio_fonts', 'studio_profiles', 'studio_caption_size', 'studio_caption_design',
                  'studio_caption_validation', 'studio_image_geometry', 'studio_image_panel'):

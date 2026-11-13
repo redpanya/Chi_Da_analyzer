@@ -1,4 +1,5 @@
 import {timecode} from './player.js';
+import {animateUI,cancelMotion,enterView} from './workspace-motion.js';
 
 // 기존 재생기 노드를 잠시 이동한다. 별도 video나 음원을 만들지 않는다.
 export function createMiniPlayer({player, onExplore}) {
@@ -16,6 +17,7 @@ export function createMiniPlayer({player, onExplore}) {
   panel.append(header, caption, media, explore); document.body.append(panel);
   let slots = [], opener = null, row = null, projectKey = null;
   function close(restoreFocus = true) {
+    cancelMotion(panel);panel.inert=false;
     if (panel.hidden) return;
     player.reset();
     for (const [node, slot] of slots) slot.replaceWith(node);
@@ -23,14 +25,16 @@ export function createMiniPlayer({player, onExplore}) {
     if (restoreFocus && opener?.isConnected && opener.getClientRects().length) opener.focus({preventScroll:true});
     opener = null;
   }
-  closeButton.onclick = () => close();
-  panel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); } });
+  function dismiss(){panel.inert=true;animateUI(panel,[{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY(12px)'}],{duration:180},()=>close());}
+  closeButton.onclick = dismiss;
+  panel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); dismiss(); } });
   explore.onclick = () => { const selected = row; close(false); if (selected) onExplore(selected); };
   return {
     close,
     setProject(value) { if (projectKey !== value?.path) { close(false); projectKey = value?.path; } },
     open(value, button = document.activeElement) {
       if (!Number.isFinite(value.start_ms)) return;
+      const firstShow=panel.hidden;cancelMotion(panel);panel.inert=false;
       row = value; opener = button;
       if (panel.hidden) {
         slots = ['video-result', 'video-unready'].map(id => {
@@ -41,6 +45,7 @@ export function createMiniPlayer({player, onExplore}) {
       for (const audio of document.querySelectorAll('audio')) audio.pause();
       caption.textContent = `${timecode(value.start_ms)} ~ ${timecode(value.end_ms ?? value.start_ms)} · ${value.text || '선택한 전사 구간'}`;
       panel.hidden = false; player.previewMode(true);
+      if(firstShow)enterView(panel,0);
       player.seek(value.start_ms, true, value.end_ms);
       closeButton.focus({preventScroll:true});
     },

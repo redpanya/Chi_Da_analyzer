@@ -62,9 +62,12 @@ class Studio:
     def dispatch(self,action,data):
         if action in ('template-list','template-save','template-delete'):
             return caption_templates.dispatch(action.removeprefix('template-'), data)
-        if action in ('preset-list','preset-save','preset-delete'):
+        if action in ('preset-list','preset-delete'):
             return studio_profiles.dispatch(action.removeprefix('preset-'),data)
         path=project_path(data['root'],data['vod_id']);load_project(path,data['vod_id'])
+        if action in ('preset-save','preset-apply'):
+            with self.manager.guard, ProjectLock(path):
+                return studio_profiles.dispatch(action.removeprefix('preset-'),data,path)
         if action=='info':
             draft=local(path,'draft.json')
             return {'inputs':analysis_inputs.catalog(path),'draft':read_json(draft) if draft.exists() else None,'runs':self.list(path),
@@ -84,7 +87,13 @@ class Studio:
             if self.job and not self.job.closed and self.job.path==path:self.job.stop.set()
             return {'runs':self.list(path)}
         with self.manager.guard:
-            self.manager.speech_idle()
+            if action in ('draft', 'image-add', 'transcript-add'):
+                # 초안은 실행 요청의 복사본과 별도이며, 같은 VOD의 실행 중 쓰기는 ProjectLock이 막는다.
+                pass
+            elif action in ('clean-preview', 'clean'):
+                self.manager.project_idle(path)
+            else:
+                self.manager.speech_idle()
             if action=='transcript-add':
                 from . import studio_transcript
                 with ProjectLock(path):

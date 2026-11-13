@@ -9,12 +9,14 @@ from unittest.mock import patch
 from archive import split_contract as contract
 from archive.split_jobs import Splitter
 from archive.storage import Conflict, ProjectLock, read_json, save_json
+from archive.work_queue import WorkQueue
 
 
 class SplitDeletion(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(); self.root = Path(self.temp.name).resolve()
         self.manager = SimpleNamespace(guard=threading.RLock())
+        self.manager.tasks = WorkQueue(self.manager)
         self.splitter = Splitter(self.manager, self.root/'records')
         self.manager.speech_idle = self.splitter.idle
         source = self.root/'원본.mp4'; source.write_bytes(b'original video')
@@ -38,6 +40,7 @@ class SplitDeletion(unittest.TestCase):
     def tearDown(self):
         self.mover.stop()
         self.assertEqual(Path(self.source['path']).read_bytes(), b'original video')
+        self.splitter.close()
         self.temp.cleanup()
 
     def preview(self):

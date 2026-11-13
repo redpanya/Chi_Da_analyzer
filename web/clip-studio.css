@@ -1,13 +1,13 @@
 :root{color-scheme:light;--ink:#242321;--muted:#74716b;--line:#e6e2dc;--paper:#fff;--bg:#f4f2ef;--accent:#b7481f;--tint:#fff1e8;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:13px;color:var(--ink);background:var(--bg)}
 
 *{box-sizing:border-box}
-body{margin:0;min-width:1040px}
+body{margin:0;min-width:1024px}
 button,input,select,textarea{font:inherit}
 button,a,input,select,textarea{outline-offset:3px}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent)}
 [hidden]{display:none!important}
 button{border:1px solid #d9d4cd;border-radius:7px;padding:8px 11px;min-height:34px;background:#fff;color:var(--ink);cursor:pointer;white-space:nowrap;transition:background .13s,color .13s,border-color .13s}
-button:not(:disabled):hover,a.back-button:hover{background:var(--tint);color:var(--accent);border-color:#ce967e}
+button:not(:disabled):hover{background:var(--tint);color:var(--accent);border-color:#ce967e}
 button:disabled{opacity:.42;cursor:not-allowed}
 button.primary{background:#292724;border-color:#292724;color:white;font-weight:650}
 button.primary:not(:disabled):hover{background:var(--accent);border-color:var(--accent);color:white}
@@ -25,10 +25,6 @@ h3{font-size:12px;margin:0 0 8px}
 .panel-title{display:flex;align-items:center;justify-content:space-between;gap:6px}
 .section-label{font-size:11px;font-weight:650;color:var(--muted)}
 
-.studio-header{height:65px;display:flex;align-items:center;gap:22px;padding:0 20px;background:var(--paper);border-bottom:1px solid var(--line)}
-.back-button{text-decoration:none;color:var(--muted);border:1px solid var(--line);border-radius:7px;padding:8px 10px;white-space:nowrap}
-.studio-title{display:flex;align-items:center;gap:8px;flex-shrink:0}
-.preview-badge{font-size:10px;border:1px solid #e8c3ad;border-radius:5px;padding:4px 6px;color:var(--accent);background:#fff8f2}
 #vod-title{margin-left:auto;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:12px}
 #studio-notice{margin:0;padding:10px 20px;background:#fff3df;border-bottom:1px solid #e8c9a0;color:#87491f;font-size:12px}
 
@@ -115,7 +111,7 @@ label output{float:right;color:var(--muted);font-weight:400}
 .export-summary dl div{display:flex;gap:8px;justify-content:space-between;margin:9px 0}
 .export-summary dt{color:var(--muted);flex-shrink:0}
 .export-summary dd{margin:0;text-align:right;overflow-wrap:anywhere}
-fieldset{border:1px solid var(--line);border-radius:8px;padding:2px 12px;margin:16px 0}
+fieldset{min-width:0;border:1px solid var(--line);border-radius:8px;padding:12px;margin:16px 0}
 legend{font-size:11px;color:var(--muted);padding:0 4px}
 dialog{border:1px solid var(--line);border-radius:12px;max-width:480px;padding:22px;color:var(--ink);line-height:1.8}
 dialog::backdrop{background:#0006}
@@ -189,7 +185,7 @@ input[type=hidden]{display:none!important}
 .design-effect{border-bottom:1px solid var(--line,#ddd)}
 .design-effect summary span{float:right;font-size:12px;font-weight:400;color:var(--muted,#666)}
 .design-color{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.design-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px;margin-bottom:10px}
+.design-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:12px}
 .design-grid[hidden]{display:none}
 .design-grid label{margin:6px 0;font-size:12px}
 #caption-design input[type=color]{display:block;width:100%;height:34px;padding:3px;cursor:pointer}
@@ -209,3 +205,11 @@ input[type=hidden]{display:none!important}
 .profile-dialog{width:min(520px,90vw);border:1px solid var(--line);border-radius:12px;padding:22px}.profile-dialog::backdrop{background:#0006}
 .profile-dialog select{width:100%}.profile-dialog .button-row{margin:10px 0}.profile-dialog input{min-width:0;flex:1}.profile-dialog p{line-height:1.6}
 .profile-check{display:flex;align-items:center;gap:4px;padding:5px 3px;font-size:10px;cursor:pointer}.profile-check input{width:14px;height:14px;margin:0}.profile-check span{white-space:nowrap}
+
+/* 데스크톱 작업 영역: 편집 대상과 일괄 적용 대상을 분리해 표시한다. */
+.theme-control{display:flex!important;align-items:center;gap:6px;margin:0!important;font-size:11px!important;white-space:nowrap}.theme-control select{width:90px;padding:6px;min-height:30px}
+.studio-source-pages{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 0 10px;font-size:11px;color:var(--muted);flex-shrink:0}.studio-source-pages button{min-height:28px;padding:3px 9px}
+.scope-summary{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}.scope-summary strong{font-size:12px;color:var(--accent)}.scope-summary span{font-size:11px;color:var(--muted)}
+.assembly-actions{flex-wrap:wrap}.source-bottom{flex-shrink:0}.profile-scope-bar{flex-shrink:0}.inspector-bottom{background:var(--paper)}
+#edit-undo:not(:disabled),#profile-undo:not(:disabled){color:var(--accent);border-color:var(--accent)}
+#studio-layout-reset{font-size:11px;min-height:30px;padding:6px 8px}#studio-save-state{line-height:1.5}

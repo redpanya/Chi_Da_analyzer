@@ -8,7 +8,7 @@ export function voiceModelHelp(backend, model) {
   if(model.supported===false)status+=' · 현재 환경은 실행 지원 안 됨';
   else if(!model.engine)status+=' · 실행 도구 설치 필요';
   else if(model.ready)status+=' · 바로 사용 가능 (오프라인)';
-  else if(backend==='pyannote')status+=' · 최초 다운로드 시 HF 로그인·이용 동의 필요 · 💡에서 방법 확인';
+  else if(backend==='pyannote')status+=' / 최초 다운로드 시 HF 로그인과 이용 동의 필요';
   else status+=' · 선택 모델 준비·검사를 실행하세요';
 
   if(model.ready)paragraphs.push('현재 폴더의 모델 준비가 완료됐습니다. 분석할 때 HF 로그인이나 재다운로드가 필요하지 않습니다. 실행 도구와 전사 준비 후 전체 화자 분석을 실행하세요.');

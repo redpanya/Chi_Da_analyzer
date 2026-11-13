@@ -4,6 +4,14 @@ import {timecode} from './player.js';
 const $=id=>document.getElementById(id);
 const node=(tag,text)=>{const el=document.createElement(tag);el.textContent=text;return el;};
 const modeLabel=mode=>({detail:'상세 문맥',timestamps:'타임스탬프',clips:'클립 후보'}[mode]||mode);
+function compactInputLabel(value){
+  const [transcript,...speaker]=String(value||'').split(' / ');
+  const parts=transcript.split(/\s*\u00b7\s*/).filter(Boolean);
+  if(!parts.length)return '입력 정보 없음';
+  if(/^\d{4}-\d{2}-\d{2}T/.test(parts[0]))parts[0]=parts[0].slice(0,16).replace('T',' ');
+  const summary=parts.slice(0,3).join(' / ');
+  return `전사 ${summary.length>90?summary.slice(0,89)+'…':summary}${speaker.length?' / 화자 정보 포함':''}`;
+}
 export function createExternal({api,onResult}){
   let project=null,busy=false,preview=null,upload=null,serial=0;
   let promptSerial=0,promptTimer=null,promptPending=false;
@@ -50,6 +58,9 @@ export function createExternal({api,onResult}){
     const url=URL.createObjectURL(new Blob([text],{type}));
     const a=node('a','');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
+  function saveZip(packed){
+    download(packed.name,Uint8Array.from(atob(packed.base64),c=>c.charCodeAt(0)),'application/zip');
+  }
   function showBundle(value){
     clearTimeout(promptTimer);promptSerial++;promptPending=false;
     $('external-mode').value=value.mode;background.useSnapshot(value);
@@ -60,11 +71,11 @@ export function createExternal({api,onResult}){
     const owner=project.path,zip=node('button','분할 JSON + 작업서 ZIP 저장');zip.className='primary';
     zip.onclick=()=>{if(project?.path!==owner)return;perform(async path=>{
       const packed=await call('archive',{export_id:value.id});if(project?.path!==path)return;
-      download(packed.name,Uint8Array.from(atob(packed.base64),c=>c.charCodeAt(0)),'application/zip');
+      saveZip(packed);
       status('자료 ZIP을 저장했습니다. 전체 파일 처리 후 결과 전체를 ZIP으로 제공하도록 요청하세요.');
     });};
-    box.append(zip,node('p','ZIP에는 저장 당시 요청을 담은 작업서.txt와 분할 JSON이 있습니다. 추가 요청을 바꾸었다면 분석 자료를 새로 만드세요. 외부 AI가 제공한 전체 결과 ZIP은 아래에서 가져올 수 있습니다.'));
-    if(value.cancelled)box.append(node('p','취소된 작업의 자료입니다. 결과를 가져오기 전에 아래 목록에서 작업 재개를 누르세요.'));
+    box.append(zip,node('p','작업서.txt·분할 JSON 포함. 외부 AI 결과는 결과 가져오기 탭에서 불러오세요.'));
+    if(value.cancelled)box.append(node('p','취소된 작업입니다. 작업 목록 탭에서 재개한 뒤 결과를 가져오세요.'));
     const legacy=node('details',''),summary=node('summary','기존 TXT 방식으로 저장');legacy.append(summary);
     const all=node('button','전체 자료 TXT 저장');all.className='secondary';
     all.onclick=()=>download(`chida-${value.id.slice(0,8)}-all.txt`,value.files.map(f=>`\n===== ${f.name} =====\n${f.text}`).join('\n'));
@@ -80,8 +91,18 @@ export function createExternal({api,onResult}){
       if(!rows.length)box.append(node('p','아직 내보낸 자료가 없습니다.'));
       for(const r of rows){
         const row=node('div','');row.className='external-row';
-        row.append(node('span',`${r.created_at.slice(0,16).replace('T',' ')} · ${modeLabel(r.mode)} · ${r.received}/${r.chunks.length}묶음 · ${r.cancelled?'취소됨':r.received===r.chunks.length?'가져오기 완료':'외부 결과 대기'} · ${r.input_label}`));
+        const description=node('span',''),source=node('small',compactInputLabel(r.input_label));
+        source.className='hint';source.title=r.input_label||'';
+        description.append(node('strong',`${r.created_at.slice(0,16).replace('T',' ')} / ${modeLabel(r.mode)} / ${r.received}/${r.chunks.length}묶음 / ${r.cancelled?'취소됨':r.received===r.chunks.length?'가져오기 완료':'외부 결과 대기'}`),node('br',''),source);
+        row.append(description);
         const files=node('button','자료 다시 열기');files.className='subtle';files.onclick=()=>perform(async()=>{const v=await call('bundle',{export_id:r.id});if(project?.path===path){showBundle(v);status(v.cancelled?'취소된 자료입니다. 작업 재개 후 결과를 가져올 수 있습니다.':'저장한 내보내기 자료입니다.');}});row.append(files);
+        if(!r.cancelled&&r.received<r.chunks.length){
+          const repair=node('button','미수신 보완 ZIP');repair.className='secondary';
+          repair.onclick=()=>perform(async()=>{
+            const packed=await call('repair-archive',{export_id:r.id});if(project?.path!==path)return;
+            saveZip(packed);status(`미수신 ${packed.chunks.length}묶음의 보완 ZIP을 저장했습니다. 원래 작업서와 입력을 사용하며 기존 결과는 유지됩니다.`);
+          });row.append(repair);
+        }
         if(r.latest_run){const open=node('button','결과 보기');open.className='secondary';open.onclick=()=>onResult(r.latest_run,r.mode);row.append(open);}
         if(!r.cancelled&&r.received<r.chunks.length){const cancel=node('button','외부 작업 취소');cancel.className='subtle';cancel.disabled=project.locked;
           cancel.onclick=()=>{if(confirm('외부 결과 대기를 취소할까요? 원본과 가져온 결과는 유지됩니다.'))perform(async()=>{await call('cancel',{export_id:r.id});if(project?.path===path){invalidate();await refresh();status('외부 작업을 취소했습니다. 저장한 결과는 유지됩니다.');}});};row.append(cancel);}
@@ -125,6 +146,16 @@ export function createExternal({api,onResult}){
     box.append(node('p',`이번 입력 정상 ${value.accepted}묶음 · 수정 필요 ${value.errors.length}건 · 기존 결과 포함 ${value.received}/${value.total}묶음 · ${value.complete?'전체 범위':'일부 범위'}. 형식 검사이며 요약의 사실성을 보증하지 않습니다.`));
     for(const error of value.errors){const row=node('p',`${error.file}${error.chunk?' · 묶음 '+error.chunk:''}: ${error.message}`);row.className='external-error';box.append(row);}
     if(value.missing.length)box.append(node('p',`아직 받지 않은 묶음 ${value.missing.length}개: ${value.missing.slice(0,30).join(', ')}${value.missing.length>30?' …':''}`));
+    if(value.export_id&&value.token&&value.missing.length){
+      const repair=node('button','미수신·오류 보완 ZIP 저장');repair.className='secondary';
+      repair.onclick=()=>{
+        if(project?.path!==path||preview?.token!==value.token)return;
+        return perform(async()=>{
+          const packed=await call('repair-files',{...preview.payload,token:preview.token});if(project?.path!==path)return;
+          saveZip(packed);status(`보완 ${packed.chunks.length}묶음 ZIP을 저장했습니다. 현재 검사한 정상 결과는 별도로 저장하거나 보완 결과와 함께 가져오세요.`);
+        });
+      };box.append(repair,node('p','보완 ZIP에는 미수신·오류 묶음만 들어갑니다. 현재 정상으로 검사된 파일은 자동 저장되지 않으므로 먼저 새 결과 버전으로 저장하거나 보완 결과와 함께 다시 가져오세요.'));
+    }
     $('external-partial-label').hidden=!(value.accepted&&value.errors.length);
     for(const topic of value.topics)box.append(node('p',timecode(topic.start_ms)+' '+topic.title));
     for(const clip of value.clips||[]){

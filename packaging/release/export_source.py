@@ -18,7 +18,17 @@ def export(target, *, docs=True):
         files += [p for p in (ROOT/name).rglob('*') if p.is_file() and not p.is_symlink()
                   and '__pycache__' not in p.parts and '.build' not in p.parts
                   and p != ROOT/'tests/test_browser_preview.py'  # 개인 개발 실행 스크립트 전용 검사
-                  and p.suffix in ('.py','.json','.js','.mjs','.html','.css','.svg','.md','.yml','.swift')]
+                  and p.suffix in ('.py','.json','.js','.mjs','.cjs','.html','.css','.svg','.md','.yml','.swift')]
+    # 새 디자인 라이브러리의 고정 자산과 라이선스도 함께 반출한다.
+    vendor = ROOT/'web/vendor/webawesome'
+    for row in json.loads((vendor/'manifest.json').read_text(encoding='utf-8'))['files']:
+        file = vendor/row['path']
+        if file.is_symlink() or not file.resolve().is_relative_to(vendor.resolve()):
+            raise ValueError('디자인 자산 경로를 확인하세요')
+        if hashlib.sha256(file.read_bytes()).hexdigest() != row['sha256']:
+            raise ValueError('디자인 자산 해시가 다릅니다: '+row['path'])
+        if file not in files:
+            files.append(file)
     # 글꼴은 출처 목록에 고정된 파일만 반출한다. 사용자 설치 글꼴은 포함하지 않는다.
     fonts = ROOT/'web/fonts'
     font_files = []

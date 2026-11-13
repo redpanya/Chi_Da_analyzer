@@ -21,13 +21,15 @@ class Job:
         self.closed = False
         self.thread = threading.Thread(target=self.run, name=f"vod-{project.data['vod_id']}", daemon=True)
 
-    def add(self, kinds):
+    def add(self, kinds, concurrent_fragments=None):
         for kind in kinds:
             if kind in self.workers and self.workers[kind].is_alive():
                 raise Conflict('해당 작업의 중단 정리가 진행 중입니다. 잠시 후 이어받으세요')
         started = []
         try:
             for kind in kinds:
+                if kind == 'video' and concurrent_fragments is not None:
+                    self.work.update(kind, concurrent_fragments=concurrent_fragments)
                 self.work.update(kind, state='queued', message='작업을 준비하고 있습니다',
                                  timing=task_timing.start(self.work.snapshot()['tasks'][kind], resume=True))
                 self.stops[kind] = threading.Event()
@@ -103,6 +105,8 @@ class Manager:
         self.studio = Studio(self)
         from .split_jobs import Splitter
         self.splitter = Splitter(self)
+        from .work_queue import WorkQueue
+        self.tasks = WorkQueue(self)
 
     def folders(self):
         with self.guard:
@@ -224,7 +228,10 @@ class Manager:
                 continue
         return sorted(results, key=lambda x: x['updated_at'], reverse=True)
 
-    def start(self, root, vod, format_id, kind):
+    def start(self, root, vod, format_id, kind, concurrent_fragments=None):
+        if concurrent_fragments is not None:
+            source.fragment_concurrency(concurrent_fragments)
+        self.tasks.idle()
         self.automation.idle()
         if self.import_job and not self.import_job.closed:raise Conflict('파일 가져오기를 먼저 완료하거나 중단하세요')
         if kind not in ('all', 'video', 'chat'):
@@ -248,7 +255,7 @@ class Manager:
                          and transfer_tasks(current)[target]['state'] not in ACTIVE | FINISHED]
                 if not kinds:
                     raise Conflict('이미 진행 중이거나 완료된 작업입니다')
-                self.job.add(kinds)
+                self.job.add(kinds, concurrent_fragments=concurrent_fragments)
                 return self.view(root, vod)
             if (path/'project.json').exists():
                 saved = load_project(path,vod)
@@ -273,7 +280,7 @@ class Manager:
                 job = Job(project, self.guard)
                 self.job = job
                 job.report_started = time.monotonic()
-                job.add(kinds)
+                job.add(kinds, concurrent_fragments=concurrent_fragments)
                 job.thread.start()
                 self.reports.watch(job, 'download')
             except Exception:
@@ -302,6 +309,7 @@ class Manager:
         return self.view(root, vod)
 
     def close(self):
+        self.tasks.close()
         self.splitter.close()
         self.studio.close()
         self.automation.close()
@@ -395,8 +403,10 @@ class Manager:
                     from .speech_quality import REVISION as quality_revision
                     key += [raw.get('sha256'), raw.get('source'), language, options, quality_revision, speech_options.REVISION]
                 settings = {'input_kind':'original', 'asr_options':options}
+                request_options = {'track': track, 'language': language, 'input_kind': 'original', 'asr_options': options}
                 speech_store.update(path, state='running', action=action, message='음성 작업을 준비합니다', progress={},
-                                    compute=None, options=settings, timing_key=key, timing=task_timing.start(previous, resume=action != 'audio' and previous.get('action') == action and previous.get('timing_key', key) == key))
+                                    compute=None, options=settings, resume_request={'action': action, 'options': request_options},
+                                    timing_key=key, timing=task_timing.start(previous, resume=action != 'audio' and previous.get('action') == action and previous.get('timing_key', key) == key))
                 self.speech_job = speech.SpeechJob(path, data, lock, action, {'track': track, 'language': language, 'input_kind': 'original', 'asr_options':options})
                 self.speech_job.report_started = time.monotonic()
                 self.speech_job.thread.start()
@@ -409,12 +419,20 @@ class Manager:
         return self.view(root, vod)
 
     def speech_idle(self):
+        self.tasks.idle()
         self.automation.idle()
         self.studio.idle()
         self.splitter.idle()
         if self.import_job and not self.import_job.closed:raise Conflict('파일 가져오기 중입니다. 완료 또는 중단 후 진행하세요')
         if self.analysis_path is not None or (self.job and not self.job.closed) or (self.speech_job and not self.speech_job.closed) or (self.voice_job and not self.voice_job.closed) or (self.context_job and not self.context_job.closed):
             raise Conflict('다른 작업이 진행 중입니다. 완료 또는 중단 후 진행하세요')
+
+    def project_idle(self, path):
+        self.tasks.project_idle(path)
+        if self.analysis_path is not None and self.analysis_path.resolve() == path:
+            raise Conflict('이 VOD의 채팅 분석이 진행 중입니다. 완료 후 변경하세요')
+        if self.automation.running and not self.automation.owns_thread() and self.automation.current_path == path:
+            raise Conflict('이 VOD의 자동화 작업이 진행 중입니다. 일시정지한 뒤 변경하세요')
 
     def speech_stop(self, root, vod):
         with self.guard:
@@ -441,7 +459,7 @@ class Manager:
     def speech_edit(self, root, vod, action, run=None, segment=None, text=None):
         path = project_path(root, vod)
         with self.guard:
-            self.speech_idle()
+            self.project_idle(path)
             with ProjectLock(path):
                 load_project(path, vod)
                 if action == 'correct':
@@ -486,6 +504,7 @@ class Manager:
                 settings = {}
                 if action in ('prepare','diarize','install-engine','check-engine'): settings['backend']=backend
                 voice_store.update(path, **settings, state='running', action=action, message='M4 작업을 준비합니다', progress={},
+                                   resume_request={'action': action, 'options': options},
                                    timing=task_timing.start(voice_store.state(path)))
                 self.voice_job = voices.VoiceJob(path, data, lock, action, options)
                 self.voice_job.report_started = time.monotonic()
@@ -519,7 +538,7 @@ class Manager:
     def voices_edit(self, root, vod, action, options):
         path = project_path(root,vod)
         with self.guard:
-            self.speech_idle()
+            self.project_idle(path)
             with ProjectLock(path):
                 load_project(path,vod)
                 if action == 'export': voice_store.export(path)
@@ -551,14 +570,14 @@ class Manager:
     def deletion_preview(self, root, vod):
         path = project_path(root, vod)
         with self.guard:
-            self.speech_idle()
+            self.project_idle(path)
             load_project(path, vod)
             with ProjectLock(path): return deletion.preview(path, vod)
 
     def delete_project(self, root, vod, token, confirmation):
         path = project_path(root, vod)
         with self.guard:
-            self.speech_idle()
+            self.project_idle(path)
             load_project(path, vod)
             with ProjectLock(path) as lock, lock.moving():
                 return deletion.trash(path, vod, token, confirmation)
@@ -570,7 +589,7 @@ class Manager:
             load_project(path, vod)
             if text is None:
                 return context_background.settings(path)
-            self.speech_idle()
+            self.project_idle(path)
             with ProjectLock(path):
                 context_background.save(path, text, mode, custom_request)
                 return context_background.settings(path)
@@ -618,9 +637,11 @@ class Manager:
             if action=='list':return exchange.listing(path)
             if action=='bundle':return exchange.bundle(path,values.get('export_id'))
             if action=='archive':return zipper.pack(path,values.get('export_id'))
+            if action=='repair-archive':return zipper.repair(path,vod,values.get('export_id'))
+            if action=='repair-files':return batch.repair(path,vod,values)
             if action=='preview':return exchange.preview(path,vod,values.get('text'))
             if action=='check-files':return batch.preview(path,vod,values)
-            self.speech_idle()
+            self.project_idle(path)
             with ProjectLock(path):
                 if action=='create':return exchange.create(path,vod,values.get('options'))
                 if action=='receive':return exchange.receive(path,vod,values.get('text'),values.get('token'))
@@ -633,7 +654,7 @@ class Manager:
         from .result_deletion import context as delete
         path = project_path(root, vod)
         with self.guard:
-            self.speech_idle();load_project(path, vod)
+            self.project_idle(path);load_project(path, vod)
             with ProjectLock(path):delete(path, run)
         return self.view(root, vod)
 
@@ -649,6 +670,6 @@ class Manager:
         if not all(isinstance(v,str) for v in (run,item,part,interpretation)):raise ValueError('보완 선택 정보가 올바르지 않습니다')
         path=project_path(root,vod)
         with self.guard:
-            self.speech_idle();load_project(path,vod)
+            self.project_idle(path);load_project(path,vod)
             with ProjectLock(path):reject(path,vod,run,item,part,interpretation)
         return self.view(root,vod)

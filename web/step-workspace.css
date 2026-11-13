@@ -1,0 +1,159 @@
+/* 계층은 늘어나도 현재 작업이 가장 넓다. 데스크톱 배치는 작은 창에서도 유지한다. */
+body.step-workspace{--rail-primary:50px;--rail-vod:0px;--rail-task:0px;display:grid;grid-template-columns:var(--rail-primary) var(--rail-vod) var(--rail-task) minmax(0,1fr);min-width:1024px;min-height:100vh;background:var(--ds-bg);transition:grid-template-columns 280ms cubic-bezier(.2,.8,.2,1)}
+body.step-workspace[data-rail-depth="2"]{--rail-primary:30px;--rail-vod:50px}
+body.step-workspace[data-rail-depth="2"]:has(.selected-vod-rail[hidden]){--rail-vod:0px;--rail-task:50px}
+body.step-workspace[data-rail-depth="3"]{--rail-primary:30px;--rail-vod:30px;--rail-task:50px}
+body.step-workspace>aside{position:sticky;inset:0;top:0;height:100vh;min-width:0;width:auto;margin:0;border:0;border-right:1px solid var(--ds-line);border-radius:0;background:var(--ds-surface);padding:12px 2px;overflow:hidden;display:flex;flex-direction:column;align-items:stretch;z-index:25}
+body.step-workspace>aside[hidden]{display:none}
+body.step-workspace>.step-primary{grid-column:1;grid-row:1}
+body.step-workspace>.selected-vod-rail{grid-column:2;grid-row:1;text-align:center;align-items:center;padding:22px 2px 12px}
+body.step-workspace>.task-rail{grid-column:3;grid-row:1;padding-top:22px;gap:8px}
+body.step-workspace>main{grid-column:4;grid-row:1;min-width:0;width:100%;max-width:none;padding:28px 32px;margin:0;background:var(--ds-bg)}
+.step-workspace .step-primary>.tagline,.step-workspace .step-primary>.library-head,.step-workspace .step-primary>#projects,.step-workspace .step-primary>footer{display:none}
+.step-workspace .brand{justify-content:center;margin:8px 0 24px;padding:0;border:0;background:none!important;min-height:38px}
+.step-workspace .brand-name{display:none}.step-workspace .brand .mark{height:34px;width:34px;min-width:0}
+.step-workspace .workspace-navigation{display:flex;flex-direction:column;gap:10px;margin:0;width:100%}
+.step-workspace .rail-bottom{margin-top:auto;display:grid;gap:12px}
+.step-workspace .rail-action,.step-workspace .rail-action::part(base){display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px 2px;min-height:66px;min-width:0;width:100%;border:1px solid transparent!important;border-radius:9px;background:transparent!important;color:var(--ds-muted)!important;white-space:normal;text-decoration:none;line-height:1.35;text-align:center;font-size:10px}
+.step-workspace .rail-action::part(label){display:flex;flex-direction:column;align-items:center;gap:6px}
+.step-workspace .rail-icon{font-size:23px;line-height:1}.step-workspace .rail-label{overflow-wrap:normal;word-break:keep-all;max-width:100%}
+.step-workspace .rail-action[aria-current=page],.step-workspace .rail-action[aria-current=step],.step-workspace .rail-action[aria-current=page]::part(base),.step-workspace .rail-action[aria-current=step]::part(base){background:var(--ds-tint)!important;color:var(--ds-accent)!important}
+.step-workspace .rail-action:not([aria-current=page]):not([aria-current=step]):hover,.step-workspace .rail-action:not([aria-current=page]):not([aria-current=step]):hover::part(base){background:var(--ds-card)!important;color:var(--ds-text)!important}
+.step-workspace .selected-vod-rail small{font-size:9px;color:var(--ds-muted);white-space:nowrap}
+.step-workspace .selected-vod-title{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:.1em;font-size:13px;line-height:1.5;max-height:calc(100vh - 140px);overflow:hidden;margin-top:26px;white-space:nowrap}
+.step-workspace .rail-back{margin-top:auto;width:100%;background:transparent;color:var(--ds-muted);border:0}
+.step-workspace .task-rail-title{font-size:12px;text-align:center;word-break:keep-all;padding:0 2px 16px;border-bottom:1px solid var(--ds-line)}
+.step-workspace .task-rail .rail-return{margin-top:auto}
+.step-workspace .step-number{border:1px solid var(--ds-line);border-radius:50%;min-width:22px;height:22px;display:inline-grid;place-items:center;font-size:12px;flex:none;color:var(--ds-muted)}
+.step-workspace [aria-current=step] .step-number{border-color:var(--ds-accent);color:var(--ds-accent)}
+.step-workspace main>header{background:transparent!important;border:0;padding:0;margin:0 0 18px;min-height:45px}
+.step-workspace #heading{font-size:14px;font-weight:500;color:var(--ds-muted)}
+.step-workspace .workspace-subtitle{font-size:23px;font-weight:700;color:var(--ds-text);max-width:none;line-height:1.35}
+.step-workspace main>nav:not(.purpose-tabs):not(#analysis-results-nav){display:none!important}
+.step-workspace .purpose-tabs{display:flex;background:transparent!important;border:0;border-bottom:1px solid var(--ds-line);padding:0;margin:0 0 24px;border-radius:0;gap:0}
+.step-workspace .purpose-tabs button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:18px 12px;border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:var(--ds-muted)}
+.step-workspace .purpose-tabs button[aria-current=step]{color:var(--ds-text);border-bottom-color:var(--ds-accent)}
+.step-workspace .panel{background:transparent!important;border:0;padding:0;box-shadow:none}
+.step-workspace :is(#library-page,#import-panel,#context-panel,#speech-panel,#voices-panel,#explore-panel,#settings-page,#report-panel,#external-panel){margin:0}
+.step-workspace[data-workspace-page="0"] main>header,.step-workspace[data-workspace-page="1"] main>header,.step-workspace[data-workspace-page="10"] main>header{display:none}
+.step-workspace :is(#library-page,#jobs-page,#register-address,#register-confirm) h2{font-size:24px}
+.step-workspace .queue-section{padding:0;border:0}.step-workspace .register-address,.step-workspace .register-confirm{max-width:1000px;margin:10px auto}.step-workspace .register-address h3{font-size:24px;margin-bottom:22px}.step-workspace .register-address>.primary{display:block;margin:24px 0 0 auto}
+.step-workspace .registration-summary{background:var(--ds-card);border:1px solid var(--ds-line);border-radius:12px;padding:22px;margin:22px 0;overflow-wrap:anywhere}.step-workspace .register-confirm>button{margin:8px 8px 0 0}.step-workspace .automation-status{margin:0 0 32px}.step-workspace #queue-list>article{border:1px solid var(--ds-line);border-radius:10px;padding:16px;margin:12px 0;background:var(--ds-card)}
+.step-workspace[data-task-flow] main>:not(#task-main):not(#notice):not(#preview-toast){display:none!important}
+.step-workspace #task-main{max-width:1100px;margin:0 auto}.step-workspace .inline-task[open]{display:flex;position:static;inset:auto;width:100%;height:auto;min-height:calc(100vh - 60px);max-width:none;max-height:none;overflow:visible;flex-direction:column;margin:0;padding:0;border:0;border-radius:0;background:transparent!important;box-shadow:none}
+.step-workspace .inline-task .settings-heading{background:transparent;position:static;flex:none;padding:0 0 22px;border-bottom:1px solid var(--ds-line)}
+.step-workspace .inline-task .settings-heading h2{font-size:26px}.step-workspace .inline-task .settings-body{overflow:visible;flex:1;padding:24px 0}.step-workspace .inline-task .settings-footer{position:sticky;bottom:0;z-index:4;background:var(--ds-bg);padding:16px 0;margin-top:22px;border-top:1px solid var(--ds-line);gap:10px;display:flex;justify-content:flex-end}
+.step-workspace .inline-task .settings-notice:empty{display:none}.step-workspace .inline-task .settings-notice{white-space:pre-line}.step-workspace .inline-task :is(.task-field-group,.speech-steps>article,#queue-work-options>fieldset,#queue-work-options>div){background:var(--ds-card);padding:24px;border:1px solid var(--ds-line);border-radius:12px;margin-bottom:18px}
+.step-workspace .inline-task .speech-steps{display:block}.step-workspace .inline-task #queue-work-options{display:block}.step-workspace .inline-task fieldset{margin:12px 0}.step-workspace .inline-task .task-field-group>.background-form{border:0;padding:0}.step-workspace .inline-task .task-field-group h3{font-size:19px;margin-top:0}
+.step-workspace #global-jobs{margin-bottom:16px}.step-workspace .settings-body .inline-check{min-height:36px}.step-workspace .header-more-actions{background:var(--ds-raised)}
+.step-workspace [hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){body.step-workspace,.step-workspace *{transition-duration:0s!important;animation-duration:0s!important;scroll-behavior:auto!important}}
+
+:root[data-theme] .step-workspace #purpose-tabs button{background:transparent;color:var(--ds-muted);border-radius:0;border-color:transparent;box-shadow:none}
+:root[data-theme] .step-workspace #purpose-tabs button[aria-current=step]{color:var(--ds-text);border-bottom-color:var(--ds-accent)}
+:root[data-theme] .step-workspace #purpose-tabs button:hover{background:var(--ds-surface);color:var(--ds-text);border-color:transparent}
+:root[data-theme] .step-workspace #purpose-tabs button[aria-current=step]:hover{border-bottom-color:var(--ds-accent)}
+:root[data-theme] .step-workspace .workspace-subtitle{color:var(--ds-text)}
+:root[data-theme] .step-workspace .library-card{background:transparent}
+:root[data-theme] .step-workspace .library-card:hover{background:var(--ds-surface)}
+:root[data-theme] .step-workspace .flow-card{background:var(--ds-card);border-color:var(--ds-line)}
+:root[data-theme] .step-workspace .flow-card:hover{background:var(--ds-raised);border-color:var(--ds-accent)}
+.step-workspace[data-use-page] main>header .help-button{display:none}
+
+/* 승인 미리보기의 정보 위계: 목록 → 선택한 자료 → 필요한 설정. */
+:root[data-theme] body.step-workspace{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:14px;line-height:1.55}
+.step-workspace .rail-icon{width:21px;height:21px;display:block}.step-workspace .rail-icon svg{display:block;width:100%;height:100%}
+.step-workspace .step-primary{padding-top:20px}.step-workspace .brand{margin:0 0 28px}.step-workspace .rail-action{font-weight:600;font-size:10px;min-height:60px}
+.step-workspace main>header{display:flex;align-items:center;gap:12px;margin-bottom:24px}.step-workspace main>header>div:first-of-type{min-width:0;flex:1}.step-workspace main>header>.play-actions{flex:none}
+.step-workspace .project-back{width:38px;min-width:38px;height:38px;padding:0;margin:0}.step-workspace #heading{font-size:12px;line-height:1.4;margin:0 0 5px;display:inline-block}
+.step-workspace .workspace-subtitle{font-size:22px;line-height:1.4;letter-spacing:-.04em;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;margin:0}
+.step-workspace #purpose-tabs{margin-bottom:26px}.step-workspace #purpose-tabs button{font-size:12px;padding:13px 7px 15px}.step-workspace .step-number{font-size:10px;min-width:19px;width:19px;height:19px}
+.step-workspace .library-searchbar{display:flex;gap:16px;justify-content:space-between;align-items:center;margin-bottom:20px}.step-workspace #library-search{width:min(360px,40%);font-size:13px}
+.step-workspace .library-filterbar{display:flex;gap:4px}:root[data-theme] .result-first.step-workspace .library-filterbar button{background:transparent;border-color:transparent;font-size:12px;padding:7px 9px;color:var(--ds-muted);white-space:nowrap}
+:root[data-theme] .result-first.step-workspace .library-filterbar button[aria-pressed=true]{background:var(--ds-card);border-color:var(--ds-line);color:var(--ds-text)}
+.step-workspace .library-list-heading{display:flex;align-items:center;gap:12px;margin:0 0 8px}.step-workspace #library-health{flex:1;margin:0;font-size:12px}.step-workspace #library-sort{background:transparent;border:0;font-size:12px;width:auto;max-width:160px}.step-workspace #library-refresh{background:transparent;border:0;color:var(--ds-muted);padding:6px;font-size:12px}
+.step-workspace #library-cards{display:block;border-top:1px solid var(--ds-line)}
+.step-workspace .library-card-heading{display:block;min-width:0;margin:0}.step-workspace .library-card-heading strong{display:block;font-size:14px;font-weight:650;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}.step-workspace .library-card-heading small{display:block;font-size:12px;margin-top:7px;color:var(--ds-muted)}
+.step-workspace .library-thumbnail{width:112px;min-width:0;height:64px;border-radius:6px}.step-workspace .thumbnail-placeholder{background:linear-gradient(135deg,var(--ds-card),var(--ds-input));color:var(--ds-weak);font-size:12px;letter-spacing:.15em;font-weight:650}
+.step-workspace .library-statuses{display:flex;flex-direction:column;align-items:start;gap:6px;min-height:0;min-width:0}.step-workspace .library-statuses small{max-width:160px;color:var(--ds-muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.step-workspace .state-pill{padding:4px 7px;border-radius:5px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:6px}.step-workspace .state-pill::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.step-workspace .state-pill[data-state=ready]{background:var(--ds-success-bg);color:var(--ds-success)}.step-workspace .state-pill[data-state=working]{background:var(--ds-info-bg);color:var(--ds-info)}.step-workspace .state-pill[data-state=review]{background:var(--ds-warning-bg);color:var(--ds-warning)}
+.step-workspace .library-card time{font:12px ui-monospace,SFMono-Regular,Consolas,monospace;white-space:nowrap;text-align:right;color:var(--ds-muted)}.step-workspace .library-row-arrow{color:var(--ds-weak);text-align:right}
+.step-workspace .library-pagination{padding:24px}.step-workspace .prepare-overview{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(240px,1fr);gap:32px;margin:4px 0 28px}
+.step-workspace .prepare-overview .eyebrow{display:block;color:var(--ds-muted);font-size:11px;margin:0 0 9px}.step-workspace .prepare-overview h2{font-size:23px;margin:0;letter-spacing:-.04em}.step-workspace .prepare-overview .subtitle{font-size:13px;color:var(--ds-muted);margin:10px 0 24px}
+.step-workspace .preparation-list{margin:0 0 24px}.step-workspace .prepare-row{display:flex;gap:14px;align-items:center;padding:18px 0;border-bottom:1px solid var(--ds-line)}.step-workspace .prepare-row>div{flex:1}.step-workspace .prepare-row strong{display:block;font-size:14px}.step-workspace .prepare-row small{display:block;font-size:12px;color:var(--ds-muted);margin-top:5px}.step-workspace .prepare-status{width:30px;color:var(--ds-muted);text-align:center;font-size:19px}.step-workspace .prepare-status[data-state=complete]{color:var(--ds-accent)}.step-workspace .prepare-status:is([data-state=error],[data-state=paused],[data-state=review]){color:var(--ds-warning)}
+.step-workspace .prepare-note{align-self:start;padding:24px;border:1px solid var(--ds-line);border-radius:10px;background:var(--ds-card)}.step-workspace .prepare-note-icon{font-size:24px;color:var(--ds-muted)}.step-workspace .prepare-note h3{font-size:15px;margin:12px 0 7px}.step-workspace .prepare-note p{font-size:12px;color:var(--ds-muted);line-height:1.7}.step-workspace .prepare-actions{border:0;background:transparent;padding:0;margin:20px 0}.step-workspace .prepare-actions>summary{width:100%;text-align:center;font-size:13px}
+:root[data-theme] .step-workspace .prepare-actions .flow-card{display:flex;flex-direction:column;align-items:start;gap:4px;white-space:normal;width:100%;text-align:left;padding:12px;margin-top:8px;background:var(--ds-surface);border:1px solid var(--ds-line)}.step-workspace .flow-card span{font-size:11px;color:var(--ds-muted)}
+.step-workspace .prepare-note .analysis-scope-preview{display:block;border:0;border-top:1px solid var(--ds-line);padding:16px 0;margin:0;background:transparent}.step-workspace .prepare-note .analysis-scope-preview small{display:none}.step-workspace .prepare-note .analysis-scope-preview h3{font-size:12px;margin:0 0 8px}.step-workspace .prepare-note #analysis-scope-open{width:100%;font-size:12px}
+.step-workspace .prepare-note #queue-add-project{width:100%;font-size:12px}.step-workspace .prepare-download-details{margin:0;border:1px solid var(--ds-line);border-radius:10px;padding:0;background:var(--ds-surface)}.step-workspace .prepare-download-details>summary{display:block;padding:16px;border:0;background:transparent!important;font-size:13px;color:var(--ds-muted)}.step-workspace .prepare-download-details .cards{padding:0 20px;gap:24px}.step-workspace .prepare-download-details .task{background:transparent!important;border:0;padding:16px 0}.step-workspace .prepare-download-details .action-row{margin:0;padding:16px 20px}
+.step-workspace #show-speech,.step-workspace #show-results{display:none}.step-workspace #download-panel .project-heading{display:none}
+.step-workspace .use-page{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.step-workspace .use-page>h2{grid-column:1/-1;font-size:20px;margin:0 0 8px}.step-workspace .use-page .flow-card{display:flex;flex-direction:column;align-items:start;gap:8px;white-space:normal;text-align:left;padding:24px;border:1px solid var(--ds-line);border-radius:10px;background:var(--ds-card)}
+.step-workspace .use-page .flow-card strong{font-size:16px}.step-workspace .use-page .flow-card span{font-size:12px;font-weight:400;line-height:1.7}
+.step-workspace .register-address{max-width:960px;margin:0 auto}.step-workspace .register-address>.eyebrow{display:block;font-size:11px;margin:0 0 12px;color:var(--ds-accent)}.step-workspace .register-address h2{font-size:28px;margin:0 0 32px}.step-workspace .register-address h3{font-size:14px;margin:0 0 14px}.step-workspace #queue-inputs{margin-bottom:20px}.step-workspace .queue-background{font-size:12px}
+.step-workspace .inline-task .settings-heading h2{font-size:28px;letter-spacing:-.04em}.step-workspace .inline-task .settings-body{max-width:900px;width:100%;align-self:flex-start}.step-workspace .inline-task .settings-body>p.hint{font-size:12px;color:var(--ds-muted);margin:0 0 24px}
+.step-workspace .inline-task :is(.task-field-group,.speech-steps>article,#queue-work-options>fieldset,#queue-work-options>div){padding:24px;background:var(--ds-surface);border-radius:10px}.step-workspace .inline-task label{font-size:13px}.step-workspace .inline-task legend{font-size:16px}.step-workspace .inline-task .hint{font-size:12px}.step-workspace .inline-task .settings-footer button{min-width:100px}
+:root[data-theme] .step-workspace .workspace-job{background:transparent;border:0;border-bottom:1px solid var(--ds-line);border-radius:0;padding:18px 12px}.step-workspace .workspace-job strong{font-size:12px}.step-workspace .workspace-job p{font-size:14px}.step-workspace .workspace-job small{font-size:11px}
+.step-workspace .library-intro h2,.step-workspace .automation-status h2{font-size:23px}.step-workspace .library-intro p{font-size:12px}
+:root[data-theme] .step-workspace .inline-task :is(.settings-heading,.settings-body,.settings-footer){background:var(--ds-bg)}
+
+/* 승인 미리보기처럼 단계 폼과 현재 작업 안내를 같은 본문에 배치한다. */
+.step-workspace .task-columns{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start;margin-top:24px}
+.step-workspace .flow-summary,.step-workspace .form-section{background:var(--ds-card);border:1px solid var(--ds-line);border-radius:10px;padding:24px;min-width:0}
+.step-workspace .flow-summary{position:sticky;top:24px}.step-workspace .flow-summary h3{margin:0 0 20px;font-size:15px}.step-workspace .flow-summary p{font-size:13px;line-height:1.75;margin:12px 0}.step-workspace .flow-summary .hint{font-size:11px;color:var(--ds-muted)}
+.step-workspace .flow-footer{display:flex;gap:10px;justify-content:flex-end;border-top:1px solid var(--ds-line);padding-top:24px;margin-top:24px}.step-workspace .flow-footer>button:first-child:not(:last-child){margin-right:auto}
+.step-workspace .register-address,.step-workspace .register-confirm{max-width:1100px}.step-workspace .register-address h2,.step-workspace .register-confirm h2{margin:0 0 24px}
+.step-workspace .registration-summary{background:transparent;border:0;padding:0;margin:0}.step-workspace #queue-inputs{margin:0 0 18px}
+.step-workspace #import-panel>.queue-section>h3,.step-workspace #import-panel>.queue-section>.help-heading{display:none}
+.step-workspace .inline-task .task-columns{flex:1}.step-workspace .inline-task .settings-body{max-width:none;min-width:0;padding:0;width:100%}.step-workspace .inline-task .settings-heading{border:0;padding-bottom:0}.step-workspace .inline-task .settings-footer .task-previous{margin-right:auto}
+.step-workspace .inline-task .prepare-download-details{background:var(--ds-card);padding:0 20px}.step-workspace .inline-task .prepare-download-details>summary{display:none}.step-workspace .inline-task .prepare-download-details .cards{display:block;padding:0}.step-workspace .inline-task .prepare-download-details .task+.task{border-top:1px solid var(--ds-line)}
+.step-workspace .inline-task .analysis-scope-preview{margin-top:18px;background:var(--ds-card);border:1px solid var(--ds-line);border-radius:10px;padding:20px}.step-workspace #prepare-processing{width:100%;margin-top:16px}
+.step-workspace #settings-page>.form-section{max-width:900px}.step-workspace #settings-page>.form-section>section{border:0;padding:0;background:transparent}.step-workspace #settings-page .settings-grid{grid-template-columns:1fr}
+.step-workspace:is([data-workspace-page="9"],[data-workspace-page="8"],[data-workspace-page="7"]) #heading{font-size:26px;font-weight:700;color:var(--ds-text)}
+.step-workspace:is([data-workspace-page="9"],[data-workspace-page="8"],[data-workspace-page="7"]) .workspace-subtitle{font-size:13px;font-weight:400;color:var(--ds-muted);margin-top:8px}
+
+.step-workspace .step-primary{container-type:inline-size}
+.step-workspace .rail-label{white-space:nowrap;font-size:9px;line-height:1.35;letter-spacing:-.04em;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.step-workspace .task-rail-title{font-size:8px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 0 14px}
+.step-workspace .task-rail .rail-return .rail-label{font-size:8px}
+.step-workspace .rail-back{min-width:24px;min-height:36px;padding:4px 0}
+.step-workspace:is([data-rail-depth="2"],[data-rail-depth="3"]) .step-primary .rail-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.step-workspace:is([data-rail-depth="2"],[data-rail-depth="3"]) .step-primary .rail-action,.step-workspace:is([data-rail-depth="2"],[data-rail-depth="3"]) .step-primary .rail-action::part(base){padding:9px 0;min-height:44px;gap:0}
+.step-workspace:is([data-rail-depth="2"],[data-rail-depth="3"]) .step-primary .rail-icon{width:18px;height:18px}
+.step-workspace:is([data-rail-depth="2"],[data-rail-depth="3"]) .brand .mark{width:24px;height:24px}
+.step-workspace[data-rail-depth="3"] .selected-vod-rail small{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.step-workspace[data-rail-depth="3"] .selected-vod-title{font-size:12px;line-height:1.5}
+.step-workspace .registration-queue{margin:24px 0 0;border-top:1px solid var(--ds-line);padding-top:20px}
+.step-workspace .task-columns .form-section{padding:20px}
+
+/* 폼의 제목, 입력칸, 다음 항목을 같은 간격으로 구분합니다. */
+.step-workspace :is(.settings-body,.form-section,.external-task,#report-panel,#analysis-scope-fields) label:not(.inline-check):not(.inline-control)>:is(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea){display:block;width:100%;max-width:100%;margin-top:6px}
+.step-workspace :is(.settings-body,.form-section,.external-task) :is(input,select,textarea){line-height:1.5}
+.step-workspace :is(.settings-body,.form-section,.external-task) textarea{padding:9px 11px}
+.step-workspace :is(.settings-body,.form-section) label:has(>input:is([type=checkbox],[type=radio])){display:flex;align-items:center;gap:8px;line-height:1.5}
+.step-workspace :is(.settings-body,.form-section) label>input:is([type=checkbox],[type=radio]){margin:0}
+.step-workspace :is(.settings-body,.form-section) .inline-check{flex-wrap:nowrap}
+.step-workspace .input-row:has(>label){align-items:flex-end;gap:10px}
+.step-workspace .input-row>label{flex:1;min-width:0;margin-bottom:0}
+.step-workspace .input-row>button{align-self:flex-end;flex:none;max-width:100%;white-space:normal}
+.step-workspace :is(.task-field-group,.form-section)>:is(h2,h3):first-child{margin-top:0;margin-bottom:16px;line-height:1.4}
+.step-workspace :is(.task-field-group,.form-section)>:last-child{margin-bottom:0}
+.step-workspace .settings-body fieldset{min-width:0}
+.step-workspace .settings-body legend{padding:0 6px;line-height:1.5}
+.step-workspace :is(.external-task,.background-form)>:is(input,select,textarea)+label{display:block;margin-top:16px}
+.step-workspace .external-task>details>textarea+button{margin-top:12px}
+.step-workspace .prepare-row>div{min-width:0;overflow-wrap:anywhere}
+.step-workspace .prepare-row>button{flex:none}
+.step-workspace .flow-footer{align-items:center;flex-wrap:wrap;gap:12px}
+.step-workspace #report-panel .input-row{margin:16px 0}
+.step-workspace #report-panel :is(pre,textarea){max-width:100%;min-width:0}
+.step-workspace #report-panel pre{padding:12px 14px;line-height:1.65}
+.step-workspace .error-select-row+.error-select-row{margin-top:10px}
+.step-workspace .error-select-row>details{margin:0}
+.step-workspace .workspace-job-stage>strong{min-width:0;overflow-wrap:anywhere}
+.step-workspace .workspace-job-actions{max-width:260px;row-gap:8px}
+.step-workspace .workspace-job-actions button{white-space:normal;line-height:1.4;max-width:100%}
+.step-workspace #speech-audio-box:not([hidden]){display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:16px 0}
+.step-workspace #speech-audio-label{flex-basis:100%;margin:0;line-height:1.5;overflow-wrap:anywhere}
+.step-workspace #speech-audio-label:empty{display:none}
+.step-workspace #speech-audio{flex:1 1 280px;min-width:0;max-width:650px}
+.step-workspace #speech-audio-save{flex:none;max-width:100%;white-space:normal}

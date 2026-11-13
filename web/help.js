@@ -76,7 +76,7 @@ export function connectHelp() {
     close,
     setPage(step) {
       close();
-      const id = ['import','download','speech','voices','explore','context','report','external','settings'][step-1];
+      const id = ['library','import','download','speech','voices','explore','context','report','external','settings','jobs'][step];
       $('heading').dataset.help = id; label(buttons.get($('heading')), id);
     },
     setProject(path) { if (path !== project) {close(); project = path;} },

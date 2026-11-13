@@ -63,7 +63,9 @@ def main():
                 if not ready.exists():raise RuntimeError((work/'run.log').read_text(encoding='utf-8',errors='replace'))
                 url=json.loads(ready.read_text(encoding='utf-8'))['url']
                 http=build_opener(ProxyHandler({}))
-                for relative in ('','app.js','voice-model-help.js','voice-tool-status.js','voice-tabs.js',
+                for relative in ('','app.js','design-system.js','design-system.css','step-workspace.js',
+                                 'desktop-panels.js','scene-usage.js','job-detail.js','queue-options.js',
+                                 'vendor/webawesome/styles/themes/default.css','voice-model-help.js','voice-tool-status.js','voice-tabs.js',
                                  'compute.js','queue.js','queue-saved.js','reports.js',
                                  'context-background.js','context-inputs.js','context-fallback.js','timeline.js',
                                  'context-external.js','context-copy.js','vod-label.js'):

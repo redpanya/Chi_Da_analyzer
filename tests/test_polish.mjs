@@ -22,8 +22,8 @@ const historyUI=studioHistory({host:historyHost,identity:()=>({}),refresh:async(
 }});
 historyUI.set(['A','B'].map(id=>({id,kind:'start',state:'complete',created_at:'2026-10-29',outputs:{}})));
 const historyDialog=document.body.children.at(-1);
-const oldPreview=historyHost.children[0].children.at(-1).onclick();historyDialog.children[3].onclick();
-const newPreview=historyHost.children[1].children.at(-1).onclick();historyCalls[1]({token:'B',bytes:0,folder:'B'});await newPreview;
+const oldPreview=historyHost.children[0].children.at(-1).children[0].onclick();historyDialog.children[3].onclick();
+const newPreview=historyHost.children[1].children.at(-1).children[0].onclick();historyCalls[1]({token:'B',bytes:0,folder:'B'});await newPreview;
 historyCalls[0]({token:'A',bytes:0,folder:'A'});await oldPreview;await historyDialog.children[4].onclick();assert.equal(cleanRequest.run,'B');assert.equal(cleanRequest.token,'B');
 // 이동 취소, 저장 실패, 저장 도중 입력 변경, 이탈 경고.
 let data={nested:{value:'처음'}},written,fail=false;const events=new Element();globalThis.addEventListener=events.addEventListener.bind(events);
@@ -60,6 +60,7 @@ for(const hours of [1,10,20]){
 }
 const detail=new Element();let builds=0;lazyDetails(detail,()=>builds++);detail.dispatchEvent({type:'toggle'});assert.equal(builds,0);detail.open=true;detail.dispatchEvent({type:'toggle'});detail.dispatchEvent({type:'toggle'});assert.equal(builds,1);
 const grouped=groupReactionTimes([1000,1050,1050,1100,1200],1100,2000);assert.equal(grouped.length,2);assert.deepEqual(grouped[0].raw,[1000,1050]);assert.deepEqual(grouped[1].raw,[1100,1200]);
+globalThis.getComputedStyle=()=>({getPropertyValue:()=>''});
 const frames=new Map();let next=0;globalThis.window=new Element();globalThis.requestAnimationFrame=fn=>{frames.set(++next,fn);return next;};globalThis.cancelAnimationFrame=id=>frames.delete(id);createFramePreview(new Element(),()=>({}));assert.equal(frames.size,1);window.dispatchEvent({type:'pagehide'});assert.equal(frames.size,0);window.dispatchEvent({type:'pageshow'});window.dispatchEvent({type:'pageshow'});assert.equal(frames.size,1);
 const opts={speed:'fast',mode:'separate',ratio:'original',layout:'single',size:'source',caption:false,sidecar:false,volume:100,brightness:0,contrast:1,saturation:1,fade:0};assert.equal(fastConflicts(opts,null).length,0);assert.deepEqual(fastConflicts({...opts,sidecar:true},{transcript_run:'B'}),['편집용 자막 끄기']);assert.equal(fastConflicts({...opts,speed:'exact',caption:true},null).length,0);
 console.log('P01~P10: 이동/충돌/교정 보존, 응답 역전, 501번째 자막, 1·10·20시간 탐색, 반응 경계, 타이머·프레임 복귀 통과');

@@ -1,10 +1,14 @@
 import {timecode} from './player.js';
+import {resultPlayback} from './result-playback.js';
+import {bindSceneDetails,syncSceneDrawer} from './result-flow.js';
 
 
-export function createSpeech({api, player, showVoices, showPreview, onProject}) {
+export function createSpeech({api, player, showVoices, showPreview, onProject, sceneUsage}) {
   const $ = id => document.getElementById(id);
   let project = null, generation = 0, infoGeneration = 0, rowGeneration = 0, details = null, fingerprint = '', rowsKey = '', next = null, cursor = 0, requesting = false;
-  const clipPending = new Set();
+  const editDrafts=new Map(),openEdits=new Set();
+  const followTools=document.createElement('div');followTools.className='play-actions speech-follow-tools';$('transcript-rows').before(followTools);
+  const playback=resultPlayback({host:$('transcript-rows'),bar:followTools,media:$('player'),visible:()=>!$('speech-panel').hidden});
   const selected = () => ({root: project.root, vod_id: project.vod_id});
   const message = text => { $('speech-notice').textContent = text; };
   const fileURL = key => `file?${new URLSearchParams({...selected(), kind:'speech', key, revision:project.speech.updated_at||''})}`;
@@ -74,7 +78,6 @@ export function createSpeech({api, player, showVoices, showPreview, onProject}) 
     $('speech-export').disabled = requesting || project.locked || !s.run;
     $('speech-track').disabled = $('speech-language').disabled = requesting || project.locked;
     for (const control of document.querySelectorAll('.speech-edit-control')) control.disabled = project.locked || requesting;
-    for (const control of document.querySelectorAll('.speech-clip-add')) control.disabled = project.locked || project.speech.stale || project.tasks.video.state !== 'complete' || clipPending.has(control.dataset.key);
     $('speech-audio-box').hidden = !s.audio;
     if (s.audio) {
       const audio = $('speech-audio'), relative = s.audio.file;
@@ -100,52 +103,61 @@ export function createSpeech({api, player, showVoices, showPreview, onProject}) 
     try {
       const result = await api('speech-result', {...selected(), query, cursor});
       if (token !== generation || requestId !== rowGeneration || query !== $('speech-query').value) return;
+      sceneUsage.setTranscript(result, project);
+      const focused=document.activeElement,focusedKey=focused?.dataset?.draftKey,selection=focusedKey?[focused.selectionStart,focused.selectionEnd]:null;
       $('transcript-rows').replaceChildren(); next = result.next_cursor;
       $('speech-next').disabled = next === null;
       $('speech-prev').disabled = cursor === 0;
-      $('speech-count').textContent = [`${result.total}개 · ${Math.floor(cursor / 100) + 1}쪽`, result.sync_message].filter(Boolean).join(' · ');
+      $('speech-count').textContent = `${result.total}개 / ${Math.floor(cursor / 100) + 1}쪽`;
+      $('speech-result-status').textContent=result.sync_message||'';
+      if(!result.items.length){const empty=document.createElement('p');empty.className='empty';empty.textContent=query.trim()?'검색과 일치하는 전사가 없습니다. 검색어를 지우면 전체 전사를 확인할 수 있습니다.':project.speech.run?'이 범위에 표시할 전사가 없습니다. 전사 범위·인식이 어려운 구간에서 확인하세요.':'아직 전사가 없습니다. 새 전사에서 원음 추출·전사를 시작하세요.';$('transcript-rows').append(empty);}
       for (const row of result.items) {
         const card = document.createElement('article'); card.className = 'transcript-row';
-        const actions = document.createElement('div'); actions.className = 'play-actions';
+        card.dataset.start=row.video_start_ms??row.start_ms;card.dataset.end=row.video_end_ms??row.end_ms;
+        const item={id:`transcript:${result.run}:${row.id}`,start_ms:row.video_start_ms??row.start_ms,end_ms:row.video_end_ms??row.end_ms,summary:{title:row.text}};
+        const checkbox=sceneUsage.transcriptCheckbox(item,result.run,row.id);
         const time = document.createElement('span'); time.className = 'transcript-time';
         time.textContent = `${timecode(row.start_ms)} → ${timecode(row.end_ms)}`;
-        actions.append(time);
-        actions.append(button('음성 듣기', async () => {
+        const listen=button('음성 듣기', async () => {
           const audio = $('speech-audio');
           if (project.speech.stale || !Number.isFinite(audio.duration)) return message('추출 음성이 준비되지 않았거나 이전 입력입니다.');
           player.reset(); audio.currentTime = Math.min(row.start_ms / 1000, audio.duration);
           try { await audio.play(); } catch { message('음성 재생을 시작하지 못했습니다.'); }
-        }));
-        actions.append(button('화자 검토 (선택)', () => showVoices(row)), button('해당 영상보기', () => {
+        });
+        const voices=button('화자 검토 (선택)', () => showVoices(row));
+        const mini=button('작은 창에서 영상보기', () => {
           if (project.speech.stale) return message('이전 입력의 전사입니다. 입력 상태를 먼저 확인하세요.');
           const start=row.video_start_ms??row.start_ms, end=row.video_end_ms??row.end_ms;
           if(end<=start)return message('이 발언은 현재 영상의 재생 범위를 벗어납니다.');
           showPreview({...row,start_ms:start,end_ms:end});
-        }));
-        const clipStatus = document.createElement('p'); clipStatus.className='hint'; clipStatus.setAttribute('role','status');
+        });
         const clipKey=JSON.stringify([project.path,result.run,row.id]);
-        const addClip=button('클립에 담기',async()=>{
-          if(clipPending.has(clipKey)||project.locked||project.speech.stale||project.tasks.video.state!=='complete')return;
-          const target=selected(),version=generation;clipPending.add(clipKey);render();clipStatus.textContent='클립에 담는 중…';
-          try{
-            const saved=await api('studio-transcript-add',{...target,run:result.run,segment:row.id});
-            if(version===generation)clipStatus.textContent=`${saved.added?'클립 만들기의 담은 구간에 추가했습니다.':'이미 담은 전사 구간입니다.'} 전체 ${saved.count}개 · 더보기 → 클립 만들기에서 편집하세요.`;
-          }catch(error){if(version===generation)clipStatus.textContent=error.message;}
-          finally{clipPending.delete(clipKey);if(project)render();}
-        },'secondary speech-clip-add');
-        addClip.dataset.key=clipKey;addClip.disabled=project.locked||project.speech.stale||project.tasks.video.state!=='complete'||clipPending.has(clipKey);
-        actions.append(addClip);
-        const text = document.createElement('p'); text.textContent = row.text || '(교정 후 빈 텍스트)';
+        const text = document.createElement('p'); text.className='speech-text';text.textContent = row.text || '(교정 후 빈 텍스트)';
+        const scene=button('',()=>{
+          if(project.speech.stale)return message('이전 입력의 전사입니다. 입력 상태를 먼저 확인하세요.');
+          const start=row.video_start_ms??row.start_ms,end=row.video_end_ms??row.end_ms;
+          if(end<=start)return message('이 발언은 현재 영상의 재생 범위를 벗어납니다.');
+          player.seek(start,true,end);
+        },'scene-copy');scene.append(time,text);scene.disabled=project.tasks.video.state!=='complete';scene.setAttribute('aria-label',time.textContent+' 전사 구간 재생');
         const hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = `${row.corrected ? '사용자 교정 · 원문 별도 보존' : '자동 전사 · 원음 확인 필요'}${row.boundary_review ? ' · 조각 경계 검토' : ''}${row.timing_adjusted ? ' · 종료 시각 범위 제한 · 시각 검토 필요' : ''}${row.repeat_review ? ' · 같은 문장 반복 · 인식 내용 검토' : ''}${row.repeat_candidate ? ' · 유사 반복 발화 · 원문·요약 입력 유지' : ''}${row.quality_review ? ' · '+row.quality_notes.join(' · ')+(row.corrected?' · 사용자 교정 반영':' · 요약에서 제외, 원음 확인 후 교정 가능') : ''}${row.encoding_review ? (row.corrected ? ' · 원출력 문자 오류 · 교정 반영' : ' · 문자 인식 오류 · 원음 확인 후 교정 필요') : ''}`;
-        const edit = document.createElement('details'), summary = document.createElement('summary'); summary.textContent = '텍스트 교정';
+        const edit = document.createElement('details'), summary = document.createElement('summary'); summary.textContent = '원음 확인·텍스트 교정';
+        edit.className='scene-details';const inspect=document.createElement('div');inspect.className='play-actions';inspect.append(listen,voices,mini);
         const original = document.createElement('p'); original.className='hint'; original.textContent = '원문: '+row.original_text;
-        const input = document.createElement('textarea'); input.value = row.text; input.maxLength=5000; input.className='speech-edit-control'; input.disabled=project.locked; input.setAttribute('aria-label',timecode(row.start_ms)+' 전사 교정');
-        const save = value => request('speech-edit', {action:'correct', run:result.run, segment:row.id, text:value}, () => loadRows());
+        const input = document.createElement('textarea'); input.value = editDrafts.get(clipKey)??row.text; input.maxLength=5000; input.className='speech-edit-control'; input.disabled=project.locked; input.setAttribute('aria-label',timecode(row.start_ms)+' 전사 교정');
+        input.dataset.draftKey=clipKey;
+        const draftNote=document.createElement('p');draftNote.className='speech-review-notice';draftNote.textContent=editDrafts.has(clipKey)?'저장하지 않은 교정 내용 · 이 창에 임시 보관 중':'';
+        input.oninput=()=>{if(input.value===row.text)editDrafts.delete(clipKey);else editDrafts.set(clipKey,input.value);draftNote.textContent=editDrafts.has(clipKey)?'저장하지 않은 교정 내용 · 교정 저장을 눌러주세요':'';};
+        edit.open=openEdits.has(clipKey);edit.ontoggle=()=>{if(edit.open)openEdits.add(clipKey);else openEdits.delete(clipKey);};
+        const save = value => request('speech-edit', {action:'correct', run:result.run, segment:row.id, text:value}, () => {editDrafts.delete(clipKey);return loadRows();});
         const saveButton=button('교정 저장',()=>save(input.value),'secondary speech-edit-control'), restoreButton=button('원문으로 복원',()=>save(null),'subtle speech-edit-control');
         saveButton.disabled=restoreButton.disabled=project.locked;
-        edit.append(summary,original,input,saveButton,restoreButton);
-        card.append(actions,text,hint,edit,clipStatus); $('transcript-rows').append(card);
+        edit.append(summary,inspect,original,input,saveButton,restoreButton,draftNote,hint);
+        card.append(checkbox,scene);
+        if(row.boundary_review||row.timing_adjusted||row.repeat_review||row.quality_review||row.encoding_review){const warning=document.createElement('p');warning.className='result-source-review';warning.textContent=row.quality_review&&!row.corrected?'원음 확인 필요 · 요약 제외':'원음·시각 확인 필요';warning.title=hint.textContent;edit.append(warning);}else if(row.corrected){const corrected=document.createElement('span');corrected.className='speech-corrected';corrected.textContent='사용자 교정';edit.append(corrected);}
+        bindSceneDetails(card,edit,{title:'전사 확인·교정',subtitle:time.textContent,key:clipKey});$('transcript-rows').append(card);
       }
+      playback.refresh();syncSceneDrawer();
+      if(focusedKey){const input=[...$('transcript-rows').querySelectorAll('textarea')].find(el=>el.dataset.draftKey===focusedKey);if(input&&!input.disabled){input.focus({preventScroll:true});input.setSelectionRange(...selection);}}
     } catch (error) { if (token === generation) message(error.message); }
   }
   async function request(action, options, after) {
@@ -184,10 +196,10 @@ export function createSpeech({api, player, showVoices, showPreview, onProject}) 
       || value?.tasks?.video?.assets?.playback !== project?.tasks?.video?.assets?.playback;
     if (modelChanged && !changed) {generation++; details=null; fingerprint=''; $('speech-model').textContent='모델 상태 확인 중'; $('speech-model').dataset.ready='false'; $('speech-model').dataset.engine='false';}
     if (changed) {
-      generation++; details=null; fingerprint=''; rowsKey=''; cursor=0; next=null;
+      generation++; details=null; fingerprint=''; rowsKey=''; cursor=0; next=null;playback.reset();
       $('sam-audio').pause();$('sam-audio').removeAttribute('src');$('sam-audio').load();$('sam-audio').dataset.file='';
       $('speech-audio').pause(); $('speech-audio').removeAttribute('src'); $('speech-audio').load(); $('speech-audio').dataset.file='';
-      $('transcript-rows').replaceChildren(); $('speech-query').value=''; message(''); $('speech-model').textContent='모델 상태 확인 중'; $('speech-model').dataset.ready='false'; $('speech-model').dataset.engine='false';
+      $('transcript-rows').replaceChildren(); $('speech-query').value=''; message(''); $('speech-result-status').textContent=''; $('speech-model').textContent='모델 상태 확인 중'; $('speech-model').dataset.ready='false'; $('speech-model').dataset.engine='false';
     }
     const previous = project?.speech;
     project=value;
@@ -202,6 +214,6 @@ export function createSpeech({api, player, showVoices, showPreview, onProject}) 
     const nextFingerprint=JSON.stringify(value.speech)+value.locked;
     if (nextFingerprint !== fingerprint) {fingerprint=nextFingerprint;render();}
     const key=`${value.video_generation||'original'}:${value.speech.run}:${value.speech.transcript?.processed_ms}:${value.speech.updated_at}`;
-    if(key !== rowsKey){rowsKey=key;loadRows(true);}
+    if(key !== rowsKey){rowsKey=key;loadRows(changed||previous?.run!==value.speech.run);}
   }};
 }

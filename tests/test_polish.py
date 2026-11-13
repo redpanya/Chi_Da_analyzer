@@ -103,13 +103,15 @@ class Polish(unittest.TestCase):
         value['project']['vod_id']='1';save_json(file,value)
         child.rename(child.with_name('backup'));child.symlink_to(child.with_name('backup'))
         with self.assertRaises(Conflict):child_path(file)
-    def test_split_history_beyond_30_and_search(self):
+    def test_split_history_is_not_restored_or_changed(self):
         folder=self.root/'history';folder.mkdir();split=Splitter(SimpleNamespace(),folder)
         for i in range(35):
             name=f'{i:032x}';save_json(folder/name/'manifest.json',{'id':name,'created_at':str(i),'state':'complete','message':'완료','source_id':'x','source':{'name':f'영상{i:02}'}})
         first=split.dispatch('list',{});second=split.dispatch('list',{'offset':30})
-        self.assertEqual(first['total'],35);self.assertEqual(len(first['runs'])+len(second['runs']),35)
-        self.assertEqual(split.dispatch('list',{'query':'영상00'})['runs'][0]['name'],'영상00')
+        self.assertEqual(first['total'],0);self.assertEqual(first['runs']+second['runs'],[])
+        self.assertEqual(split.dispatch('list',{'query':'영상00'})['runs'],[])
+        self.assertEqual(len(list(folder.glob('*/manifest.json'))),35)
+        split.close()
     def test_truthful_completion(self):
         self.assertEqual(completion_message([{'state':'complete'}]),'목록 처리 종료 · 완료 1개')
         self.assertIn('오류 1개',completion_message([{'state':'complete'},{'state':'error'}]))

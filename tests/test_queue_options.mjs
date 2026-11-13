@@ -4,7 +4,12 @@ const fields=new Map(),$=id=>{if(!fields.has(id))fields.set(id,{value:'',checked
 for(const step of ['download','audio','transcribe','diarize','context'])$('queue-steps').list.push(Object.assign($('step-'+step),{value:step,checked:step==='download'}));
 for(const mode of ['timestamps','detail','clips'])$('queue-summary-modes').list.push(Object.assign($('mode-'+mode),{value:mode,checked:mode==='detail'}));
 $('queue-height').value='480';$('queue-language').value='ko';$('queue-vad').value='standard';$('queue-backend').value='sherpa';$('queue-thinking').checked=true;
+$('queue-fragments').value='1';
 const options=createQueueOptions($),toggle=(id,value)=>{$(id).checked=value;$(id).change();};
+assert.equal(options.read().concurrent_fragments,1);
+for(const value of ['4','16']){$('queue-fragments').value=value;assert.equal(options.read().concurrent_fragments,Number(value));}
+for(const value of ['','0','17','2.5','NaN']){$('queue-fragments').value=value;assert.throws(()=>options.read(),/1~16/);}
+$('queue-fragments').value='4';
 assert.deepEqual(options.read().steps,['download']);assert.equal(options.read().height,480);assert.equal($('queue-ai-options').hidden,true);
 for(const height of [720,1080]){$('queue-height').value=String(height);assert.equal(options.read().height,height);}
 toggle('step-download',false);assert.throws(()=>options.read(),/하나 이상/);
@@ -12,6 +17,7 @@ toggle('step-context',true);toggle('mode-detail',false);assert.throws(()=>option
 toggle('mode-clips',true);toggle('mode-timestamps',true);
 assert.deepEqual(options.read().steps,['context']);assert.deepEqual(options.read().summary_modes,['timestamps','clips']);
 assert.equal($('queue-ai-options').hidden,false);assert.equal($('queue-download-options').hidden,true);
+assert.equal(options.read().concurrent_fragments,4);
 assert.equal(options.read().height,1080);
 assert.match($('queue-selection-summary').textContent,/빠른 타임스탬프 · 클립 후보/);
 $('queue-prompt').value='사용자 용어';toggle('step-transcribe',true);assert.equal($('queue-transcribe-options').hidden,false);

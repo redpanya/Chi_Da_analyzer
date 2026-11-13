@@ -10,7 +10,7 @@ export function createExplorer({api,player}){
     view=viewport(info.duration_ms,center,Number($('timeline-span').value));
     timeline.set(info,position,view);
     $('explore-position').max=info.duration_ms||1;$('explore-position').value=(view.start+view.end)/2;
-    $('explore-window').textContent=`표시 범위 ${timecode(view.start)} ~ ${timecode(view.end)} · 초록 채팅량 / 금색 반응 / 보라 AI 클립 후보`;
+    $('explore-window').textContent=`표시 범위 ${timecode(view.start)} ~ ${timecode(view.end)} · 채팅량 / 반응 / AI 클립 후보`;
     $('explore-clock').textContent=`${timecode(position)} / ${timecode(info.video_ms||info.duration_ms)}`;
     const selected=(info.reactions||[]).filter(r=>r.start_ms<=position&&position<=r.end_ms);
     const clips=(info.clips||[]).filter(r=>r.start_ms<=position&&position<r.end_ms);

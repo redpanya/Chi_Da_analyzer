@@ -5,6 +5,7 @@ import hashlib
 import io
 import re
 import warnings
+import uuid
 from PIL import Image
 
 MAX_BYTES = 10 * 1024**2
@@ -61,6 +62,26 @@ def load(project, options):
     if hashlib.sha256(raw).hexdigest() != options['asset']:
         raise ValueError('저장한 PNG 이미지가 변경됐습니다. 이미지를 다시 선택하세요')
     return decode(raw)
+
+
+def copy_asset(source, target, options):
+    """검사한 내부 PNG만 다른 보관함으로 복사한다. 기존 사본과 원본은 덮어쓰지 않는다."""
+    if not options: return
+    load(source, options)
+    raw = location(source, options['asset']).read_bytes()
+    if hashlib.sha256(raw).hexdigest() != options['asset']:
+        raise ValueError('복사 중 PNG 이미지가 변경됐습니다. 다시 시도하세요')
+    path = location(target, options['asset'])
+    if path.exists():
+        load(target, options)
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_name(path.name+'.'+uuid.uuid4().hex+'.part')
+    try:
+        temp.write_bytes(raw)
+        temp.replace(path)
+    finally:
+        temp.unlink(missing_ok=True)
 
 
 def preview(project, asset):

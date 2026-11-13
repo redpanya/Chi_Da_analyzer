@@ -8,17 +8,27 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from archive import video
+from archive.source import ydl_options
 from archive.storage import Conflict, Project, ProjectLock, create_or_load, save_json
 from test_archive import metadata
 
 
 class VideoTests(unittest.TestCase):
+    def test_fragment_concurrency_default_and_bounds(self):
+        self.assertEqual(ydl_options()['concurrent_fragment_downloads'], 1)
+        for count in (1, 4, 16):
+            self.assertEqual(ydl_options(count)['concurrent_fragment_downloads'], count)
+        for count in (0, 17, -1, 1.5, True, '4', None):
+            with self.subTest(count=count), self.assertRaises(ValueError):
+                ydl_options(count)
+
     def test_changed_source_and_playlist_never_append(self):
         for protocol in ('https', 'm3u8_native'):
             with self.subTest(protocol=protocol), tempfile.TemporaryDirectory() as root:
                 path = Path(root) / 'vod-1'
                 with ProjectLock(path) as lock:
                     project = Project(path, create_or_load(path, metadata(), '360p'), lock)
+                    project.update('video', concurrent_fragments=16)
                     media = path / 'media'
                     media.mkdir()
                     part = media / 'original.mp4.part'
@@ -38,6 +48,7 @@ class VideoTests(unittest.TestCase):
                         factory.return_value.__enter__.return_value = downloader
                         with self.assertRaises(Conflict):
                             video.download(project, threading.Event())
+                    self.assertEqual(factory.call_args.args[0]['concurrent_fragment_downloads'], 16)
                     downloader.process_info.assert_not_called()
                     self.assertEqual(part.read_bytes(), b'original-part')
 

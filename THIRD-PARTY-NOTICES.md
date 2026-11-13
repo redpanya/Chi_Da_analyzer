@@ -6,6 +6,9 @@
 
 | 구성요소 | 조건 | 제공 위치 |
 |---|---|---|
+| Web Awesome Core 3.14.0 | MIT. 버튼·배지와 필요한 브라우저 모듈만 동봉 | `web/vendor/webawesome/LICENSE.md`, 버전·해시: `manifest.json`. Pro·원격 CDN 사용 안 함 |
+| Lit (Web Awesome 번들 내부) | BSD-3-Clause. 원본 번들의 저작권 주석 유지 | `web/vendor/webawesome/LICENSE-LIT.txt` |
+| Font Awesome Free 시스템 SVG 아이콘 (Web Awesome 번들 내부) | CC-BY-4.0. Fonticons 출처·SVG 내 고지 유지. 글꼴 파일은 동봉하지 않음 | `web/vendor/webawesome/LICENSE-FONTAWESOME.txt`, [공식 출처](https://fontawesome.com/license/free) |
 | Pillow 12.3.0 | MIT-CMU 및 wheel 내 제3자 조건. 클립 자막 렌더링에 사용 | 배포본 Python 고지의 Pillow LICENSE 및 bundled third-party 고지. OS 글꼴은 배포하지 않음 |
 | fontTools 4.68.0 | MIT. 설치 글꼴의 문자표를 읽어 언어 지원 확인 | 빌드 환경 고지에 원문 수집. [공식 소스](https://github.com/fonttools/fonttools) |
 | yt-dlp | Unlicense 및 포함 의존성 조건 | 배포본 Python 고지 |

@@ -143,7 +143,7 @@ def download(project, stop):
             project.update('video', state='downloading', message='영상을 받고 있습니다', progress=fields)
             last = time.monotonic()
 
-    options = ydl_options() | {'format': format_id, 'outtmpl': str(original), 'progress_hooks': [progress]}
+    options = ydl_options(data['tasks']['video'].get('concurrent_fragments', 1)) | {'format': format_id, 'outtmpl': str(original), 'progress_hooks': [progress]}
     offline = received_original(media, data)
     if not offline:
         with YoutubeDL(options) as downloader:

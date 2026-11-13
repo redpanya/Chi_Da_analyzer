@@ -3,12 +3,13 @@ import {createCommentTimeEditor} from './context-comment-time.js';
 import {canCopyContext,contextCommentTitle,contextKey,commentRow,commentText,orderedRows,restoreComment,validRange} from './context-comment-model.js';
 export {canCopyContext,contextCommentTitle,hasUsableContextSummary} from './context-comment-model.js';
 
-export function createContextCopy({api,player}={}){
+export function createContextCopy({api,player,onChange=()=>{}}={}){
   const $=id=>document.getElementById(id),list=$('context-comment-list'),notice=$('context-copy-notice'),status=$('context-draft-state');
   const drafts=new Map(),nodes=new Map(),timeEditor=createCommentTimeEditor();let current=null,items=[],vodOffset=0,durationMs=null,renderedOrder='';
   const blocked=()=>!current||current.loading||current.deleting||!!current.loadError;
   const text=()=>current?commentText(current.rows,vodOffset):'';
   const reload=document.createElement('button'),retry=document.createElement('button');reload.textContent='저장된 댓글 다시 불러오기';retry.textContent='현재 편집 저장 재시도';status.after(retry,reload);
+  reload.id='context-comment-reload';retry.id='context-comment-retry';
   retry.onclick=()=>{if(current)save(current);};
   reload.onclick=async()=>{
     const d=current;if(!d||d.loading||d.saving)return;
@@ -36,10 +37,18 @@ export function createContextCopy({api,player}={}){
     if(!pending.length)return;
     pending.forEach(save);event.preventDefault();event.returnValue='';
   });
-  function renderStatus(){reload.hidden=retry.hidden=!current?.error&&!current?.loadError;retry.disabled=!!current?.loading||!!current?.saving;status.textContent=!current?'':current.loading?'저장한 댓글 목록 확인 중…':current.loadError||current.error||(current.saving||current.changed&&api?'저장 중…':api?'이 컴퓨터에 저장됨':'화면 목록');}
+  function renderStatus(){
+    reload.hidden=retry.hidden=!current?.error&&!current?.loadError;retry.disabled=!!current?.loading||!!current?.saving;status.textContent=!current?'':current.loading?'저장한 댓글 목록 확인 중…':current.loadError||current.error||(current.saving||current.changed&&api?'저장 중…':api?'이 컴퓨터에 저장됨':'화면 목록');
+    const source=current;
+    onChange({scope:source?.scope,blocked:blocked(),rows:orderedRows(source?.rows||[]).map(row=>({id:row.id,title:row.title,time:Number.isFinite(row.start_ms)?timecode(row.start_ms+vodOffset):'시각 없음',playable:!!player&&validRange(row),
+      play:()=>{if(source===current&&!blocked()&&validRange(row))player?.seek(row.start_ms,true,row.end_ms);},
+      remove:()=>{if(source===current)remove(row.id);},
+    }))});
+  }
   function syncChecks(){
     if(!current)return;
     for(const input of document.querySelectorAll('.context-check input')){
+      if(input.sceneUpdate){input.sceneUpdate();continue;}
       if(input.commentScope!==current?.scope)continue;
       input.checked=current.rows.some(row=>row.source_id===input.commentSource);input.disabled=blocked();
     }
@@ -138,19 +147,20 @@ export function createContextCopy({api,player}={}){
       items=values.filter(canCopyContext);vodOffset=offset;durationMs=duration;render();const d=current;
       if(d?.ready){await d.ready;if(d!==current)return;d.ready=null;if(d.raw){Object.assign(d,restoreComment(d.raw,items,vodOffset),{revision:d.raw.revision});delete d.raw;}render();}
     },
-    checkbox(item){
-      const draft=current,id=contextKey(item),label=document.createElement('label'),input=document.createElement('input');
-      label.className='inline-check context-check';input.type='checkbox';input.checked=current?.rows.some(row=>row.source_id===id)||false;input.disabled=blocked();input.commentScope=current?.scope;input.commentSource=id;
+    checkbox(item,scope=current?.scope){
+      const id=contextKey(item),label=document.createElement('label'),input=document.createElement('input');
+      label.className='inline-check context-check';input.type='checkbox';input.checked=current?.scope===scope&&!!current?.rows.some(row=>row.source_id===id);input.disabled=current?.scope!==scope||blocked();input.commentScope=scope;input.commentSource=id;
       input.setAttribute('aria-label',`댓글에 포함: ${contextCommentTitle(item)}`);
       input.onchange=()=>{
-        if(current!==draft||blocked())return;const selected=items.find(row=>contextKey(row)===id);
+        if(current?.scope!==scope||blocked())return;const selected=items.find(row=>contextKey(row)===id);
         if(input.checked&&!selected)return;
         const existing=current.rows.find(row=>row.source_id===id);
         if(input.checked&&!existing){player?.stopSequence?.();current.rows.push(commentRow(selected));notice.textContent='시간순 위치에 추가했습니다.';}
         else if(!input.checked&&existing){remove(existing.id);return;}else return;
         changed(current);$('context-copy-fallback').hidden=true;render();
       };
-      label.append(input,'댓글에 포함');return label;
+      input.commentState=()=>({checked:current?.scope===scope&&!!current?.rows.some(row=>row.source_id===id),disabled:current?.scope!==scope||blocked()});
+      const caption=document.createElement('span');caption.textContent='댓글에 포함';label.append(input,caption);return label;
     }
   };
 }
