@@ -7,7 +7,7 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { randomBytes } = require('node:crypto');
 const { setTimeout: delay } = require('node:timers/promises');
-const { readyAddress, trustedPage, handoff, inside } = require('./policy.cjs');
+const { readyAddress, trustedPage, handoff, inside, mayLeaveForUpdate } = require('./policy.cjs');
 const { createUpdater, confirmStartup } = require('./updates.cjs');
 
 const win32 = process.platform === 'win32';
@@ -99,6 +99,14 @@ async function verifySettings(wc) {
 }
 async function prepareToQuit() {
   if (closing) throw Error('실행기를 종료하는 중입니다.');
+  async function checkDrafts() {
+    const wc = win?.webContents;
+    if (!wc || !trustedPage(base,wc.getURL()) ||
+        !await wc.executeJavaScript('('+mayLeaveForUpdate.toString()+')()')) {
+      throw Error('저장하지 않은 변경 사항을 확인하고 앱 업데이트 설정에서 다시 시도하세요.');
+    }
+  }
+  await checkDrafts();
   const data = await activity();
   if (data.busy) throw Error('진행 중이거나 대기 중인 작업이 있습니다. 작업이 끝난 뒤 업데이트하세요.');
   try {
@@ -111,10 +119,16 @@ async function prepareToQuit() {
         if (inside(install, resolved)) throw Error('프로그램 폴더 안에 보관함, 모델 또는 사용자 설정이 있습니다. 자료를 프로그램 폴더 밖으로 옮긴 뒤 업데이트하세요.');
       }
     }
+    win.setEnabled(false);
+    await checkDrafts();
   } catch (e) {
-    await guard('thaw').catch(()=>{});
+    await resumeAfterFailedUpdate().catch(()=>{});
     throw e;
   }
+}
+async function resumeAfterFailedUpdate() {
+  try { await guard('thaw'); }
+  finally { if (win && !win.isDestroyed()) win.setEnabled(true); }
 }
 async function guard(action) {
   const response = await fetch(new URL('api/desktop-'+action, base), {method:'POST',
@@ -205,7 +219,7 @@ async function start() {
   });
   win.on('close', interceptClose);
   win.on('closed', () => { win = null; void stopAndQuit(); });
-  updates = createUpdater({app,dialog,shell,getWindow:() => win,prepareToQuit,quitForUpdate,resumeAfterFailedUpdate:()=>guard('thaw')});
+  updates = createUpdater({app,dialog,shell,getWindow:() => win,prepareToQuit,quitForUpdate,resumeAfterFailedUpdate});
   const actions = {state:()=>updates.status(),check:()=>updates.check(),download:()=>updates.download(),cancel:()=>updates.cancel(),
     apply:()=>updates.apply(),reveal:()=>updates.reveal(),notices:async()=>{
       const err = await shell.openPath(app.isPackaged ? path.join(process.resourcesPath,'THIRD-PARTY-NOTICES') : path.join(project,'THIRD-PARTY-NOTICES.md'));

@@ -151,3 +151,24 @@ speechCheck.checked=false;speechCheck.onchange();assert.equal(rows().length,0);
 await scoped.setItems(source,'speech-scope');
 assert.equal(speechCheck.commentState().checked,true);
 await scoped.setItems([],'');assert.equal(speechCheck.commentState().disabled,true);assert.equal(rows().length,0);
+
+// 실제 댓글 편집기의 종료 검사와 포터블 업데이트가 같은 취소 신호를 사용한다.
+const {mayLeaveForUpdate} = (await import('../desktop/policy.cjs')).default;
+const closeTarget = new EventTarget();
+globalThis.window = closeTarget;
+globalThis.addEventListener = closeTarget.addEventListener.bind(closeTarget);
+$('desktop-update').getClientRects = () => [1];
+let settle;
+const draftGuard = createContextCopy({player,api:(name,data) => name === 'context-comment' ?
+  Promise.resolve({revision:0,text:'',selected:[],basis:''}) :
+  new Promise((resolve,reject) => {settle = (ok) => ok ? resolve({revision:1}) : reject(Error('저장 실패'));})});
+await draftGuard.setItems(source,'업데이트 검사',0,identity);
+assert.equal(mayLeaveForUpdate(),true);
+const selected = draftGuard.checkbox(source[0]).children[0];
+selected.checked=true;selected.onchange();
+assert.equal(mayLeaveForUpdate(),false); // 자동 저장 시작 전
+assert.equal(mayLeaveForUpdate(),false); // 저장 중
+settle(false);await new Promise(resolve=>setTimeout(resolve,0));
+assert.equal(mayLeaveForUpdate(),false); // 저장 실패 후 재시도 중
+settle(true);await new Promise(resolve=>setTimeout(resolve,0));
+assert.equal(mayLeaveForUpdate(),true);

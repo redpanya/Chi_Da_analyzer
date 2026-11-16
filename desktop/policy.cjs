@@ -37,4 +37,9 @@ function inside(parent, file) {
   const rel = path.relative(parent, file);
   return rel === '' || (rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel));
 }
-module.exports = { readyAddress, trustedPage, handoff, inside };
+// Electron은 기존 편집기의 종료 검사와 같은 이벤트를 사용하고 페이지는 계속 열어 둔다.
+function mayLeaveForUpdate() {
+  return !!document.getElementById('desktop-update')?.getClientRects().length &&
+    window.dispatchEvent(new Event('beforeunload', {cancelable:true}));
+}
+module.exports = { readyAddress, trustedPage, handoff, inside, mayLeaveForUpdate };
