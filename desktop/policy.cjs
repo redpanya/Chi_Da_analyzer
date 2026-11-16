@@ -22,8 +22,19 @@ const externalLinks = new Set([
   'https://huggingface.co/docs/huggingface_hub/guides/cli',
   'https://huggingface.co/pyannote/speaker-diarization-community-1'
 ]);
+function handoff(base, value) {
+  try {
+    const url = new URL(value);
+    if (url.username || url.password) return;
+    if (url.origin === base.origin && ['file','split-file','mix-file'].some(name => url.pathname === base.pathname + name)) return 'download';
+    if (externalLinks.has(value)) return 'external';
+    if (url.protocol === 'mailto:' && url.pathname === 'redpanyaday@gmail.com' && !url.hash &&
+        value.length < 1200 && ['치다 분석기 성능 리포트','치다 분석기 오류 제보'].includes(url.searchParams.get('subject')) &&
+        [...url.searchParams.keys()].every(k => k === 'subject' || k === 'body')) return 'external';
+  } catch {}
+}
 function inside(parent, file) {
   const rel = path.relative(parent, file);
   return rel === '' || (rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel));
 }
-module.exports = { readyAddress, trustedPage, externalLinks, inside };
+module.exports = { readyAddress, trustedPage, handoff, inside };

@@ -7,7 +7,7 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { randomBytes } = require('node:crypto');
 const { setTimeout: delay } = require('node:timers/promises');
-const { readyAddress, trustedPage, externalLinks, inside } = require('./policy.cjs');
+const { readyAddress, trustedPage, handoff, inside } = require('./policy.cjs');
 const { createUpdater, confirmStartup } = require('./updates.cjs');
 
 const win32 = process.platform === 'win32';
@@ -180,13 +180,22 @@ async function start() {
     permission === 'clipboard-sanitized-write' && (origin === base.origin || origin === base.origin + '/') && trustedPage(base,wc.getURL());
   session.defaultSession.setPermissionCheckHandler(permitted);
   session.defaultSession.setPermissionRequestHandler((contents,permission,reply) => reply(permitted(contents,permission,base.origin)));
+  const openLink = url => {
+    if (!trustedPage(base, wc.getURL())) return;
+    const kind = handoff(base, url);
+    if (kind === 'download') wc.downloadURL(url);
+    if (kind === 'external') void shell.openExternal(url).catch(() => {});
+  };
   wc.setWindowOpenHandler(({url}) => {
-    if (trustedPage(base, wc.getURL()) && externalLinks.has(url)) void shell.openExternal(url).catch(() => {});
+    openLink(url);
     return {action:'deny'};
   });
   wc.on('will-redirect',event => { if (!trustedPage(base,event.url)) event.preventDefault(); });
   wc.on('will-frame-navigate',(event) => {
-    if (!event.isMainFrame || !trustedPage(base,event.url)) event.preventDefault();
+    if (!event.isMainFrame || !trustedPage(base,event.url)) {
+      event.preventDefault();
+      if (event.isMainFrame) openLink(event.url);
+    }
   });
   wc.on('will-attach-webview', e => e.preventDefault());
   wc.on('will-prevent-unload', e => {
