@@ -51,11 +51,11 @@ export function createMixPlayback(video,{items,source,changed,failed}){
   return {play,stop,active:()=>index>=0};
 }
 
-export function createMixStudio(api,params,selectClip){
+export function createMixStudio(api,params,selectClip,afterRemove){
   let root=params.get('root');
   const context={library_root:root,key:params.get('mix')};
   const menu=document.querySelector('.studio-app-rail [data-mix-menu]');
-  let data=null,moving=false,profiles,savedCurrent,savedEdits={};
+  let data=null,updating=false,session,profiles,canRemove,savedCurrent,savedEdits={};
   const otherRows=new Map();
   function menuLinks(){
     if(root)setStudioMenuLinks(document.querySelectorAll('.studio-app-rail a'),{library_root:root});
@@ -73,7 +73,8 @@ export function createMixStudio(api,params,selectClip){
     }
     const url=new URL(location.href);
     url.searchParams.set('root',root);
-    url.searchParams.set('mix',context.key);url.searchParams.set('step',step);
+    if(context.key)url.searchParams.set('mix',context.key);else url.searchParams.delete('mix');
+    url.searchParams.set('step',step);
     if(url.href!==location.href)history.replaceState(history.state,'',url);
     menu.href=url.href;
   }
@@ -99,22 +100,26 @@ export function createMixStudio(api,params,selectClip){
       el.onclick=event=>{
         if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
         event.preventDefault();
-        if(moving)return;
+        if(updating)return;
         if(document.body.dataset.studioStep==='preset'&&$('profile-target').value==='checked'){
           check.click();
         }else if(!item.problem)selectClip(item.key);
       };
-      label.append(check,'적용할 구간');card.append(el,label);return card;
+      const remove=document.createElement('button');
+      remove.type='button';remove.className='assembly-remove';remove.textContent='×';
+      remove.title='믹스에서 제거';remove.setAttribute('aria-label',item.title+' 믹스에서 제거');
+      remove.onclick=()=>removeItem(item.key);
+      label.append(check,'적용할 구간');card.append(el,remove,label);return card;
     });
     const scroll=host.scrollLeft;
     host.replaceChildren(...links);host.scrollLeft=scroll;syncLinks();
-    $('mix-order-play').disabled=moving||data.items.some(item=>item.problem);
+    $('mix-order-play').disabled=updating||!data.items.length||data.items.some(item=>item.problem);
     $('mix-order-state').textContent=`${data.items.length}개 구간 / 합계 ${timecode(data.items.reduce((n,r)=>n+r.end_ms-r.start_ms,0))}`;
   }
   document.addEventListener('studio-inspector-change',()=>{if(data)syncLinks();});
-  async function move(itemKey,toIndex,session){
-    if(moving||$('mix-assembly').hasAttribute('aria-busy'))return;
-    moving=true;$('mix-order-play').disabled=true;
+  async function move(itemKey,toIndex){
+    if(updating||$('mix-assembly').hasAttribute('aria-busy'))return;
+    updating=true;$('mix-order-play').disabled=true;
     try{
       if(session.dirty())await session.save();
       const changed=await api('mix-move',{...context,key:itemKey,revision:data.revision,to_index:toIndex});
@@ -127,9 +132,60 @@ export function createMixStudio(api,params,selectClip){
       $('mix-order-notice').textContent='구간 순서를 저장했습니다.';
     }catch(error){$('mix-order-notice').textContent=error.message;}
     finally{
-      moving=false;list();profiles.labels();
+      updating=false;list();profiles.labels();
       const index=data.items.findIndex(item=>item.key===itemKey);
       $('mix-assembly').children[index]?.querySelector('.assembly-select').focus();
+    }
+  }
+  function unavailable(draft){
+    context.key=null;data=draft;otherRows.clear();savedEdits={};
+    document.body.classList.add('mix-unavailable');
+    list();
+    $('mix-order-notice').textContent=draft.items.length
+      ?'편집 가능한 원본 영상이 없습니다.'
+      :'담은 구간이 없습니다. 보관함에서 VOD를 열고 담은 클립을 믹스클립으로 보내세요.';
+  }
+  async function removeItem(key){
+    const host=$('mix-assembly');
+    if(updating||host.hasAttribute('aria-busy')||(context.key&&!canRemove()))return;
+    const index=data.items.findIndex(item=>item.key===key);
+    if(index<0)return;
+    updating=true;
+    const controls=document.querySelectorAll('#studio-preview-content,.inspector,#mix-assembly-panel > .button-row');
+    controls.forEach(el=>el.inert=true);
+    host.inert=true;host.setAttribute('aria-busy','true');
+    let focusIndex=index;
+    try{
+      if(session.dirty())await session.save();
+      const current=key===context.key;
+      const next=current&&(data.items.slice(index+1).find(item=>!item.problem)
+        ||data.items.slice(0,index).reverse().find(item=>!item.problem));
+      // 다음 구간을 열 수 있는지 먼저 확인해 읽기 실패 시 현재 초안을 보존한다.
+      const nextEditor=next?await api('mix-editor',{...context,key:next.key}):null;
+      const changed=await api('mix-remove',{...context,key,revision:data.revision});
+      Object.assign(data,changed);
+      otherRows.delete(key);delete savedEdits[key];
+      $('mix-studio-open-folder').hidden=true;$('render-state').textContent='';
+      if(!context.key||current&&!next){
+        unavailable(changed);
+        if(current)await afterRemove(key,null);
+      }else{
+        if(next){
+          nextEditor.draft.revision=changed.revision;
+          await afterRemove(key,{...nextEditor,...changed},next.key);
+          focusIndex=data.items.findIndex(item=>item.key===next.key);
+        }else{
+          await afterRemove(key);
+          session.accept();
+        }
+        $('mix-order-notice').textContent='믹스에서 구간을 제거했습니다.';
+      }
+    }catch(error){$('mix-order-notice').textContent=error.message;}
+    finally{
+      updating=false;host.inert=false;host.removeAttribute('aria-busy');controls.forEach(el=>el.inert=false);
+      list();profiles.labels();
+      const card=host.children[Math.min(focusIndex,host.children.length-1)];
+      (card?.querySelector('a')||card?.querySelector('.assembly-remove')||$('studio-return')).focus();
     }
   }
   function configure(){
@@ -169,11 +225,7 @@ export function createMixStudio(api,params,selectClip){
         const draft=await api('mix-info',{library_root:root});
         context.key=draft.items.find(item=>!item.problem)?.key;
         if(!context.key){
-          document.body.classList.add('mix-unavailable');
-          $('mix-order-state').textContent=draft.items.length+'개 구간';
-          $('mix-order-notice').textContent=draft.items.length
-            ?'편집 가능한 원본 영상이 없습니다. 믹스 목록에서 구간별 원본 상태를 확인하세요.'
-            :'담은 구간이 없습니다. 보관함에서 VOD를 열고 담은 클립을 믹스클립으로 보내세요.';
+          unavailable(draft);
           return null;
         }
       }
@@ -200,8 +252,8 @@ export function createMixStudio(api,params,selectClip){
       return edits;
     },
     accept({mix_profiles,...request}){savedCurrent=JSON.stringify(request);savedEdits=mix_profiles;},
-    bind(session,profileUI){
-      profiles=profileUI;
+    bind(editSession,profileUI,canChange){
+      session=editSession;profiles=profileUI;canRemove=canChange;
       const dialog=$('mix-order-preview'),video=$('mix-order-video');
       const playback=createMixPlayback(video,{
         items:()=>data.items,source:key=>'mix-file?'+new URLSearchParams({root,key}),
@@ -218,8 +270,8 @@ export function createMixStudio(api,params,selectClip){
       dialog.addEventListener('close',playback.stop);
       window.addEventListener('pagehide',playback.stop);
       const host=$('mix-assembly');
-      bindClipOrder(host,(itemKey,index)=>move(itemKey,index,session),true);
-      host.addEventListener('click',event=>{if(moving)event.preventDefault();});
+      bindClipOrder(host,move,true);
+      host.addEventListener('click',event=>{if(updating)event.preventDefault();});
       host.addEventListener('keydown',event=>{
         if(!event.target.closest('.assembly-select')||!['ArrowLeft','ArrowRight'].includes(event.key))return;
         const card=event.target.closest('[data-order-key]');
@@ -227,7 +279,7 @@ export function createMixStudio(api,params,selectClip){
         event.preventDefault();
         const index=data.items.findIndex(item=>item.key===card.dataset.orderKey);
         const to=index+(event.key==='ArrowLeft'?-1:1);
-        if(index>=0&&to>=0&&to<data.items.length)move(card.dataset.orderKey,to,session);
+        if(index>=0&&to>=0&&to<data.items.length)move(card.dataset.orderKey,to);
       });
     },
     async save({mix_profiles:edits,...request}){
@@ -246,6 +298,7 @@ export function createMixStudio(api,params,selectClip){
     },
     start:()=>api('mix-render',{...context,revision:data.revision}),
     async status(){
+      if(!context.key)return null;
       const version=data.version,job=await api('mix-status',{library_root:root,version});
       if(version!==data.version)return null;
       const folder=$('mix-studio-open-folder');folder.hidden=job.state!=='complete';

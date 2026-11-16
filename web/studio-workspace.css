@@ -160,10 +160,11 @@ body.studio-workspace.mix-studio{--studio-vod:0px}
 .mix-studio .assembly[aria-labelledby="assembly-title"],
 .mix-studio #footer-count{display:none}
 .mix-unavailable .studio-grid{display:block}
-.mix-unavailable :is(.studio-steps,#studio-layout-reset,#studio-preview-content,.inspector,.desktop-panel-gutter,#mix-assembly,#mix-assembly-panel>.button-row){display:none}
+.mix-unavailable :is(.studio-steps,#studio-layout-reset,#studio-preview-content,.inspector,.desktop-panel-gutter,#mix-assembly:empty,#mix-assembly-panel>.button-row){display:none}
 .mix-unavailable #mix-assembly-panel{border:0;padding:0}
 #mix-assembly{margin-bottom:12px}
-#mix-assembly .assembly-select{display:grid;gap:5px;min-width:9rem;max-width:18rem;text-decoration:none;color:var(--ds-text);padding:10px;border:1px solid var(--ds-line);border-radius:8px}
+#mix-assembly .assembly-select{display:grid;gap:5px;min-width:9rem;max-width:18rem;text-decoration:none;color:var(--ds-text);padding:10px 32px 10px 10px;border:1px solid var(--ds-line);border-radius:8px}
+#mix-assembly .assembly-remove{opacity:1}
 #mix-assembly .assembly-select[aria-current=true]{border-color:var(--ds-accent);background:var(--ds-card)}
 #mix-assembly .assembly-select small{color:var(--ds-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #mix-assembly [data-clip-grip]{grid-template-columns:10px minmax(0,1fr);column-gap:8px;flex-shrink:0}

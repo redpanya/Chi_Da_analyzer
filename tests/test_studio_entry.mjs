@@ -12,9 +12,10 @@ const html=readFileSync(new URL('../web/clip-studio.html',import.meta.url),'utf8
 const tick=()=>new Promise(done=>setImmediate(done));
 
 function enter(mixStep,withRoot=true,mixItems=null,explicitKey=null){
+  let revision=1;
   class Element {
     dataset={};classList=new Set();value='';children=[];selectedOptions=[{textContent:'원본'}];style={};
-    pause(){} setAttribute(){} removeAttribute(){} hasAttribute(){return false;} addEventListener(){}
+    focus(){} load(){} pause(){} getClientRects(){return [];} setAttribute(){} removeAttribute(){} hasAttribute(){return false;} addEventListener(){}
     querySelector(selector){return selector==='a'?this.children.find(child=>child.tag==='a'):new Element();}
     closest(){return this;} get nextElementSibling(){return this;}
     replaceChildren(...children){this.children=children;}
@@ -44,15 +45,22 @@ function enter(mixStep,withRoot=true,mixItems=null,explicitKey=null){
       case 'api/studio-info':data=await pending.promise;break;
       case 'api/mix-info':
         assert.equal(JSON.parse(options.body).library_root,'test');
-        data=mixItems?{items:mixItems}:await pending.promise;
+        data=mixItems?{items:mixItems,revision}:await pending.promise;
         break;
       case 'api/mix-editor':{
         const {library_root,key}=JSON.parse(options.body);
         assert.equal(library_root,'test');editorRequests.push(key);
         const item=mixItems.find(row=>row.key===key);
         const clip={...item,id:key,start_ms:1000,end_ms:3000};
-        data={items:mixItems,editor_page:'mix-studio.html',project:{root:'test',vod_id:'1',input:{start_vod_ms:0},duration_ms:8000,metadata:{title:'방송'}},
+        data={items:mixItems,revision,editor_page:'mix-studio.html',project:{root:'test',vod_id:'1',input:{start_vod_ms:0},duration_ms:8000,metadata:{title:'방송'}},
           original:clip,draft:{request:{clips:[clip]}}};break;
+      }
+      case 'api/mix-remove':{
+        const body=JSON.parse(options.body);
+        assert.equal(body.library_root,'test');assert.equal(body.revision,revision);
+        if(!mixItems.some(row=>row.key===body.key))throw Error('없는 구간 제거');
+        mixItems=mixItems.filter(row=>row.key!==body.key);
+        data={items:mixItems,revision:++revision,editor_page:'mix-studio.html'};break;
       }
       default:throw Error('예상하지 않은 요청 '+url);
     }
@@ -65,9 +73,9 @@ function enter(mixStep,withRoot=true,mixItems=null,explicitKey=null){
     createStudioInspector:()=>({setTab(){}}),createStudioWorkspace:()=>({setStep:step=>{body.dataset.studioStep=step;}}),
     createWorkQueue:()=>({accept:data=>data}),
     createStudioTools:({restore,mix})=>{
-      mix?.bind({}, {checked:()=>false});
+      mix?.bind({dirty:()=>false,accept(){}}, {checked:()=>false,labels(){}},()=>true);
       return {init(project,data){if(data.draft)restore(data.draft.request.clips);},preparePresets(){},
-        activeChanged(){},beforeSelect(){return true;},profileChecked(){return false;},selectionChanged(){}};
+        clearMix(){},holdFrame(){},activeChanged(){},beforeSelect(){return true;},profileChecked(){return false;},selectionChanged(){}};
     }
   });
   context.createMixStudio=vm.runInContext('(()=>{'+mixSource+';return createMixStudio;})()',context);
@@ -138,4 +146,33 @@ test('빈 믹스와 모든 원본이 누락된 믹스는 원본 편집 요청 �
     assert.ok(notice);notices.push(notice);
   }
   assert.notEqual(notices[0],notices[1]);
+});
+
+
+test('믹스 카드 제거는 단계와 남은 선택을 유지하고 마지막 구간의 주소를 비운다',async()=>{
+  const items=['하나','둘','셋'].map((key,i)=>({key,title:key,start_ms:i*1000,end_ms:(i+1)*1000}));
+  const app=enter('frame',true,items,'셋');await app.initialized;
+  const cards=app.element('mix-assembly');
+  async function remove(key){
+    const card=cards.children.find(row=>row.dataset.orderKey===key);
+    const button=card.children.find(el=>el.className==='assembly-remove');
+    assert.equal(button.type,'button');assert.equal(button.textContent,'×');
+    await button.onclick();
+  }
+  await remove('하나');
+  assert.deepEqual(app.editorRequests,['셋']);assert.equal(cards.children.length,2);
+  await remove('셋');
+  assert.deepEqual(app.editorRequests,['셋','둘']);assert.equal(app.location.searchParams.get('mix'),'둘');
+  assert.equal(app.body.dataset.studioStep,'frame');assert.equal(app.element('active-title').textContent,'둘');
+  await remove('둘');
+  assert.equal(app.location.searchParams.has('mix'),false);assert.equal(cards.children.length,0);
+  assert.equal(app.body.classList.has('mix-unavailable'),true);
+  assert.equal(app.requests.filter(url=>url==='api/mix-remove').length,3);
+});
+
+test('원본이 없는 마지막 믹스 카드도 제거할 수 있다',async()=>{
+  const app=enter('range',true,[{key:'missing',title:'누락 구간',problem:'원본 없음'}]);await app.initialized;
+  const card=app.element('mix-assembly').children[0];
+  await card.children.find(el=>el.className==='assembly-remove').onclick();
+  assert.deepEqual(app.editorRequests,[]);assert.equal(app.element('mix-assembly').children.length,0);
 });

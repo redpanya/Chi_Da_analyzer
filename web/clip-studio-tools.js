@@ -60,7 +60,7 @@ export function createStudioTools({api,identity,video,isMediaReady,mix=null,sele
   }
   const profiles=studioProfiles({api,identity,mix,read:options,write:writeProfile,selection,onChange:buttons,canSwitch,onUndoPoint,
     valid:()=>captionSize.valid()&&captionDesign.valid()&&!Object.keys(frameErrors(options(),video.videoWidth,video.videoHeight)).length});
-  mix?.bind(session,profiles);
+  mix?.bind(session,profiles,()=>ready&&canSwitch());
   document.addEventListener('input',buttons);document.addEventListener('change',buttons);
   document.addEventListener('click',()=>queueMicrotask(buttons));
   function layout(){const split=$('frame-layout').value==='split';$('split-controls').hidden=!split;if(split)setRatio('9:16');for(const b of document.querySelectorAll('[data-ratio]'))b.disabled=split&&b.dataset.ratio!=='9:16';}
@@ -88,7 +88,7 @@ export function createStudioTools({api,identity,video,isMediaReady,mix=null,sele
   $('draft-save').onclick=()=>session.save().catch(error);
   $('render-start').onclick=async()=>{try{if($('render-start').disabled)return;$('render-start').disabled=true;status.textContent='영상 저장을 시작합니다.';await session.save();if(mix)await mix.start();else await api('studio-start',{...identity(),request:request()});await refresh();}catch(e){error(e);buttons();}};
   pagePolling(refresh,1500);
-  return {holdFrame:preview.holdFrame,allowMixSwitch:()=>ready&&canSwitch()&&session.allow(),preparePresets:profiles.preparePresets,beforeSelect(){if(!canSwitch())return false;if(ready)profiles.capture();return true;},activeChanged(row){if(ready)profiles.select(row);else profiles.labels(row);},profileChecked:id=>profiles.checked(id),checkProfile:(id,value)=>profiles.check(id,value),selectionChanged(){if(!ready)return;profiles.labels(getActive());captions.render();buttons();},async init(project,data){
+  return {clearMix(){ready=false;session.accept();},holdFrame:preview.holdFrame,allowMixSwitch:()=>ready&&canSwitch()&&session.allow(),preparePresets:profiles.preparePresets,beforeSelect(){if(!canSwitch())return false;if(ready)profiles.capture();return true;},activeChanged(row){if(ready)profiles.select(row);else profiles.labels(row);},profileChecked:id=>profiles.checked(id),checkProfile:(id,value)=>profiles.check(id,value),selectionChanged(){if(!ready)return;profiles.labels(getActive());captions.render();buttons();},async init(project,data){
     const replacing=ready;ready=false;
     origin=Number(project.input?.start_vod_ms)||0;
     catalog=data.inputs.transcripts.filter(r=>r.complete);$('caption-version').replaceChildren(new Option('자막 사용 안 함',''),...catalog.map(r=>new Option(r.label,r.id)));

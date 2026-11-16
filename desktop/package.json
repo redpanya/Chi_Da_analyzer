@@ -1,7 +1,7 @@
 {
   "name": "chida-analyzer-desktop",
   "productName": "치(지직) 다(시보기) 분석기",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "스트리머와 클리퍼를 위한 다시보기 분석기",
   "private": true,
   "main": "main.cjs",

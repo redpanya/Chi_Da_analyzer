@@ -24,7 +24,7 @@ const params=new URLSearchParams(location.search);
 const isMix=location.pathname.endsWith('/mix-studio.html')||params.has('mix');
 const currentMenu=document.querySelector(isMix?'.studio-app-rail [data-mix-menu]':'.studio-app-rail nav a[href="./#library"]');
 currentMenu.classList.add('active');currentMenu.setAttribute('aria-current','page');
-const mix=isMix?createMixStudio(api,params,selectMixClip):null;
+const mix=isMix?createMixStudio(api,params,selectMixClip,afterMixRemove):null;
 function setReturnLinks(selected){
   const menuLinks=document.querySelectorAll('.studio-app-rail a, .studio-vod-rail .studio-rail-back');
   // 이전 주소로 직접 들어온 경우 보관함 경로는 서버가 VOD를 확인한 뒤에 알 수 있다.
@@ -295,16 +295,38 @@ async function showMixClip(key,data,first=false){
     if(body.getClientRects().length)animateUI(body,frames,{duration:180});
   }
 }
+async function afterMixRemove(removed,nextEditor,nextKey){
+  editUndo.clear();
+  if(nextEditor){
+    await showMixClip(nextKey,nextEditor);
+  }else if(!mix.key){
+    video.pause();video.removeAttribute('src');video.load();
+    rows=[];chosen.clear();active=null;mediaReady=false;playerNotice('');
+    editor.clearMix();
+  }else{
+    // 같은 VOD를 재생하던 대표 구간이 삭제되면 남은 구간으로 영상 주소를 갱신한다.
+    if(video.hasAttribute('src')&&new URL(video.src).searchParams.get('key')===removed){
+      const key=mix.key,position=video.currentTime,playing=!video.paused;
+      video.addEventListener('loadedmetadata',()=>{
+        if(mix.key!==key)return;
+        video.currentTime=position;if(playing)void play();
+      },{once:true});
+      video.src=mix.previewURL();
+    }
+    renderExport();
+  }
+}
 async function selectMixClip(key){
   requestedMixKey=key;
   if(switchingMix||key===mix.key)return;
   switchingMix=true;
   const assembly=$('mix-assembly');
   const controls=document.querySelectorAll('#studio-preview-content,.inspector-body,.inspector-bottom,#mix-assembly-panel > .button-row');
+  assembly.setAttribute('aria-busy','true');
   try{
     await initialized;
     if(!await editor.allowMixSwitch())return;
-    controls.forEach(node=>node.inert=true);assembly.setAttribute('aria-busy','true');
+    controls.forEach(node=>node.inert=true);
     video.pause();stopSequence();
     while(requestedMixKey!==mix.key){
       const next=requestedMixKey;
