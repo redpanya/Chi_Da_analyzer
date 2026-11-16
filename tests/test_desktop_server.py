@@ -9,11 +9,29 @@ from urllib.parse import urlsplit
 from unittest import TestCase
 from unittest.mock import patch
 
-from archive import server
+from archive import runtime, server
 from archive.jobs import Manager
 
 
 class DesktopExitTest(TestCase):
+    def test_smoke_storage_is_selected_before_reading_saved_settings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp).resolve()
+            ordinary = base / 'ordinary'
+            ordinary.mkdir()
+            original = ordinary / 'settings.json'
+            original.write_text('{"models":"outside"}')
+            isolated = base / 'isolated'
+            (isolated / 'support').mkdir(parents=True)
+            (isolated / 'models').mkdir()
+            with patch.object(runtime, 'FROZEN', False), patch.object(runtime, 'SUPPORT', ordinary), \
+                 patch.object(runtime, 'DEFAULT_MODELS', ordinary), patch.object(runtime, 'MODEL_ROOT', ordinary), \
+                 patch.object(runtime, 'read_json', wraps=runtime.read_json) as reads:
+                runtime.configure(smoke_root=isolated)
+                reads.assert_called_once_with(isolated / 'support/settings.json')
+                self.assertEqual(runtime.MODEL_ROOT, isolated / 'models')
+                self.assertEqual(original.read_text(), '{"models":"outside"}')
+
     def test_freeze_waits_for_post_queue_and_mix_then_thaws(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, CHIDA_DESKTOP_CONTROL='test-secret'):
             manager = Manager(Path(tmp))

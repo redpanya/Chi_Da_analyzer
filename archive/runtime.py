@@ -32,8 +32,16 @@ def save_settings(**values):
         save_json(file, current | values)
 
 
-def configure():
-    global MODEL_ROOT
+def configure(*, smoke_root=None):
+    global SUPPORT, DEFAULT_MODELS, MODEL_ROOT
+    if smoke_root is not None:
+        folder = Path(smoke_root)
+        if not folder.is_absolute():
+            raise ValueError('검증 저장 폴더의 절대 경로를 지정하세요')
+        folder = folder.resolve(strict=True)
+        SUPPORT, DEFAULT_MODELS = folder/'support', folder/'models'
+        if not all(p.is_dir() and not p.is_symlink() for p in (SUPPORT, DEFAULT_MODELS)):
+            raise ValueError('검증용 설정과 모델 폴더를 확인하세요')
     for stream in (sys.stdout, sys.stderr):
         if stream is not None and hasattr(stream, 'reconfigure'):
             stream.reconfigure(encoding='utf-8', errors='backslashreplace')

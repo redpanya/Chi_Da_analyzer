@@ -23,7 +23,8 @@ if (smoke) {
   if (!smokeDir || !path.isAbsolute(smokeDir) || !fs.lstatSync(smokeDir).isDirectory() || fs.readdirSync(smokeDir).length) {
     throw Error('검증 전용 빈 폴더의 절대 경로를 지정하세요.');
   }
-  smokeDir = fs.realpathSync(smokeDir);
+  smokeDir = fs.realpathSync.native(smokeDir);
+  for (const name of ['library','models','support']) fs.mkdirSync(path.join(smokeDir, name));
 }
 const support = win32 ? path.join(process.env.LOCALAPPDATA || app.getPath('appData'), 'ChiDaAnalyzer') :
   path.join(app.getPath('appData'), '치지직 보관함');
@@ -38,11 +39,13 @@ async function startBackend() {
   const ready = path.join(temp, 'ready.json');
   const args = ['--no-open', '--ready-file', ready, '--stop-file', path.join(temp, 'stop'), '--parent-pid', String(process.pid)];
   const env = {...process.env};
+  delete env.CHIDA_DESKTOP_TEST_STORAGE;
   env.CHIDA_DESKTOP_CONTROL = control;
   delete env.PYTHONHOME;
   delete env.PYTHONPATH;
   if (smoke) {
-    Object.assign(env, {HOME:smokeDir, LOCALAPPDATA:smokeDir, USERPROFILE:smokeDir});
+    Object.assign(env, {HOME:smokeDir, APPDATA:smokeDir, LOCALAPPDATA:smokeDir, USERPROFILE:smokeDir,
+      CHIDA_DESKTOP_TEST_STORAGE:smokeDir});
     args.push('--library', path.join(smokeDir, 'library'));
   }
   const backend = path.join(process.resourcesPath, 'backend', 'archive-backend' + (win32 ? '.exe' : ''));
@@ -249,7 +252,16 @@ async function start() {
   if (!ready.ui || !ready.sandbox || ready.version !== app.getVersion()) throw Error('첫 화면 또는 설정 연결을 확인하지 못했습니다.');
   if (smoke) {
     const data = await activity();
-    if (!inside(smokeDir,data.library) || !inside(smokeDir,data.models) || data.busy) throw Error('격리 보관함을 확인하지 못했습니다.');
+    if (data.busy) throw Error('격리 검사에 실행 중이거나 대기 중인 작업이 있습니다.');
+    for (const [key,label] of [['library','보관함'],['models','모델'],['support','설정']]) {
+      const expected = fs.realpathSync.native(path.join(smokeDir,key));
+      let actual;
+      try { actual = fs.realpathSync.native(data[key]); }
+      catch (error) { throw Error('격리 '+label+' 폴더 경로 확인 실패 ('+(error.code||'경로 없음')+'): '+data[key]); }
+      if (path.relative(expected,actual) !== '') {
+        throw Error('격리 '+label+' 폴더 불일치: 예상 '+expected+' / 처리기 '+data[key]+' / 실제 '+actual);
+      }
+    }
     const view = await verifySettings(wc);
     if (!view.greenLens || !view.settings || !view.notices || !view.independent || !view.checkButton ||
         !view.versionLabel.includes(ready.version) || !view.updateGuide.includes(win32 ? '교체 후 재실행' : 'DMG')) {

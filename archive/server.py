@@ -315,7 +315,8 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     self.reply(404, {'error': safe_error(error)})
                 return
             if path == '/api/desktop-activity':
-                result = {'busy': desktop_busy(), 'library': manager.default_root, 'models': str(runtime.MODEL_ROOT)}
+                result = {'busy': desktop_busy(), 'library': manager.default_root, 'models': str(runtime.MODEL_ROOT),
+                          'support': str(runtime.SUPPORT)}
                 self.reply(200, result)
                 return
             if path == '/api/config':

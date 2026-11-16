@@ -14,7 +14,7 @@ from macos_package_check import verify_bundle
 
 
 def desktop_smoke(binary):
-    with tempfile.TemporaryDirectory(prefix='chida-desktop-') as directory:
+    with tempfile.TemporaryDirectory(prefix='chida-desktop-', dir=ROOT/'build') as directory:
         report = Path(directory) / 'smoke.json'
         run = subprocess.run([str(binary), '--desktop-smoke'], env=os.environ | {'CHIDA_DESKTOP_SMOKE_DIR': directory},
                              timeout=120, capture_output=True)
