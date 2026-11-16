@@ -22,7 +22,7 @@ for(const id of ['range-title','range-start','range-end'])$(id).addEventListener
 let editor=null;
 const params=new URLSearchParams(location.search);
 const isMix=location.pathname.endsWith('/mix-studio.html')||params.has('mix');
-const currentMenu=document.querySelector(`.studio-app-rail nav a[href="./#${isMix?'mix':'library'}"]`);
+const currentMenu=document.querySelector(isMix?'.studio-app-rail [data-mix-menu]':'.studio-app-rail nav a[href="./#library"]');
 currentMenu.classList.add('active');currentMenu.setAttribute('aria-current','page');
 const mix=isMix?createMixStudio(api,params,selectMixClip):null;
 function setReturnLinks(selected){
@@ -326,7 +326,9 @@ async function selectMixClip(key){
 async function init(){
   if(mix){
     const step=params.get('step');displayTab(tabs.includes(step)?step:'range',false);
-    await showMixClip(mix.key,await mix.read(),true);return;
+    const data=await mix.open();
+    if(data)await showMixClip(mix.key,data,true);
+    return;
   }
   const root=params.get('root')||(await (await fetch('api/config')).json()).root;
   let selected={root,vod_id:params.get('vod_id')};

@@ -15,6 +15,24 @@ import check_https
 ROOT=Path(__file__).resolve().parents[2]
 
 
+def check_backend_contents(binary, tools):
+    internal = binary.parent/'_internal'
+    for name in ('ffmpeg', 'ffprobe'):
+        bundled = internal/'native/ffmpeg'/(name + ('.exe' if sys.platform == 'win32' else ''))
+        assert bundled.is_file() and bundled.samefile(tools[name]['path']), f'{name} 동봉본 확인 실패'
+    optional = ('sherpa', 'onnxruntime', 'numpy', 'soundfile', 'sndfile', 'openblas')
+    for file in internal.rglob('*'):
+        assert not any(name in file.name.lower() for name in optional), f'기본 앱에 선택 도구가 포함됨: {file.name}'
+    if sys.platform == 'darwin':
+        frozen = ROOT/'build/frozen/backend/_internal'
+        links = [entry for entry in frozen.rglob('*') if entry.is_symlink()]
+        assert links, '검사할 Python 패키지 링크가 없습니다'
+        for entry in links:
+            copy = internal/entry.relative_to(frozen)
+            assert copy.is_symlink() and copy.readlink() == entry.readlink(), f'번들 링크 변경: {entry.name}'
+            assert copy.resolve(strict=True).is_relative_to(internal.resolve()), f'번들 외부 링크: {entry.name}'
+
+
 def main():
     if sys.platform=='darwin':
         package=next((ROOT/'dist/release').glob('*.app'))
@@ -26,11 +44,14 @@ def main():
     env['PYTHONUTF8']='0';env.pop('PYTHONIOENCODING',None)
     with tempfile.TemporaryDirectory(prefix='치 다 패키지 ') as temp:
         work=Path(temp).resolve()
-        env.update(HOME=str(work), USERPROFILE=str(work), LOCALAPPDATA=str(work))
+        (work/'support').mkdir()
+        (work/'models').mkdir()
+        env.update(HOME=str(work), USERPROFILE=str(work), LOCALAPPDATA=str(work), CHIDA_DESKTOP_TEST_STORAGE=str(work))
         result=subprocess.run([str(binary),'--diagnose'],cwd=work,env=env,capture_output=True,timeout=90)
         if result.returncode:raise RuntimeError(result.stderr.decode('utf-8','replace'))
         report=json.loads(result.stdout)
         assert report['frozen'], '패키징된 실행기의 검사가 아닙니다'
+        check_backend_contents(binary, report['tools'])
         blocked=subprocess.run([str(binary),'--annotation-preview','--no-open'],
                                cwd=work,env=env,capture_output=True,timeout=30)
         assert blocked.returncode == 2 and '패키지에서는 주석 호환' in blocked.stderr.decode('utf-8','replace'), '배포본의 개발 주석 옵션 차단 실패'
@@ -76,7 +97,7 @@ def main():
                 for relative in ('video-split.html','video-split.js','video-split-audio.js','clip-studio.html','studio-profiles.js','video-quality.js',
                                  'clip-studio.js','studio-decorations.js','studio-fonts-ui.js',
                                  'studio-caption-design.js','studio-caption-templates.js','studio-image-editor.js',
-                                 'error-capture.js','error-log-ui.js','studio-frame-validation.js'):
+                                 'error-capture.js','error-log-ui.js','studio-frame-validation.js','model-library.js'):
                     with http.open(url+relative, timeout=15) as response:
                         assert response.read() == (ROOT/'web'/relative).read_bytes(), relative
                 for relative in ('pattern-background.js', 'pattern-background.css',
@@ -89,6 +110,13 @@ def main():
                     assert response.headers.get('Content-Security-Policy') == strict_csp
                     config=json.load(response)
                 assert config['annotation_preview'] is False
+                listing=Request(url+'api/model-library', data=b'{}', headers={'Content-Type':'application/json'})
+                with http.open(listing, timeout=30) as response:
+                    library=json.load(response)
+                assert Path(library['root']) == work/'models'
+                available={row['id']:row for row in library['items']}
+                assert {'whisper','vad','sherpa','tool-sherpa','gemma'}.issubset(available)
+                assert not available['tool-sherpa']['present']
                 report['web_security']={'csp':strict_csp,'annotation_preview':False,'preview_option_rejected':True}
                 assert config['folders']['compute']['visible'] == (sys.platform == 'win32')
                 if sys.platform == 'win32':

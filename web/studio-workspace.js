@@ -3,9 +3,12 @@ import {animateUI,cancelMotion} from './workspace-motion.js';
 
 export const studioSteps=['range','preset','frame','caption','export'];
 export const studioStepTitles={range:'구간 다듬기',preset:'프리셋 적용',frame:'화면 꾸미기',caption:'자막 넣기',export:'저장 확인'};
+export function mixMenuURL(library){
+  return library?'mix-studio.html?'+new URLSearchParams({root:library}):'mix-studio.html';
+}
 export function setStudioMenuLinks(links,scope){
   const base='./?'+new URLSearchParams(scope);
-  for(const link of links)link.href=base+link.hash;
+  for(const link of links)link.href=link.dataset?.mixMenu!==undefined?mixMenuURL(scope.library_root):base+link.hash;
 }
 export function studioReturnLinks(project,requested='use'){
   const pages={register:'VOD 등록',library:'보관함',jobs:'진행 상태',settings:'설정',prepare:'준비',speech:'전사 자막',voices:'화자 구분',explore:'영상 재생',context:'분석',report:'작업 기록',external:'외부 AI',use:'작업'};

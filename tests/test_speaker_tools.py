@@ -1,5 +1,6 @@
 import hashlib
 import io
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -8,11 +9,13 @@ import sys
 import tempfile
 import threading
 import unittest
+import unicodedata
 from unittest.mock import patch
+from types import SimpleNamespace
 import zipfile
 
 from archive import speaker_tools as tools, speaker_tools_install as installer
-from archive import runtime, voice_models, voices, voice_store, diarization_run, diarization_backends, diarization_models
+from archive import speaker_tool_integrity as integrity, runtime, voice_models, voices, voice_store, diarization_run, diarization_backends, diarization_models
 from archive.source import Cancelled
 from archive.storage import ProjectLock, read_json, save_json
 import test_voices as fixture
@@ -24,6 +27,10 @@ class ToolTests(unittest.TestCase):
         self.root=Path(self.temp.name).resolve()
         self.support=patch.object(runtime,'SUPPORT',self.root/'지원')
         self.support.start()
+        models=patch.object(runtime,'MODEL_ROOT',self.root/'model-cache')
+        models.start();self.addCleanup(models.stop)
+        pins=patch.dict(integrity.PINS);pins.start();self.addCleanup(pins.stop)
+
         self.platform=patch.object(tools,'platform_id',return_value='macOS-arm64')
         self.platform.start()
         # ZIP 설치/프로토콜 검사는 실제 실행하되, 가상 Python 파일은 Windows에서도
@@ -45,6 +52,10 @@ class ToolTests(unittest.TestCase):
             info=zipfile.ZipInfo(entry);info.external_attr=(stat.S_IFREG|0o755)<<16
             archive.writestr(info,script)
             archive.writestr('tool.json',json.dumps(manifest))
+        digest=hashlib.sha256()
+        with zipfile.ZipFile(path) as z:
+            for n in sorted(z.namelist()): digest.update(n.encode()+b'\0'+hashlib.sha256(z.read(n)).digest())
+        integrity.PINS['macOS-arm64',backend] = (hashlib.sha256(path.read_bytes()).hexdigest(),digest.hexdigest())
         return path
 
     def install(self, path, stop=None):
@@ -114,8 +125,7 @@ class ToolTests(unittest.TestCase):
         self.install(self.package());folder=tools.managed('sherpa').parent
         save_json(tools.home('sherpa')/'active.json',{'version':'../../other'})
         self.assertIsNone(tools.managed('sherpa'));self.assertTrue(folder.is_dir())
-        with patch.object(voice_models,'PYTHON',self.root/'missing'):
-            self.assertFalse(tools.status('sherpa')['ready'])
+        self.assertFalse(tools.status('sherpa')['ready'])
 
     def test_existing_pyannote_models_are_verified_without_hf_download(self):
         target=self.root/'existing-models';target.mkdir()
@@ -130,14 +140,80 @@ class ToolTests(unittest.TestCase):
             diarization_run.prepare('pyannote',self.root/'prepare',self.stop,lock,lambda **v:None)
         process.assert_not_called();self.assertEqual(sentinel.read_bytes(),b'existing-model')
 
+    def test_first_use_waits_then_runs_one_install_for_two_jobs(self):
+        bundle = self.package().read_bytes()
+        asset = {'url':'https://github.com/test','size':len(bundle),'sha256':hashlib.sha256(bundle).hexdigest()}
+        entered, waiting, release = (threading.Event() for _ in range(3))
+        def fetch(*args):
+            entered.set()
+            if not release.wait(5): raise AssertionError('설치 대기 실패')
+            return asset
+        with patch.object(installer,'release_asset',side_effect=fetch) as fetcher, patch.object(installer,'open_url',return_value=io.BytesIO(bundle)), ProjectLock(self.root/'job-a') as a, ProjectLock(self.root/'job-b') as b, ThreadPoolExecutor(2) as pool:
+            first=pool.submit(installer.ensure,'sherpa',self.stop,a,lambda **v:None)
+            self.assertTrue(entered.wait(5))
+            second=pool.submit(installer.ensure,'sherpa',self.stop,b,lambda **v:waiting.set())
+            try: self.assertTrue(waiting.wait(5))
+            finally: release.set()
+            self.assertEqual(first.result(5),second.result(5));fetcher.assert_called_once()
+        self.assertEqual(len(list((tools.home('sherpa')/'versions').iterdir())),1)
+
+    def test_first_use_can_cancel_while_waiting_without_install(self):
+        entering=threading.Event()
+        with ProjectLock(tools.home('sherpa')), ProjectLock(self.root/'job') as lock, ThreadPoolExecutor(1) as pool, patch.object(installer,'release_asset') as fetch:
+            request=pool.submit(installer.ensure,'sherpa',self.stop,lock,lambda **v:entering.set())
+            self.assertTrue(entering.wait(2));self.stop.set()
+            with self.assertRaises(Cancelled):request.result(2)
+            fetch.assert_not_called()
+        self.assertFalse(tools.status('sherpa')['ready'])
+
+    def test_first_use_migrates_a_verified_legacy_tree_only_to_current_model_root(self):
+        self.install(self.package())
+        legacy = runtime.SUPPORT/'speaker-tools/sherpa'
+        legacy.parent.mkdir(parents=True);tools.home('sherpa').rename(legacy)
+        marker=(legacy/'active.json').read_bytes()
+        self.assertFalse(tools.status('sherpa')['ready'])
+        with ProjectLock(self.root/'job') as lock,patch.object(installer,'release_asset',side_effect=AssertionError('기존 자료 재사용')):
+            worker=installer.ensure('sherpa',self.stop,lock,lambda **v:None)
+            self.assertTrue(worker.is_relative_to(runtime.MODEL_ROOT))
+            self.assertEqual(marker,(legacy/'active.json').read_bytes())
+            metadata=worker.with_name('._'+worker.name)
+            metadata.write_bytes(bytes.fromhex('0005160700020000')+b'metadata')
+            self.assertEqual(installer.ensure('sherpa',self.stop,lock,lambda **v:None),worker)
+            metadata.write_text('unrecognized')
+            with self.assertRaisesRegex(ValueError,'지문'):installer.ensure('sherpa',self.stop,lock,lambda **v:None)
+            metadata.unlink()
+            (worker.parent/'unexpected.bin').write_text('changed')
+            with self.assertRaisesRegex(ValueError,'지문'):installer.ensure('sherpa',self.stop,lock,lambda **v:None)
+        with patch.object(tools,'platform_id',return_value='Windows-x64'):
+            self.assertFalse(tools.status('sherpa')['ready'])
+
+    def test_file_digest_is_independent_of_filesystem_unicode_normalization(self):
+        folder=self.root/'package';folder.mkdir()
+        name='빌드환경.json';nfd=unicodedata.normalize('NFD',name)
+        payload='고지'.encode()
+        (folder/nfd).write_bytes(payload)
+        expected=hashlib.sha256(name.encode()+b'\0'+hashlib.sha256(payload).digest()).hexdigest()
+        integrity.verify_tree(folder,expected,self.stop)
+        if not (folder/name).exists():
+            (folder/name).write_bytes(payload)
+            with self.assertRaisesRegex(ValueError,'정규화'):integrity.verify_tree(folder,expected,self.stop)
+
+    def test_first_use_rejects_linked_target_before_lock_or_download(self):
+        runtime.MODEL_ROOT.mkdir()
+        unsafe=self.root/'unrelated';unsafe.mkdir()
+        (runtime.MODEL_ROOT/'speaker-tools').symlink_to(unsafe,target_is_directory=True)
+        with ProjectLock(self.root/'job') as lock,patch.object(installer,'release_asset') as fetch,self.assertRaisesRegex(ValueError,'연결'):
+            installer.ensure('sherpa',self.stop,lock,lambda **v:None)
+        fetch.assert_not_called();self.assertEqual(list(unsafe.iterdir()),[])
+
     def test_frozen_app_uses_installed_worker_without_python_script(self):
         self.install(self.package())
         with patch.object(sys,'frozen',True,create=True):
             args=tools.command('sherpa','request')
             self.assertEqual(args,[str(tools.managed('sherpa')),'--voice-worker','request'])
         save_json(tools.home('sherpa')/'active.json',{})
-        with patch.object(sys,'frozen',True,create=True),patch.object(voice_models,'PYTHON',Path(sys.executable)):
-            self.assertEqual(tools.command('sherpa','request'),[sys.executable,'--voice-worker','request'])
+        with patch.object(sys,'frozen',True,create=True),self.assertRaisesRegex(ValueError,'모델 폴더'):
+            tools.command('sherpa','request')
 
 
 class ResultPreservationTests(unittest.TestCase):
@@ -148,6 +224,27 @@ class ResultPreservationTests(unittest.TestCase):
     transcribe=fixture.VoiceTests.transcribe
     prepare=fixture.VoiceTests.prepare
     change=fixture.VoiceTests.change
+
+    def test_automation_prepares_missing_tools_and_continues_the_same_voice_job(self):
+        from archive import automation_steps
+        from archive.jobs import Manager
+        from archive.automation import options
+        self.audio();self.transcribe()
+        manager=Manager(self.root);self.addCleanup(manager.close)
+        queue=SimpleNamespace(manager=manager,root=str(self.root),stop=threading.Event())
+        entry={'vod':'1','format':'360p','options':options({'steps':['diarize'],'backend':'sherpa'})}
+        sequence=[]
+        def process(args, log, stop, lock, **kwargs):
+            sequence.append('화자 분석')
+            request=read_json(Path(args[-1]))
+            save_json(Path(request['output']), {'turns':[{'speaker':0,'start_ms':0,'end_ms':1000}]})
+        def ensure(*args):
+            sequence.append('실행 도구');return self.root/'worker'
+        with patch.object(runtime,'MODEL_ROOT',self.root.resolve()/'models'), patch.object(diarization_backends,'status',return_value={'supported':True,'ready':False,'engine':False}), patch.object(diarization_run,'prepare',side_effect=lambda *a:sequence.append('모델')), patch.object(installer,'ensure',side_effect=ensure), patch.object(voice_models,'verify'), patch('archive.voices.media.process',side_effect=process):
+            self.assertEqual(automation_steps.execute(queue,entry,'diarize'),'complete')
+            self.assertEqual(automation_steps.execute(queue,entry,'diarize'),'reused')
+        self.assertEqual(sequence,['모델','실행 도구','화자 분석'])
+        self.assertEqual(voice_store.state(self.path)['state'],'complete')
 
     def test_runtime_actions_keep_result_and_manual_names(self):
         ids=list(self.prepare());self.change('rename',speaker=ids[0],name='수동 이름 보존')

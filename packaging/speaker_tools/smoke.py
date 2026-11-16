@@ -1,18 +1,20 @@
 """제작한 ZIP을 실제 앱 설치기로 설치한다. 모델·HF 인증·추론은 사용하지 않는다."""
 import argparse
 import hashlib
+import io
 import json
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import threading
+import unicodedata
 from unittest.mock import patch
 import wave
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from archive import runtime, speaker_tools as tools, speaker_tools_install as installer
+from archive import runtime, speaker_tools as tools, speaker_tools_install as installer, speaker_tool_integrity
 from archive.storage import ProjectLock, read_json, save_json
 
 
@@ -27,8 +29,18 @@ def check(backend, output):
     asset = {'url': 'https://github.com/local-build-check', 'size': archive.stat().st_size,
              'sha256': digest(archive)}
     stop = threading.Event()
-    with tempfile.TemporaryDirectory(prefix='화자 도구 설치 ') as temp:
-        work = Path(temp)
+    pins = {}
+    if (output/backend).is_dir():
+        # 새 빌드는 공개 ZIP과 별도로 원래 조립 폴더의 지문에 대조한다.
+        package = output/backend
+        tree = hashlib.sha256()
+        names = [(unicodedata.normalize('NFC', p.relative_to(package).as_posix()), p)
+                 for p in package.rglob('*') if p.is_file()]
+        for name, file in sorted(names):
+            tree.update(name.encode('utf-8') + b'\0' + bytes.fromhex(digest(file)))
+        pins[platform, backend] = (asset['sha256'], tree.hexdigest())
+    with tempfile.TemporaryDirectory(prefix='화자 도구 설치 ') as temp, patch.dict(speaker_tool_integrity.PINS, pins):
+        work = Path(temp).resolve()
         with patch.object(runtime, 'SUPPORT', work/'지원'), patch.object(runtime, 'MODEL_ROOT', work/'모델'):
             root = tools.home(backend)
             previous = root/'versions'/('1'*32)
@@ -37,14 +49,14 @@ def check(backend, output):
             old.write_bytes(b'previous-install-sentinel')
             save_json(previous/'tool.json', {'backend': backend, 'protocol': tools.PROTOCOL,
                       'platform': platform, 'entry': tools.entry_name(backend)})
-            save_json(root/'active.json', {'version': previous.name})
+            save_json(root/'active.json', {'version': previous.name, 'sha256': asset['sha256'], 'release': tools.RELEASE})
             active_before = (root/'active.json').read_bytes()
             sentinels = [work/'모델/기존 모델.bin', work/'보관함/기존 결과.json']
             for file in sentinels:
                 file.parent.mkdir(parents=True, exist_ok=True)
                 file.write_bytes(b'preserve-existing-data')
             def update(**value):
-                if value['message'] != '실행 도구 설치 완료 · 기존 모델·분석 결과 보존':
+                if list(root.glob('.install-*')):
                     assert (root/'active.json').read_bytes() == active_before, '검사 전에 활성 버전이 바뀌었습니다'
             with patch.object(installer, 'release_asset', return_value=asset), \
                     patch.object(installer, 'open_url', side_effect=lambda _: archive.open('rb')), \
@@ -56,7 +68,7 @@ def check(backend, output):
                 assert all(file.read_bytes() == b'preserve-existing-data' for file in sentinels)
                 tools.check([str(installed), '--speaker-tool-check'], work/'restart.log', stop, lock, backend)
                 active_after = (root/'active.json').read_bytes()
-                with patch.object(installer, 'release_asset', return_value=asset | {'sha256': '0'*64}):
+                with patch.object(installer, 'open_url', return_value=io.BytesIO(b'incomplete download')):
                     try:
                         installer.install(backend, stop, lock, lambda **_: None)
                     except ValueError as error:

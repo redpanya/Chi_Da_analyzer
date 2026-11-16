@@ -1,4 +1,4 @@
-# 앱 본체와 같은 CPU sherpa 실행 환경. pyannote의 NumPy 2 환경과 섞지 않는다.
+# sherpa 전용 CPU 실행 환경
 yt-dlp==2026.8.19
 sherpa-onnx==1.13.8
 sherpa-onnx-core==1.13.8

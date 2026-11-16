@@ -132,14 +132,19 @@ def run(job):
     job.update(suggestion=id,suggestions=store.state(job.path).get('suggestions',[])+[{'id':id,'start_ms':value['start_ms'],'end_ms':value['end_ms']}],
                message='선택 구간과 대표 음성의 특징을 비교합니다')
     model=voice_models.home()/'embedding.onnx'
+    if not model.is_file() and not model.is_symlink():
+        # 다른 엔진으로 만든 화자 결과의 첫 후보 검토에도 같은 준비 정책을 적용한다.
+        from . import diarization_run
+        diarization_run.prepare('sherpa', folder, job.stop, job.lock, job.update)
     if model.is_symlink() or not model.is_file() or speech_model.digest(model,job.stop)!=voice_models.FILES['embedding.onnx'][1]:
-        raise ValueError('음향 비교용 sherpa 모델 준비·검사가 필요합니다. 화자 도구에서 기존 sherpa를 선택해 준비하세요')
-    from . import speaker_tools
+        raise ValueError('음향 비교 모델의 파일 검사가 실패했습니다. 모델을 다시 준비하세요')
+    from . import speaker_tools, speaker_tools_install
+    engine = speaker_tools_install.ensure('sherpa', job.stop, job.lock, job.update)
     audio=speech_store.state(job.path)['audio']
     request={'audio':str(speech_media.local(job.path,audio['file'])),'model':str(model),
              'references':value['references'],'rows':value['rows'],'output':str(folder/'acoustic.json')}
     save_json(folder/'request.json',request)
-    speech_media.process(speaker_tools.command('sherpa',folder/'request.json',candidate=True),folder/'acoustic.log',job.stop,job.lock)
+    speech_media.process(speaker_tools.command('sherpa',folder/'request.json',candidate=True,executable=engine),folder/'acoustic.log',job.stop,job.lock)
     acoustic=read_json(folder/'acoustic.json')
 
     class Inference(ContextJob):

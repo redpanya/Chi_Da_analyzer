@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createFolders} from '../web/folders.js';
 const elements=new Map();
-globalThis.document={getElementById(id){if(!elements.has(id))elements.set(id,{value:'',textContent:'',disabled:false});return elements.get(id);}};
+globalThis.document={getElementById(id){if(!elements.has(id))elements.set(id,{value:'',textContent:'',disabled:false,replaceChildren(){},getClientRects(){return [];}});return elements.get(id);}};
 const el=id=>document.getElementById(id);
 let state={models:'/기존 모델',busy:false,problem:'',ready:{speech:true,voices:true,context:true}},fail=false,applied=0,requests=[],selected='';
 const folders=createFolders({api:async(action,data)=>{requests.push({action,data});if(action==='pick-path')return {path:selected};if(fail)throw Error('경로 확인 실패');if(action==='model-folder')state={...state,models:data.path};return state;},onApplied:async()=>{applied++;}});

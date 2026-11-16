@@ -8,7 +8,7 @@ export function queuePreflight({api,getRoot,onStart}){
   try{const value=await api('queue-preflight',{root:requested});if(requested!==getRoot()||!dialog.open)return;
    for(const check of value.checks){const p=document.createElement('p');p.textContent=`${check.ready?'✓':'확인 필요'} ${check.label} · ${check.detail}`;p.className=check.ready?'hint':'notice-warning';find('preflight-checks').append(p);}
    for(const item of value.items){const p=document.createElement('p');p.textContent=`${item.title} · ${item.preview}`;find('preflight-items').append(p);}
-   find('preflight-note').textContent=value.checks.some(c=>!c.ready)?'준비가 필요한 단계가 있습니다. 완료 자료로 재사용 가능한 단계는 진행하고, 준비되지 않은 작업은 실행기에서 안전하게 중단·안내합니다.':'준비 상태를 확인했습니다. 인증·쓰기 권한·자료 일치 여부는 각 단계에서 다시 검사합니다.';
+   find('preflight-note').textContent=value.checks.some(c=>!c.ready)?'확인이 필요한 단계가 있습니다. 완료 자료는 재사용하고, 설치 가능한 화자 도구는 해당 작업에서 자동으로 준비합니다.':'준비 상태를 확인했습니다. 인증과 저장 권한은 해당 작업에서 확인합니다.';
    find('preflight-start').disabled=!value.items.length;
   }catch(e){find('preflight-note').textContent=e.message;}
  };

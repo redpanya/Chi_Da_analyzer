@@ -59,9 +59,14 @@ class VoiceJob:
 
     def worker(self, folder, action, audio, **options):
         backend=self.options.get('backend','sherpa')
+        if not backends.status(backend)['ready']:
+            self.update(message='화자 분석에 필요한 모델을 준비합니다', progress={})
+            diarization_run.prepare(backend, folder, self.stop, self.lock, self.update)
         if backend!='sherpa':
             return diarization_run.run(backend,folder,audio,options['speakers'],self.stop,self.lock,self.update)
-        args = speaker_tools.command('sherpa', folder/'request.json')
+        from .speaker_tools_install import ensure
+        engine = ensure('sherpa', self.stop, self.lock, self.update)
+        args = speaker_tools.command('sherpa', folder/'request.json', executable=engine)
         models.verify()
         request = folder/'request.json'
         save_json(request, {'action': action, 'cache': str(models.home()), 'audio': str(audio),
@@ -110,7 +115,9 @@ class VoiceJob:
                 backend=self.options['backend']
                 folder=store.local(self.path,'preparations/'+uuid.uuid4().hex)
                 self.update(message='선택 실행 도구 검사 중 · 모델·음성 로드 없음')
-                speaker_tools.check(speaker_tools.command(backend,check=True),folder/'tool-check.log',self.stop,self.lock,backend)
+                from .speaker_tools_install import ensure
+                engine = ensure(backend, self.stop, self.lock, self.update)
+                speaker_tools.check(speaker_tools.command(backend,check=True,executable=engine),folder/'tool-check.log',self.stop,self.lock,backend)
             elif self.action == 'prepare':
                 folder=store.local(self.path,'preparations/'+uuid.uuid4().hex)
                 diarization_run.prepare(self.options.get('backend','sherpa'),folder,self.stop,self.lock,self.update)

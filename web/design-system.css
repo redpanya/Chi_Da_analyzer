@@ -266,7 +266,36 @@ dialog[open]:not(.settings-panel):not(.result-drawer):not(.inline-task){animatio
 [data-clip-grip]:active{cursor:grabbing}
 #audio-job-slot:empty{display:none}
 
-/* 접힌 주 메뉴와 인접한 열만 움직이고 본문의 폭은 유지한다. */
+/* 기본 1열은 접힌 메뉴가 완전히 펼쳐졌을 때와 같은 배치를 쓴다. */
+.step-workspace[data-rail-depth="1"] { --rail-label-visible:1; }
+body:is(.step-workspace, .studio-workspace) > :is(.step-primary, .studio-app-rail) {
+  padding:19px 2px;
+  gap:20px;
+  & > :is(.brand, .studio-brand) {height:32px;min-height:32px;margin:0;}
+  & > :is(nav, .rail-bottom, footer) {gap:9px;}
+}
+:is(.step-workspace, .studio-workspace) > :is(.step-primary, .studio-app-rail) :is(.rail-action, .studio-rail-link) {
+  position:relative;
+  margin:0;
+  & > :is(.rail-icon, svg) {
+    transform:translateY(calc(-6px * var(--rail-label-visible, 0)));
+    transition:transform var(--ds-motion) var(--ds-ease);
+  }
+  & > span:not(.rail-icon) {
+    position:absolute;
+    top:calc(50% + 5px);
+    width:max-content;
+    max-width:none;
+    font-size:10px;
+    font-weight:600;
+    line-height:1.35;
+    letter-spacing:-.03em;
+    white-space:nowrap;
+    opacity:var(--rail-label-visible, 0);
+    pointer-events:none;
+    transition:opacity var(--ds-motion) var(--ds-ease);
+  }
+}
 :is(.studio-workspace, .step-workspace[data-rail-depth="2"], .step-workspace[data-rail-depth="3"]) {
   &:has(> :is(.step-primary, .studio-app-rail) :focus-visible) {
     --rail-expansion:20px;
@@ -282,27 +311,6 @@ dialog[open]:not(.settings-panel):not(.result-drawer):not(.inline-task){animatio
     width:calc(30px + var(--rail-expansion, 0px));
     overflow:hidden;
     transition:width var(--ds-motion-layout) var(--ds-ease);
-
-    & :is(.rail-action, .studio-rail-link) {
-      position:relative;
-      & > :is(.rail-icon, svg) {
-        transform:translateY(calc(-6px * var(--rail-label-visible, 0)));
-        transition:transform var(--ds-motion) var(--ds-ease);
-      }
-      & > span:not(.rail-icon) {
-        position:absolute;
-        bottom:3px;
-        width:max-content;
-        max-width:none;
-        font-size:10px;
-        line-height:1.35;
-        letter-spacing:-.03em;
-        white-space:nowrap;
-        opacity:var(--rail-label-visible, 0);
-        pointer-events:none;
-        transition:opacity var(--ds-motion) var(--ds-ease);
-      }
-    }
   }
   & > :is(.selected-vod-rail, .task-rail, .studio-vod-rail, .studio-step-rail) {
     translate:var(--rail-expansion, 0px) 0;

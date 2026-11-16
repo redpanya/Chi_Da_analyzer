@@ -27,9 +27,10 @@ def coverage(spans, duration, offset=0, digital_silence=False):
             'speech_absence_confirmed':False,'asr_confidence':'not_collected'}
 
 
-def prepare(stop, update):
-    from . import speaker_tools
-    if not speaker_tools.status('sherpa')['ready']: raise ValueError('화자 도구에서 sherpa 실행 도구를 먼저 설치하세요')
+def prepare(stop, update, *, lock=None):
+    if lock is not None:
+        from .speaker_tools_install import ensure
+        ensure('sherpa', stop, lock, update)
     folder = model_paths.available()
     target = folder/'silero-vad.onnx'
     with speech_model.prepare_lock(folder, 'speech-vad', stop, update):

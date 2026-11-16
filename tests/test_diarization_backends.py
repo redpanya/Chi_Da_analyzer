@@ -54,7 +54,7 @@ class BackendTests(unittest.TestCase):
                     time.sleep(.02)
                 stop.set()
             thread=threading.Thread(target=cancel);thread.start()
-            with ProjectLock(folder) as lock,patch.object(backends,'executable',return_value=engine):
+            with ProjectLock(folder) as lock,patch('archive.speaker_tools_install.ensure',return_value=engine):
                 with self.assertRaises(Cancelled):diarization_run.process('fluid',folder,{},stop,lock,lambda **v:None)
             thread.join();self.assertTrue((folder/'started').exists());self.assertFalse((folder/'should-not-exist').exists())
             self.assertFalse((folder/'engine.json').exists())

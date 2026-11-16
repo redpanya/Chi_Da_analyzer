@@ -4,6 +4,7 @@ import {moveResultTimeline} from './results-layout.js';
 import {createProductWorkspace} from './product-workspace.js';
 import {createWorkQueue} from './work-queue.js';
 import {createMixPage} from './mix-clips.js';
+import {mixMenuURL} from './studio-workspace.js';
 import {createVideoSplitPage} from './video-split-page.js';
 import {createErrorLogUI} from './error-log-ui.js';
 import {showPreviewToast} from './preview-toast.js';
@@ -34,7 +35,10 @@ const workQueue=createWorkQueue();
 const splitPage=createVideoSplitPage({root:$('video-split-page'),workQueue});
 $('open-video-split').onclick=event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();go(11);};
 const mixPage=createMixPage({api,getRoot:()=>$('root').value});
-$('open-mix').onclick=event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();go(12);};
+function setLibraryRoot(root){
+ $('root').value=root;
+ $('open-mix').href=mixMenuURL(root);
+}
 const layout=createWorkspaceLayout();
 const analysisScope=createAnalysisScopePreview({api,onOpen:(root,vod)=>perform(async()=>{stopPlayback();current=await api('state',{root,vod_id:vod});render();go(3);})});
 const workspace=createWorkspaceStatus(layout);
@@ -132,7 +136,7 @@ $('root').oninput=()=>queue.rootChanged();
 $('refresh').onclick=()=>perform(async()=>{await list();await queue.refresh();});
 $('load-library').onclick=()=>perform(async()=>{
   const value=await api('pick-path',{kind:'folder'});if(!value.path)return;
-  $('root').value=value.path;queue.rootChanged();await list();await queue.refresh();
+  setLibraryRoot(value.path);queue.rootChanged();await list();await queue.refresh();
 });
 function clearProject(){reports.clear();notice();current=null;errorLogs.setProject();analysisScope.setProject(null);sessionStorage.removeItem('project');for(const i of [2,3,4,5,6,8])$(`step${i}`).disabled=true;player.reset();$('player').removeAttribute('src');$('player').load();reactions.setProject(null);speech.setProject(null);voices.setProject(null);explorer.setProject(null);context.setProject(null);external.setProject(null);workspace.update(null);$('open-clip-studio').disabled=true;$('delete-project').hidden=true;go(1);$('queue-inputs').querySelector('input')?.focus();}
 $('new').onclick=()=>{go(1);$('queue-inputs').querySelector('input')?.focus();};
@@ -158,21 +162,21 @@ const globalEntry=[0,1,9,10,11,12].includes(entryStep);
    ?{root:entryQuery.get('root'),library_root:entryQuery.get('library_root'),vod_id:entryQuery.get('vod_id')}:JSON.parse(sessionStorage.getItem('project')||'null');
   const needsLibraryLookup=globalEntry&&saved&&!saved.library_root;
   const knownRoot=menuRoot||saved?.library_root||saved?.root;
-  if(knownRoot)$('root').value=knownRoot;
+  if(knownRoot)setLibraryRoot(knownRoot);
   if(globalEntry&&knownRoot&&!needsLibraryLookup)go(entryStep);
   else if(location.hash==='#use'&&saved?.vod_id)stepWorkspace.previewUse(saved.vod_id);
   else document.body.dataset.openingWorkspace='true';
 
   const config=await (await fetch('api/config')).json();
   showPreviewToast(config.annotation_preview===true);folders.set(config.folders);
-  if(!$('root').value)$('root').value=config.root;
+  if(!$('root').value)setLibraryRoot(config.root);
   if(page===null&&globalEntry&&!needsLibraryLookup)go(entryStep);
   if(page===null&&saved&&(!globalEntry||needsLibraryLookup)){
    const library=$('root').value;
    let project;
    try{project=await api('state',saved);}catch(error){if(page===null)throw error;}
    if(page===null&&project&&!current&&library===$('root').value){
-    if(!saved.library_root&&project.library_root)$('root').value=project.library_root;
+    if(!saved.library_root&&project.library_root)setLibraryRoot(project.library_root);
     if(!globalEntry){
      current=project;render();
      if(page===null&&!applyRoute())go(shell.initialPage(current));

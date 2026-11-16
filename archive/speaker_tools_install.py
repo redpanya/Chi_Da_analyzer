@@ -1,4 +1,5 @@
 """고정 공식 릴리스의 실행 도구만 검증 후 설치한다. 실패한 설치는 활성화하지 않는다."""
+from contextlib import contextmanager
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
@@ -12,9 +13,9 @@ from urllib.request import Request, HTTPRedirectHandler, build_opener
 import uuid
 import zipfile
 
-from . import speaker_tools as tools
+from . import speaker_tools as tools, speaker_tool_integrity as integrity, model_paths, runtime
 from .source import check_cancel
-from .storage import ProjectLock, read_json, save_json
+from .storage import ProjectLock, ResourceBusy, read_json, save_json
 
 MAX_DOWNLOAD = 4 * 1024**3
 MAX_EXPANDED = 12 * 1024**3
@@ -109,29 +110,83 @@ def extract(archive, folder, stop):
             target.chmod(0o755 if mode & 0o111 else 0o644)
 
 
+@contextmanager
+def staging(root):
+    stage = Path(tempfile.mkdtemp(prefix='.install-', dir=root))
+    try:
+        yield stage
+    finally:
+        integrity.remove_tree(stage)
+
+
+def ensure(backend, stop, lock, update):
+    """필요한 기능이 요청됐을 때 한 번 설치하고 같은 작업에서 계속 실행한다."""
+    return _install(backend, stop, lock, update, reuse=True)
+
+
 def install(backend, stop, lock, update):
+    return _install(backend, stop, lock, update, reuse=False)
+
+
+def _install(backend, stop, lock, update, *, reuse):
+    check_cancel(stop)
     if not tools.supported(backend): raise ValueError('이 장치에서는 선택 실행 도구를 지원하지 않습니다')
+    model_paths.available()
     root = tools.home(backend)
-    for path in [root, *root.parents]:
-        if path.is_symlink(): raise ValueError('실행 도구 설치 경로의 연결 폴더는 사용할 수 없습니다')
-    with ProjectLock(root):
-        if (root/'versions').is_symlink() or (root/'active.json').is_symlink():
-            raise ValueError('실행 도구 설치 경로의 연결 파일은 사용할 수 없습니다')
-        update(message='선택 실행 도구의 배포 정보를 확인합니다', progress={})
-        asset = release_asset(backend, stop)
-        if shutil.disk_usage(root).free < asset['size'] + 256 * 1024**2: raise OSError(28, '실행 도구 다운로드 공간 부족')
-        with tempfile.TemporaryDirectory(prefix='.install-', dir=root) as temp:
-            stage = Path(temp); archive = stage/'download.zip'; package = stage/'package'; package.mkdir()
-            download(asset, archive, stop, update)
-            update(message='실행 도구 압축 해제·호환성 검사 중', progress={})
-            extract(archive, package, stop)
+    integrity.safe_path(root)
+    archive_hash, tree_hash = integrity.PINS[tools.platform_id(), backend]
+    announced = False
+    while True:
+        check_cancel(stop)
+        try:
+            guard = ProjectLock(root)
+            break
+        except ResourceBusy:
+            if not announced:
+                update(message='다른 작업에서 준비 중인 실행 도구를 기다립니다', progress={})
+                announced = True
+            stop.wait(0.25)
+    with guard:
+        for child in ('versions', 'active.json', 'last-install.log'):
+            integrity.plain(root/child)
+        if reuse and (file := tools.managed(backend)):
+            integrity.verify_tree(file.parent, tree_hash, stop)
+            return file
+        with staging(root) as stage:
+            archive = stage/'download.zip'; package = stage/'package'
+            # 예전 설치 폴더는 다운로드 대용으로만 읽고, 거기에서 직접 실행하지 않는다.
+            old = tools.managed(backend, root=runtime.SUPPORT/'speaker-tools'/backend) if reuse else None
+            if old:
+                update(message='기존 실행 도구의 공식 배포 지문을 확인합니다', progress={})
+                try:
+                    integrity.verify_tree(old.parent, tree_hash, stop)
+                    def copy(src, dst):
+                        check_cancel(stop)
+                        return shutil.copy2(src, dst)
+                    shutil.copytree(old.parent, package, symlinks=True, copy_function=copy)
+                    integrity.verify_tree(package, tree_hash, stop)
+                except (ValueError, OSError):
+                    # 손상된 기존 설치는 보존하고 검증 가능한 공식 ZIP으로 다시 시도한다.
+                    if package.exists(): integrity.remove_tree(package)
+                    old = None
+            if not old:
+                update(message='선택 실행 도구의 배포 정보를 확인합니다', progress={})
+                asset = release_asset(backend, stop)
+                if asset['sha256'] != archive_hash:
+                    raise ValueError('실행 도구의 공식 SHA-256이 현재 앱과 다릅니다. 앱 업데이트를 확인하세요')
+                if shutil.disk_usage(root).free < asset['size'] + 256 * 1024**2: raise OSError(28, '실행 도구 다운로드 공간 부족')
+                download(asset, archive, stop, update)
+                update(message='실행 도구 압축 해제 및 호환성 검사 중', progress={})
+                package.mkdir()
+                extract(archive, package, stop)
+                integrity.verify_tree(package, tree_hash, stop)
             manifest = read_json(package/'tool.json')
             if (manifest.get('backend'), manifest.get('protocol'), manifest.get('platform'), manifest.get('entry')) != (
                     backend, tools.PROTOCOL, tools.platform_id(), tools.entry_name(backend)):
-                raise ValueError('실행 도구가 현재 앱·운영체제와 호환되지 않습니다')
+                raise ValueError('실행 도구가 현재 앱 또는 운영체제와 호환되지 않습니다')
             file = package/tools.entry_name(backend)
             if not file.is_file(): raise ValueError('실행 도구 파일이 없습니다')
-            tools.check([str(file), '--speaker-tool-check'], root/'last-install.log', stop, lock, backend)
+            tools.check([str(file), '--speaker-tool-check'], stage/'check.log', stop, lock, backend)
             check_cancel(stop)
             version = uuid.uuid4().hex
             versions = root/'versions'; versions.mkdir(exist_ok=True)
@@ -139,8 +194,9 @@ def install(backend, stop, lock, update):
             package.replace(final)
             try:
                 check_cancel(stop)
-                save_json(root/'active.json', {'version':version, 'sha256':asset['sha256'], 'release':tools.RELEASE})
+                save_json(root/'active.json', {'version':version, 'sha256':archive_hash, 'release':tools.RELEASE})
             except BaseException:
-                shutil.rmtree(final)
+                integrity.remove_tree(final)
                 raise
-        update(message='실행 도구 설치 완료 · 기존 모델·분석 결과 보존', progress={})
+        update(message='모델 폴더에 실행 도구를 설치했습니다', progress={})
+        return final/tools.entry_name(backend)

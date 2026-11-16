@@ -77,7 +77,6 @@ def remember_library(root):
 
 def diagnose():
     from . import compute
-    import numpy, soundfile, sherpa_onnx
     from importlib.metadata import version
     tools = {}
     for name, flag in [('ffmpeg','-version'),('ffprobe','-version'),('whisper-cli','--version'),('llama-completion','--version'),('llama-tokenize','--version'),('llama-server','--version')]:
@@ -88,5 +87,5 @@ def diagnose():
         tools[name] = {'path':file,'version':(r.stdout+r.stderr).splitlines()[0]}
     return {'frozen':FROZEN,'python':sys.version,'executable':sys.executable,'tools':tools,
             'text_encoding':locale.getencoding(),'python_utf8_mode':sys.flags.utf8_mode,
-            'engines':{name:version(name) for name in ['yt-dlp','sherpa-onnx','numpy','soundfile']},
+            'engines':{'yt-dlp':version('yt-dlp')},
             'certificate':os.environ.get('SSL_CERT_FILE'), 'compute':compute.status()}

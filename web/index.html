@@ -12,7 +12,7 @@
   <button id="new" class="primary wide">＋ VOD 리스트 등록</button>
   <div class="library-head"><h2>저장한 VOD</h2><button id="refresh" class="subtle" aria-label="프로젝트 목록 새로고침">↻</button></div>
   <div id="projects"><p class="muted">저장한 프로젝트가 여기에 표시됩니다.</p></div>
-  <footer><a id="open-video-split" class="secondary wide" href="#split">✂ 영상 나누기</a><a id="open-mix" class="secondary wide" href="#mix">믹스클립</a><button id="step9" class="secondary wide">⚙ 설정</button><span class="dot"></span> 이 컴퓨터에 저장<br><small>공개 VOD</small></footer>
+  <footer><a id="open-video-split" class="secondary wide" href="#split">✂ 영상 나누기</a><a id="open-mix" class="secondary wide" href="mix-studio.html">믹스클립</a><button id="step9" class="secondary wide">⚙ 설정</button><span class="dot"></span> 이 컴퓨터에 저장<br><small>공개 VOD</small></footer>
 </aside>
 <main>
   <p id="workspace-loading" class="muted" role="status">화면을 불러오는 중입니다.</p>
@@ -73,6 +73,17 @@
       <h3 id="folder-heading" data-help="folders">저장 폴더</h3>
       <div class="folder"><label for="root">VOD 보관함 폴더</label><div class="input-row"><input id="root" type="text" readonly spellcheck="false" placeholder="VOD를 저장할 폴더의 전체 경로"><button id="load-library" class="secondary" type="button">폴더 선택</button></div></div>
       <form id="model-folder-form" class="folder"><label for="model-root">공용 AI 모델 폴더</label><div class="input-row"><input id="model-root" type="text" readonly required spellcheck="false" aria-describedby="model-folder-current"><button id="apply-model-folder" class="secondary" type="submit">폴더 선택</button></div><p id="model-folder-current" class="path"></p><p id="model-folder-state" class="hint"></p><p id="model-folder-notice" role="status" aria-live="polite"></p></form>
+      <section class="model-library" aria-labelledby="model-library-heading">
+        <h3 id="model-library-heading">모델 및 실행 도구</h3>
+        <p class="hint">(필수) 항목은 해당 기능을 처음 사용하기 전에 설치하세요.</p>
+        <div id="model-library-items"></div>
+        <p id="model-library-notice" role="status" aria-live="polite"></p>
+      </section>
+      <dialog id="model-delete-dialog" aria-labelledby="model-delete-title">
+        <h2 id="model-delete-title">선택한 항목을 삭제할까요?</h2>
+        <p id="model-delete-description"></p>
+        <div class="play-actions"><button id="model-delete-cancel" type="button" class="secondary" autofocus>취소</button><button id="model-delete-confirm" type="button" class="danger">삭제</button></div>
+      </dialog>
     </div>
     <div id="compute-settings" class="folder-settings" hidden>
       <h3 data-help="compute">Windows AI 처리 장치</h3>

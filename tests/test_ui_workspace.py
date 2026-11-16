@@ -177,7 +177,7 @@ class WorkspaceCatalogTests(unittest.TestCase):
         before = {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in self.root.rglob('*') if p.is_file()}
         with patch('archive.ui_workspace.shutil.which', return_value='/existing/tool') as which, \
              patch('archive.speech_model.status') as speech, patch('archive.context_model.status') as context, \
-             patch('archive.speaker_tools.resolve') as speaker:
+             patch('archive.speaker_tools.supported') as speaker:
             value = ui_workspace.preflight(manager, str(self.root))
         self.assertEqual([item['title'] for item in value['items']], ['다운로드만'])
         self.assertTrue(all(check['ready'] for check in value['checks']))
@@ -194,12 +194,12 @@ class WorkspaceCatalogTests(unittest.TestCase):
         with patch('archive.ui_workspace.shutil.which', return_value=None), \
              patch('archive.speech_model.status', return_value={'ready': True, 'engine': False}) as speech, \
              patch('archive.context_model.status', return_value={'ready': False, 'engine': True}) as context, \
-             patch('archive.speaker_tools.supported', return_value=True), \
-             patch('archive.speaker_tools.resolve', return_value=(self.root / 'not-installed', 'missing')):
+             patch('archive.speaker_tools.supported', return_value=True):
             value = ui_workspace.preflight(manager, str(self.root))
         checks = {check['label']: check['ready'] for check in value['checks']}
-        for label in ('영상·음성 도구', '전사 모델·도구', 'Gemma 모델·도구', '화자 도구 · pyannote'):
+        for label in ('영상·음성 도구', '전사 모델·도구', 'Gemma 모델·도구'):
             self.assertFalse(checks[label])
+        self.assertTrue(checks['화자 도구: pyannote'])
         self.assertEqual(value['items'][0]['preview'], '완료 전사 재사용')
         speech.assert_called_once(); context.assert_called_once()
         self.assertEqual(data, original)

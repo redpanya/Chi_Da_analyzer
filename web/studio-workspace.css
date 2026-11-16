@@ -2,9 +2,9 @@
 body.studio-workspace{--studio-rail:30px;--studio-vod:30px;--studio-step:50px;--studio-nav:calc(var(--studio-rail) + var(--studio-vod) + var(--studio-step));min-width:1024px;overflow:hidden;background:var(--ds-bg);font-size:14px;line-height:1.55;}
 .studio-workspace :is(.studio-app-rail,.studio-vod-rail,.studio-step-rail){position:fixed;top:0;bottom:0;display:flex;flex-direction:column;border-right:1px solid var(--ds-line);z-index:15;}
 :root[data-theme] .studio-workspace :is(.studio-app-rail,.studio-vod-rail,.studio-step-rail){background:var(--ds-surface);}
-.studio-app-rail{left:0;width:var(--studio-rail);align-items:center;padding:19px 2px;gap:20px;}
-.studio-app-rail nav,.studio-app-rail footer{display:flex;flex-direction:column;gap:9px;width:100%;}.studio-app-rail footer{margin-top:auto;}
-.studio-brand{display:grid;place-items:center;width:24px;height:32px;}.studio-brand :is(img,.brand-mark){display:block;width:24px;height:24px;}
+.studio-app-rail{left:0;width:var(--studio-rail);align-items:center;}
+.studio-app-rail nav,.studio-app-rail footer{display:flex;flex-direction:column;width:100%;}.studio-app-rail footer{margin-top:auto;}
+.studio-brand{display:grid;place-items:center;width:24px;}.studio-brand :is(img,.brand-mark){display:block;width:24px;height:24px;}
 :root[data-theme] .studio-workspace .studio-rail-link{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;width:100%;min-height:55px;padding:9px 1px;border:0;border-radius:7px;background:transparent;color:var(--ds-muted);font-size:9px;line-height:1.35;text-decoration:none;white-space:normal;text-align:center;overflow-wrap:anywhere;}
 .studio-rail-link>svg{width:18px;height:18px;flex-shrink:0;}
 :root[data-theme] .studio-workspace .studio-rail-link.active{color:var(--ds-accent);background:var(--ds-tint);}
@@ -159,6 +159,9 @@ body.studio-workspace.mix-studio{--studio-vod:0px}
 .studio-workspace.mix-studio .studio-vod-rail{display:none}
 .mix-studio .assembly[aria-labelledby="assembly-title"],
 .mix-studio #footer-count{display:none}
+.mix-unavailable .studio-grid{display:block}
+.mix-unavailable :is(.studio-steps,#studio-layout-reset,#studio-preview-content,.inspector,.desktop-panel-gutter,#mix-assembly,#mix-assembly-panel>.button-row){display:none}
+.mix-unavailable #mix-assembly-panel{border:0;padding:0}
 #mix-assembly{margin-bottom:12px}
 #mix-assembly .assembly-select{display:grid;gap:5px;min-width:9rem;max-width:18rem;text-decoration:none;color:var(--ds-text);padding:10px;border:1px solid var(--ds-line);border-radius:8px}
 #mix-assembly .assembly-select[aria-current=true]{border-color:var(--ds-accent);background:var(--ds-card)}

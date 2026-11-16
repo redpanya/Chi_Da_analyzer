@@ -1,17 +1,15 @@
-"""화자 실행 도구 선택. 사용자 모델 폴더와 앱 번들은 변경하지 않는다."""
-from pathlib import Path
+"""선택한 모델 폴더에서 현재 플랫폼용 화자 실행 도구를 선택한다."""
 import platform
 import re
 import sys
 import time
 
-from . import runtime
+from . import model_paths, speaker_tool_integrity as integrity
 from .storage import read_json
 
 PROTOCOL = 1
 RELEASE = 'speaker-tools-v1'
 REPOSITORY = 'redpanya/Chi_Da_analyzer'
-ROOT = Path(__file__).resolve().parents[1]
 ENTRIES = {'sherpa': 'sherpa-worker', 'pyannote': 'pyannote-worker', 'fluid': 'archive-fluid-diarizer'}
 
 
@@ -29,67 +27,49 @@ def supported(backend):
 
 def home(backend):
     if backend not in ENTRIES: raise ValueError('지원하는 화자 엔진을 선택하세요')
-    return runtime.SUPPORT/'speaker-tools'/backend
+    return model_paths.root()/'speaker-tools'/(platform_id() or 'unsupported')/backend
 
 
 def entry_name(backend):
     return ENTRIES[backend]+('.exe' if sys.platform == 'win32' else '')
 
 
-def managed(backend):
-    root = home(backend)
+def managed(backend, *, root=None):
+    root = home(backend) if root is None else root
     try:
+        if not supported(backend): return None
+        integrity.safe_path(root/'active.json')
         active = read_json(root/'active.json')
+        if not isinstance(active, dict): return None
+        if active.get('release') != RELEASE or active.get('sha256') != integrity.PINS[platform_id(), backend][0]:
+            return None
         version = active['version']
         if not isinstance(version, str) or not re.fullmatch(r'[0-9a-f]{32}', version): return None
         folder = root/'versions'/version
+        integrity.safe_path(folder/'tool.json')
         manifest = read_json(folder/'tool.json')
+        if not isinstance(manifest, dict): return None
         if (manifest.get('backend'), manifest.get('protocol'), manifest.get('platform'), manifest.get('entry')) != (
                 backend, PROTOCOL, platform_id(), entry_name(backend)): return None
         file = folder/entry_name(backend)
-        if any(p.is_symlink() for p in (root.parent, root, root/'active.json', root/'versions', folder, folder/'tool.json', file)): return None
+        integrity.plain(file)
         return file if file.is_file() else None
     except (OSError, ValueError, KeyError, TypeError): return None
 
 
-def resolve(backend):
-    from . import voice_models
-    file = managed(backend)
-    if file: return file, 'installed'
-    if getattr(sys, 'frozen', False):
-        if backend == 'sherpa': return voice_models.PYTHON, 'bundled'
-        bundle = (Path(sys.executable).parent if sys.platform == 'win32' else Path(sys._MEIPASS).parent.parent)/'diarization'
-        return bundle/backend/entry_name(backend), 'bundled'
-    file = {
-        'sherpa': voice_models.PYTHON,
-        'pyannote': ROOT/('.diarization-tools/pyannote/venv/Scripts/python.exe' if sys.platform == 'win32' else '.diarization-tools/pyannote/venv/bin/python'),
-        'fluid': ROOT/'.diarization-tools/fluid/Runner/.build/release/archive-fluid-diarizer',
-    }[backend]
-    return file, 'development'
-
-
 def status(backend):
-    file, origin = resolve(backend)
-    ready = file.is_file()
-    return {'ready': ready, 'source': origin if ready else 'missing', 'path': str(file),
-            'install_path': str(home(backend)), 'supported': supported(backend),
-            'managed': bool(managed(backend)), 'release': RELEASE}
+    file = managed(backend)
+    return {'ready': bool(file), 'source': 'installed' if file else 'missing', 'path': str(file) if file else '',
+            'install_path': str(home(backend)), 'supported': supported(backend), 'managed': bool(file), 'release': RELEASE}
 
 
-def command(backend, request=None, *, candidate=False, check=False):
-    file, origin = resolve(backend)
-    if not file.is_file(): raise ValueError('선택 실행 도구를 먼저 설치하세요')
+def command(backend, request=None, *, candidate=False, check=False, executable=None):
+    file = executable or managed(backend)
+    if not file: raise ValueError('모델 폴더의 실행 도구를 먼저 설치하세요')
     args = [str(file)]
-    if backend == 'sherpa':
-        if origin == 'development':
-            args += [str(ROOT/'workers/sherpa_tool.py')]
-        if check: args += ['--speaker-tool-check']
-        else: args += ['--voice-candidate-worker' if candidate else '--voice-worker', str(request)]
-    elif backend == 'pyannote':
-        if origin == 'development': args += [str(ROOT/'workers/diarization_pyannote.py')]
-        args += ['--speaker-tool-check'] if check else [str(request)]
-    else: args += ['--speaker-tool-check'] if check else [str(request)]
-    return args
+    if check: return args + ['--speaker-tool-check']
+    if backend == 'sherpa': args += ['--voice-candidate-worker' if candidate else '--voice-worker']
+    return args + [str(request)]
 
 
 def check(args, log, stop, lock, backend):

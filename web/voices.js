@@ -62,8 +62,8 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
     $('voices-tool-check').disabled=disabled||!tool.canCheck;
     $('voices-tool-install').textContent=tool.install;
     $('voices-tool-status').textContent=tool.status;
-    $('voices-prepare').disabled=disabled||!d?.engine||d?.supported===false;
-    $('voices-run').disabled=disabled||!ready||!d?.ready||!d?.engine||d?.supported===false;
+    $('voices-prepare').disabled=disabled||!d||d.supported===false;
+    $('voices-run').disabled=disabled||!ready||!d||d.supported===false;
     $('voices-select').disabled=disabled||!s.runs?.length;
     $('voices-delete').disabled=disabled||!s.runs?.length;
     $('voices-version').disabled=disabled;
@@ -84,8 +84,9 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
     $('voices-model').textContent=`${voiceModelHelp(backend(),m).status} · 여유 ${(m.free_bytes/1e9).toFixed(1)}GB`;
     Object.assign($('voices-model').dataset,{ready:String(!!m.ready),engine:String(!!m.engine),supported:String(m.supported!==false)});
     $('voices-backend-hint').textContent=m.hint||'기존 CPU 화자 구분';
-    $('voices-install-hint').textContent='모델 경로: '+(m.path||project.model_root);
+    $('voices-install-hint').textContent='모델 경로: '+(project.model_root||m.path);
     $('voices-tool-hint').textContent=voiceToolStatus(m,s).hint;
+    $('voices-tool-hint').hidden=!$('voices-tool-hint').textContent;
     $('voices-resume-hint').textContent=m.resume===false?'중단 시 처음부터 재실행 · 완료 결과 보존':'30분 조각 처리 · 완료 조각부터 이어받기';
     $('voices-run').textContent=m.resume===false?'전체 화자 분석':'화자 분석·이어받기';
     const versionKey=JSON.stringify([s.versions,s.runs,s.run]);

@@ -93,6 +93,8 @@ class Manager:
         from .media_readers import MediaReaders
         self.media_readers = MediaReaders()
         self.guard = threading.RLock()
+        from .model_management import ModelLibrary
+        self.model_library = ModelLibrary(self.guard)
         self.job = None
         self.metadata = {}
         self.analysis_paths = set()
@@ -117,7 +119,7 @@ class Manager:
         with self.guard:
             try:
                 self.speech_idle()
-                busy = False
+                busy = self.model_library.busy()
             except Conflict:
                 busy = True
             try:
@@ -168,7 +170,10 @@ class Manager:
     def model_folder(self, path):
         with self.guard:
             self.speech_idle()
+            if self.model_library.busy():
+                raise Conflict('모델 관리가 끝난 후 저장 폴더를 변경하세요')
             model_paths.apply(path)
+            self.model_library.reset()
             return self.folders()
 
     def inspect(self, url, local=False):
@@ -312,6 +317,7 @@ class Manager:
         self.tasks.close()
         self.automation.close()
         self.tasks.close_workers()
+        self.model_library.close()
         self.splitter.close()
         self.studio.close()
         self.mix.close()
@@ -378,7 +384,8 @@ class Manager:
         data = load_project(path, vod)
         return speech_media.info(path, data) | {'model': speech_model.status()}
 
-    def work_lock(self, path, kind, action=None):
+    def work_lock(self, path, kind, action=None, options=None):
+        from .model_management import work_resources
         inputs = {'speech':['media'], 'voices':['media', 'speech'],
                   'context':['media', 'speech', 'voices', 'analysis', 'chat']}[kind]
         if action in ('model', 'prepare', 'install-engine', 'check-engine'):
@@ -390,6 +397,9 @@ class Manager:
             lanes = ('transcribe',)
         lock = ProjectLock(path, read=inputs, write=[kind], lanes=lanes)
         try:
+            resources = work_resources(kind, action, options or {})
+            if resources:
+                lock.children.append(ProjectLock(model_paths.available(), read=resources))
             if action in ('transcribe', 'retranscribe-original'):
                 lock.children.append(ProjectLock(model_paths.root(), read=['speech-models']))
             elif kind == 'voices':
@@ -412,7 +422,7 @@ class Manager:
             raise ValueError('오디오 트랙을 선택하세요')
         path = project_path(root, vod)
         with self.guard:
-            lock = self.work_lock(path, 'speech', action)
+            lock = self.work_lock(path, 'speech', action, options)
             try:
                 data = load_project(path, vod)
                 from .storage import upgrade_project
@@ -514,11 +524,11 @@ class Manager:
             backend_status=diarization_backends.status(backend)
             if not backend_status['supported']:
                 raise ValueError(backend_status['install_hint'])
-            if action in ('prepare','diarize','check-engine') and not backend_status['engine']:
-                raise ValueError('선택 실행 도구를 먼저 다운로드·설치하세요. 기존 모델과 결과는 유지됩니다')
+            if action == 'check-engine' and not backend_status['engine']:
+                raise ValueError('검사할 실행 도구가 아직 모델 폴더에 없습니다')
             options=options|{'backend':backend}
         with self.guard:
-            lock = self.work_lock(path, 'voices', action)
+            lock = self.work_lock(path, 'voices', action, options)
             try:
                 data = load_project(path, vod)
                 if action=='suggest':
@@ -647,6 +657,9 @@ class Manager:
                     value=context_full.prepare(path,vod,action,options or {})
                 else:
                     value=context_input.build(path,vod,options or {}) if action=='summarize' else {'model_name':(options or {}).get('model')}
+                from .model_management import context_resource
+                model = context_model.spec(value.get('model_name'))
+                lock.children.append(ProjectLock(model_paths.available(), read=[context_resource(model['name'])]))
                 self.context_job=context_job.ContextJob(path,vod,lock,action,value)
                 self.context_job.report_started = time.monotonic()
                 self.tasks.track('context', self.context_job)

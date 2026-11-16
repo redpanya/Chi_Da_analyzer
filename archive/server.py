@@ -182,6 +182,8 @@ def make_server(manager, port=0, *, annotation_preview=False):
                 elif action == '/api/pick-path':
                     from .split_picker import choose
                     result = {'path': choose(kind=data.get('kind', 'folder'))}
+                elif action == '/api/model-library':
+                    result = manager.model_library.request(data)
                 elif action == '/api/model-folder':
                     result = manager.model_folder(data['path'])
                 elif action == '/api/compute':
@@ -349,6 +351,7 @@ def make_server(manager, port=0, *, annotation_preview=False):
             files['/video-split-audio.js'] = ('video-split-audio.js', 'text/javascript; charset=utf-8')
             for name in ('video-split-page', 'video-split-entry', 'mix-clips', 'mix-studio', 'clip-order'):
                 files[f'/{name}.js'] = (f'{name}.js', 'text/javascript; charset=utf-8')
+            files['/model-library.js'] = ('model-library.js', 'text/javascript; charset=utf-8')
             files['/work-queue.js'] = ('work-queue.js', 'text/javascript; charset=utf-8')
             files['/job-detail.js'] = ('job-detail.js', 'text/javascript; charset=utf-8')
             files['/panel-dismiss.js'] = ('panel-dismiss.js', 'text/javascript; charset=utf-8')

@@ -21,6 +21,10 @@ test('편집 단계 키보드 순서와 세로 영상의 높이 기준 맞춤',(
 
 test('단계 패널 HTML의 ID·연결 대상과 설정 입력을 중복 없이 유지',()=>{
   const html=readFileSync(new URL('../web/clip-studio.html',import.meta.url),'utf8');
+  const index=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
+  const menuLink=(page,marker)=>page.match(new RegExp('<a\\b[^>]*'+marker+'[^>]*>'))?.[0];
+  assert.match(menuLink(index,'id="open-mix"'),/href="mix-studio\.html"/);
+  assert.match(menuLink(html,'data-mix-menu'),/href="mix-studio\.html"/);
   assert.match(html,/<a href="\.\/#split"[^>]+aria-label="영상 나누기"/);
   assert.doesNotMatch(html,/<details|studio-drawer-heading/);
   assert.doesNotMatch(html,/💡|data-help=|id="(?:studio-help|inspector-help|inspector-help-content)"/);
@@ -56,12 +60,22 @@ test('구간 VOD에서 주 메뉴는 보관함을 열고 이전 화면은 같은
   const library='/Volumes/테스트 & 보관함', projectRoot=library+'/.download-ranges/1234567890abcdef1234567890abcdef';
   const project={root:projectRoot,vod_id:'123'};
   const menus=['library','register','library','jobs','split','mix','settings','library'];
-  const links=menus.map(route=>({hash:'#'+route}));
+  const links=menus.map(route=>route==='mix'?{hash:'',dataset:{mixMenu:''}}:{hash:'#'+route});
   setStudioMenuLinks(links,project);
-  for(const link of links)assert.equal(new URL(link.href,page).searchParams.get('root'),projectRoot);
+  for(const [index,link] of links.entries()){
+    const target=new URL(link.href,page);
+    if(menus[index]==='mix')assert.equal(target.href,'http://127.0.0.1:1234/session/mix-studio.html');
+    else assert.equal(target.searchParams.get('root'),projectRoot);
+  }
   setStudioMenuLinks(links,{library_root:library});
   for(const [index,link] of links.entries()){
     const target=new URL(link.href,page);
+    if(menus[index]==='mix'){
+      assert.equal(target.pathname,'/session/mix-studio.html');
+      assert.equal(target.hash,'');
+      assert.deepEqual([...target.searchParams],[['root',library]]);
+      continue;
+    }
     assert.equal(target.hash,'#'+menus[index]);
     assert.deepEqual([...target.searchParams],[['library_root',library]]);
   }

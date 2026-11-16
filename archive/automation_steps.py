@@ -130,8 +130,8 @@ def execute(queue, entry, stage):
             manager.reports.skipped(path, stage)
             return 'reused'
         status = diarization_backends.status(settings['backend'])
-        if not status['supported'] or not status['ready'] or not status['engine']:
-            raise Prerequisite('선택한 화자 모델·도구를 먼저 준비하세요. 이용 동의는 자동으로 진행하지 않습니다')
+        if not status['supported']:
+            raise Prerequisite('선택한 화자 엔진은 현재 장치에서 지원하지 않습니다')
         manager.voices_start(root, vod, 'diarize', {'backend': settings['backend'], 'speakers': -1})
         wait(queue, manager.tasks.local.worker)
         status = voice_store.state(path)

@@ -11,7 +11,6 @@ from .storage import ProjectLock, read_json, save_json
 from .source import check_cancel
 
 def home(): return model_paths.root() / 'voices'
-PYTHON = Path(sys.executable) if getattr(sys,'frozen',False) else Path(__file__).resolve().parent.parent / ('.voice-venv/Scripts/python.exe' if sys.platform == 'win32' else '.voice-venv/bin/python')
 BASE = 'https://github.com/k2-fsa/sherpa-onnx/releases/download/'
 FILES = {
     'segmentation.tar.bz2': (BASE+'speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2', '24615ee884c897d9d2ba09bb4d30da6bb1b15e685065962db5b02e76e4996488', 6958444),
@@ -31,10 +30,10 @@ def status():
     try:
         current = fingerprints()
         saved = read_json(folder/('diarization-verified.json' if (folder/'diarization-verified.json').exists() else 'verified.json'))
-        ready = len(current) == 3 and {k:saved.get(k) for k in current} == current
+        ready = isinstance(saved, dict) and len(current) == 3 and {k:saved.get(k) for k in current} == current
     except (OSError, ValueError):
         ready = False
-    return {'ready': ready, 'engine': speaker_tools.resolve('sherpa')[0].is_file(), 'bytes': sum(v[2] for v in FILES.values()),
+    return {'ready': ready, 'engine': bool(speaker_tools.managed('sherpa')), 'bytes': sum(v[2] for v in FILES.values()),
             'free_bytes': model_paths.free_bytes()}
 
 

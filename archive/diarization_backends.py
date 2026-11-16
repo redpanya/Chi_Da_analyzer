@@ -26,12 +26,6 @@ def validate(backend, speakers=-1):
         raise ValueError('화자 수는 자동 또는 1~20명을 선택하세요')
 
 
-def executable(backend):
-    checked(backend)
-    from . import speaker_tools
-    return speaker_tools.resolve(backend)[0]
-
-
 def catalog(backend):
     return read_json(Path(__file__).with_name('diarization_catalog.json'))[checked(backend)]
 
@@ -60,11 +54,11 @@ def status(backend):
             saved = read_json(home(backend)/'verified.json')
             ready = saved['signature'] == signature(backend) and saved['files'] == fingerprints(backend)
         except (OSError, ValueError, KeyError, TypeError): ready = False
-        info = {'ready':ready,'engine':executable(backend).is_file(),
+        info = {'ready':ready,
                 'bytes':sum(f['size'] for f in catalog(backend)['files']), 'free_bytes':model_paths.free_bytes()}
     tool = speaker_tools.status(backend)
     supported = tool['supported']
-    hint = '‘실행 도구 다운로드·설치’ 후 ‘선택 모델 준비·검사’를 실행하세요.'
+    hint = '처음 사용할 때 실행 도구와 모델을 준비한 뒤 작업을 이어갑니다.'
     details = dict(BACKENDS[backend])
     if backend == 'pyannote' and sys.platform == 'win32': details['hint'] = 'PyTorch CPU · 별도 엔진 설치 · 중단하면 처음부터 재실행'
     return info | details | {'id':backend,'supported':supported,'path':str(home(backend)),

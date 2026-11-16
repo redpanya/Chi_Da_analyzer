@@ -3,7 +3,7 @@
 `.github/workflows/speaker-tools.yml`을 수동 실행하면 sherpa와 pyannote를
 각각 독립된 Windows Python 3.11 환경에서 빌드한다. 앱 본체 빌드와 섞지 않는다.
 
-- sherpa: 본체와 같은 NumPy 1.26.4, sherpa-onnx 1.13.8 CPU 실행기.
+- sherpa 도구에는 NumPy 1.26.4와 sherpa-onnx 1.13.8 CPU 실행기가 들어간다.
 - pyannote: pyannote.audio 4.0.7, NumPy 2.4.6, 공식 PyTorch 2.8.0 CPU wheel.
   Windows GPU 추론은 이 화자 실행기의 지원 범위가 아니다.
 - FluidAudio는 Apple Silicon 전용이므로 Windows 빌드에 포함하지 않는다.

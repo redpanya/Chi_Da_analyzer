@@ -182,7 +182,6 @@ def storage_info(root):
 def preflight(manager, root):
     """준비 상태는 안내용 스냅샷이다. 실제 실행기의 재검증을 대체하지 않는다."""
     from . import speech_model, context_model, speaker_tools
-    from . import voice_models
     base = library(root)
     data = manager.automation.read(str(base))
     items = [item for item in data['items'] if item.get('state') in ('queued', 'paused', 'running')]
@@ -198,11 +197,18 @@ def preflight(manager, root):
     if 'transcribe' in steps:
         state = speech_model.status()
         add('전사 모델·도구', state['ready'] and state['engine'], '음성 전사 → 새 전사에서 준비할 수 있습니다.')
+        if any('transcribe' in automation_plan.selected(item['options'])
+               and item['options'].get('asr_options', {}).get('vad') != 'off' for item in items):
+            supported = speaker_tools.supported('sherpa')
+            add('발화 검출', supported, '처음 전사할 때 실행 도구와 발화 모델을 준비하고 이어갑니다.' if supported
+                else '이 장치에서는 발화 검출을 꺼야 전사할 수 있습니다.')
     if 'context' in steps:
         state = context_model.status(context_model.DEFAULT_NAME)
         add('Gemma 모델·도구', state['ready'] and state['engine'], '장면 탐색 → 새 분석에서 모델을 준비하세요.')
     for backend in dict.fromkeys(item['options'].get('backend', 'sherpa') for item in items if 'diarize' in automation_plan.selected(item['options'])):
-        ready = speaker_tools.supported(backend) and speaker_tools.resolve(backend)[0].is_file()
-        if backend == 'sherpa': ready = ready and voice_models.status()['ready']
-        add('화자 도구 · ' + backend, ready, '화자 검토에서 모델·인증을 확인하세요. Community-1 이용 동의 여부는 여기서 검사하지 않습니다.')
+        supported = speaker_tools.supported(backend)
+        hint = '처음 실행할 때 필요한 도구와 모델을 설치하고 계속합니다.' if supported else '현재 장치에서 지원하지 않는 화자 엔진입니다.'
+        if supported and backend == 'pyannote':
+            hint += ' Community-1을 처음 받으려면 Hugging Face 이용 동의와 로컬 로그인이 필요합니다.'
+        add('화자 도구: ' + backend, supported, hint)
     return {'checks': checks, 'items': [{'title': item['title'], 'preview': item.get('preview', '완료 자료 확인 후 선택 단계만 진행')} for item in items]}

@@ -35,7 +35,7 @@ def transcribe(path, data, language, stop, lock, update, input_audio=None, raw_a
         binary = execution['binary']
     update(compute=execution)
     model_file = model.verify()
-    vad_model = speech_vad.prepare(stop, update) if options['vad'] != 'off' else None
+    vad_model = speech_vad.prepare(stop, update, lock=lock) if options['vad'] != 'off' else None
     signature = {'audio_sha256': audio['sha256'], 'language': language, 'engine': version,
                  'source_audio_sha256': raw_audio['sha256'], 'input_kind': audio.get('input_kind', 'original'),
                  'separation_run': audio.get('separation_run'), 'model_sha256': model.SHA256, 'chunk_ms': store.CHUNK_MS, 'duration_ms': audio['duration_ms'],

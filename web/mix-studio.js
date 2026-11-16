@@ -1,5 +1,6 @@
 import {timecode} from './player.js';
 import {bindClipOrder} from './clip-order.js';
+import {setStudioMenuLinks} from './studio-workspace.js';
 
 const $=id=>document.getElementById(id);
 export function mixStudioURL(root,key,entry,step='range'){
@@ -51,11 +52,16 @@ export function createMixPlayback(video,{items,source,changed,failed}){
 }
 
 export function createMixStudio(api,params,selectClip){
-  const root=params.get('root');
+  let root=params.get('root');
   const context={library_root:root,key:params.get('mix')};
-  const back=root?'./?'+new URLSearchParams({library_root:root})+'#mix':'./#mix';
+  const menu=document.querySelector('.studio-app-rail [data-mix-menu]');
   let data=null,moving=false,profiles,savedCurrent,savedEdits={};
   const otherRows=new Map();
+  function menuLinks(){
+    if(root)setStudioMenuLinks(document.querySelectorAll('.studio-app-rail a'),{library_root:root});
+    menu.href=location.href;
+    $('studio-return').href=root?'./?'+new URLSearchParams({library_root:root})+'#mix':'./#mix';
+  }
   function syncLinks(){
     const step=document.body.dataset.studioStep;
     for(const card of $('mix-assembly').children){
@@ -66,8 +72,10 @@ export function createMixStudio(api,params,selectClip){
       else link.removeAttribute('aria-current');
     }
     const url=new URL(location.href);
+    url.searchParams.set('root',root);
     url.searchParams.set('mix',context.key);url.searchParams.set('step',step);
     if(url.href!==location.href)history.replaceState(history.state,'',url);
+    menu.href=url.href;
   }
   function list(){
     const host=$('mix-assembly'),links=data.items.map((item,i)=>{
@@ -129,12 +137,9 @@ export function createMixStudio(api,params,selectClip){
     document.title='믹스클립 편집기';
     document.querySelector('.studio-step-rail > strong').textContent='믹스클립';
     document.querySelector('.preview-panel h1').textContent='믹스클립 편집기';
-    for(const link of document.querySelectorAll('.studio-app-rail a')){
-      const route=link.hash||'#split';
-      link.href='./?'+new URLSearchParams({library_root:root})+route;
-    }
-    $('studio-return').href=back;$('studio-return').setAttribute('aria-label','믹스 목록으로 돌아가기');
-    $('studio-return').textContent='← 믹스';
+    menuLinks();
+    $('studio-return').setAttribute('aria-label','믹스 목록으로 돌아가기');
+    $('studio-return').textContent='← 믹스 목록';
     document.querySelector('label[for="caption-version"]').textContent='현재 믹스 구간에 사용할 전사';
     $('mix-assembly-panel').hidden=false;
     $('mix-assembly-panel').querySelector('.button-row').append($('edit-undo'));
@@ -151,12 +156,30 @@ export function createMixStudio(api,params,selectClip){
   }
   configure();
   return {
-    get data(){return data;},back,
+    get data(){return data;},
     get key(){return context.key;},
-    read(key=context.key){
-      if(!key||!root)throw Error('믹스 목록에서 편집할 구간을 선택하세요.');
-      return api('mix-editor',{...context,key});
+    async open(){
+      if(!root){
+        const response=await fetch('api/config');
+        if(!response.ok)throw Error('보관함 경로를 불러오지 못했습니다.');
+        root=(await response.json()).root;
+        context.library_root=root;menuLinks();
+      }
+      if(!context.key){
+        const draft=await api('mix-info',{library_root:root});
+        context.key=draft.items.find(item=>!item.problem)?.key;
+        if(!context.key){
+          document.body.classList.add('mix-unavailable');
+          $('mix-order-state').textContent=draft.items.length+'개 구간';
+          $('mix-order-notice').textContent=draft.items.length
+            ?'편집 가능한 원본 영상이 없습니다. 믹스 목록에서 구간별 원본 상태를 확인하세요.'
+            :'담은 구간이 없습니다. 보관함에서 VOD를 열고 담은 클립을 믹스클립으로 보내세요.';
+          return null;
+        }
+      }
+      return api('mix-editor',context);
     },
+    read:key=>api('mix-editor',{...context,key}),
     show(key,value){
       const rebuild=JSON.stringify(data?.items)!==JSON.stringify(value.items);
       context.key=key;data=value;otherRows.clear();savedEdits={};

@@ -6,8 +6,8 @@ from .storage import read_json, save_json
 
 
 def process(backend,folder,request,stop,lock,update):
-    engine=backends.executable(backend)
-    if not engine.is_file(): raise ValueError(backends.status(backend)['install_hint'])
+    from .speaker_tools_install import ensure
+    engine = ensure(backend, stop, lock, update)
     for name in ('error.json','progress.json','engine.json'):
         (folder/name).unlink(missing_ok=True)
     save_json(folder/'request.json',request)
@@ -21,10 +21,7 @@ def process(backend,folder,request,stop,lock,update):
                 previous=value
                 count=f" {value.get('completed',0)}/{value['total']}" if value.get('total') else ''
                 update(message=value.get('message') or ('화자 구분 · '+value.get('phase','처리 중')+count),progress=value.get('progress',{}))
-    if backend=='pyannote':
-        args=speaker_tools.command(backend,folder/'request.json')
-    elif backend=='fluid': args=[str(engine),str(folder/'request.json')]
-    else: raise ValueError('지원하지 않는 추가 화자 엔진입니다')
+    args=speaker_tools.command(backend,folder/'request.json',executable=engine)
     try: media.process(args,folder/'engine.log',stop,lock,on_poll=progress)
     except ValueError:
         if (folder/'error.json').exists(): raise ValueError(read_json(folder/'error.json')['message']) from None
@@ -33,9 +30,14 @@ def process(backend,folder,request,stop,lock,update):
 
 
 def prepare(backend,folder,stop,lock,update):
+    from . import model_paths, speech_model
+    if not speaker_tools.supported(backend): raise ValueError('현재 장치에서 지원하지 않는 화자 엔진입니다')
+    with speech_model.prepare_lock(model_paths.available(), 'prepare-'+backend, stop, update):
+        _prepare_models(backend,folder,stop,lock,update)
+
+
+def _prepare_models(backend,folder,stop,lock,update):
     if backend=='sherpa': return voice_models.prepare(stop,update)
-    status=backends.status(backend)
-    if not status['supported'] or not status['engine']: raise ValueError(status['install_hint'])
     if backend=='pyannote':
         from . import model_paths
         folder.mkdir(parents=True,exist_ok=True)

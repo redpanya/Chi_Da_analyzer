@@ -27,7 +27,7 @@ def checked(value):
             raise ValueError('모델 저장 드라이브가 연결되지 않았습니다. 연결 후 다시 시도하세요')
     if path.exists() and not path.is_dir():
         raise ValueError('모델 경로가 파일입니다. 폴더를 선택하세요')
-    if any((path/name).is_symlink() for name in ('voices', 'context', 'separation')):
+    if any((path/name).is_symlink() for name in ('voices', 'context', 'separation', 'speaker-tools')):
         raise ValueError('모델 하위 연결 폴더는 지원하지 않습니다')
     return path
 

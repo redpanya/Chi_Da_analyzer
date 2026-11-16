@@ -16,19 +16,9 @@ def main():
     runtime.configure(smoke_root=os.environ.pop('CHIDA_DESKTOP_TEST_STORAGE', None))
     from archive import error_log
     error_log.install_hooks()
-    if sys.argv[1:] == ['--speaker-tool-check']:
-        from workers.sherpa_tool import check
-        check();return
-    if len(sys.argv)==3 and sys.argv[1]=='--voice-candidate-worker':
-        from workers.voice_candidates import main as candidate_main
-        candidate_main(sys.argv[2]);return
     if len(sys.argv)==2 and sys.argv[1]=='--context-worker':
         from workers.context_server import main as context_main
         context_main();return
-    if len(sys.argv) == 3 and sys.argv[1] == '--voice-worker':
-        from workers.voices import main as voice_main
-        voice_main(sys.argv[2])
-        return
     if sys.platform not in ('darwin', 'win32'):
         raise SystemExit('macOS와 Windows에서 실행하세요')
     if sys.platform == 'win32':

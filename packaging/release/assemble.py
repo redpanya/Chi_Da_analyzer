@@ -101,11 +101,10 @@ def assemble(version):
     for file in [desktop / 'package.json', desktop / 'release-public.pem', *sorted(desktop.glob('*.cjs'))]:
         shutil.copy2(file, app)
     backend = resources / 'backend'
-    shutil.copytree(ROOT / 'build/frozen/backend', backend)
+    shutil.copytree(ROOT / 'build/frozen/backend', backend, symlinks=mac)
     native = backend / '_internal/native'
-    shutil.copytree(ROOT / 'build/native', native)
+    shutil.copytree(ROOT / 'build/native', native, symlinks=mac)
     (native / 'ffmpeg/build-config.log').unlink(missing_ok=True)
-    (backend / '_internal/basic-release.json').write_text('{"speakers":["sherpa"]}', encoding='utf-8')
     if mac:
         trash = backend / '_internal/bin/vod-trash'
         trash.parent.mkdir(exist_ok=True)

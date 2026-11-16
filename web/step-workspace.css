@@ -10,10 +10,10 @@ body.step-workspace>.selected-vod-rail{grid-column:2;grid-row:1;text-align:cente
 body.step-workspace>.task-rail{grid-column:3;grid-row:1;padding-top:22px;gap:8px}
 body.step-workspace>main{grid-column:4;grid-row:1;min-width:0;width:100%;max-width:none;padding:28px 32px;margin:0;background:var(--ds-bg)}
 .step-workspace .step-primary>.tagline,.step-workspace .step-primary>.library-head,.step-workspace .step-primary>#projects,.step-workspace .step-primary>footer{display:none}
-.step-workspace .brand{justify-content:center;margin:8px 0 24px;padding:0;border:0;background:none!important;min-height:38px}
-.step-workspace .brand-name{display:none}.step-workspace .brand .mark{height:34px;width:34px;min-width:0}
-.step-workspace .workspace-navigation{display:flex;flex-direction:column;gap:10px;margin:0;width:100%}
-.step-workspace .rail-bottom{margin-top:auto;display:grid;gap:12px}
+.step-workspace .brand{justify-content:center;padding:0;border:0;background:none!important}
+.step-workspace .brand-name{display:none}.step-workspace .brand .mark{height:24px;width:24px;min-width:0}
+.step-workspace .workspace-navigation{display:flex;flex-direction:column;margin:0;width:100%}
+.step-workspace .rail-bottom{margin-top:auto;display:grid}
 .step-workspace .rail-action,.step-workspace .rail-action::part(base){display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px 2px;min-height:66px;min-width:0;width:100%;border:1px solid transparent!important;border-radius:9px;background:transparent!important;color:var(--ds-muted)!important;white-space:normal;text-decoration:none;line-height:1.35;text-align:center;font-size:10px}
 .step-workspace .rail-action::part(label){display:flex;flex-direction:column;align-items:center;gap:6px}
 .step-workspace .rail-icon{font-size:23px;line-height:1}.step-workspace .rail-label{overflow-wrap:normal;word-break:keep-all;max-width:100%}
@@ -62,7 +62,7 @@ body.step-workspace>main{grid-column:4;grid-row:1;min-width:0;width:100%;max-wid
 /* 승인 미리보기의 정보 위계: 목록 → 선택한 자료 → 필요한 설정. */
 :root[data-theme] body.step-workspace{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:14px;line-height:1.55}
 .step-workspace .rail-icon{width:21px;height:21px;display:block}.step-workspace .rail-icon svg{display:block;width:100%;height:100%}
-.step-workspace .step-primary{padding-top:20px}.step-workspace .brand{margin:0 0 28px}.step-workspace .rail-action{font-weight:600;font-size:10px;min-height:60px}
+.step-workspace .rail-action{font-weight:600;font-size:10px;min-height:60px}
 .step-workspace main>header{display:flex;align-items:center;gap:12px;margin-bottom:24px}.step-workspace main>header>div:first-of-type{min-width:0;flex:1}.step-workspace main>header>.play-actions{flex:none}
 .step-workspace .project-back{width:38px;min-width:38px;height:38px;padding:0;margin:0}.step-workspace #heading{font-size:12px;line-height:1.4;margin:0 0 5px;display:inline-block}
 .step-workspace .workspace-subtitle{font-size:22px;line-height:1.4;letter-spacing:-.04em;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;margin:0}
@@ -117,9 +117,8 @@ body.step-workspace>main{grid-column:4;grid-row:1;min-width:0;width:100%;max-wid
 .step-workspace .task-rail-title{font-size:8px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 0 14px}
 .step-workspace .task-rail .rail-return .rail-label{font-size:8px}
 .step-workspace .rail-back{min-width:24px;min-height:36px;padding:4px 0}
-.step-workspace:is([data-rail-depth="2"],[data-rail-depth="3"]) .step-primary .rail-action,.step-workspace:is([data-rail-depth="2"],[data-rail-depth="3"]) .step-primary .rail-action::part(base){padding:9px 0;min-height:44px;gap:0}
-.step-workspace:is([data-rail-depth="2"],[data-rail-depth="3"]) .step-primary .rail-icon{width:18px;height:18px}
-.step-workspace:is([data-rail-depth="2"],[data-rail-depth="3"]) .brand .mark{width:24px;height:24px}
+.step-workspace .step-primary .rail-action,.step-workspace .step-primary .rail-action::part(base){padding:9px 0;min-height:44px;gap:0}
+.step-workspace .step-primary .rail-icon{width:18px;height:18px}
 .step-workspace[data-rail-depth="3"] .selected-vod-rail small{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
 .step-workspace[data-rail-depth="3"] .selected-vod-title{font-size:12px;line-height:1.5}
 .step-workspace .registration-queue{margin:24px 0 0;border-top:1px solid var(--ds-line);padding-top:20px}
@@ -181,9 +180,19 @@ body.step-workspace>main{grid-column:4;grid-row:1;min-width:0;width:100%;max-wid
 #mix-file{flex-basis:100%;margin:0}
 @media(max-width:750px){.mix-layout{grid-template-columns:minmax(0,1fr)}.mix-preview{position:static;grid-row:1}}
 :root[data-theme] body.step-workspace[data-workspace-page="12"]{min-width:0}
-.step-workspace[data-rail-depth="1"] #open-mix{padding-inline:1px}
 
 #workspace-loading{display:none}
 body[data-opening-workspace="true"] > main > :not(#workspace-loading),
 body[data-opening-workspace="use"] > main > :not(#purpose-tabs):not(#use-page){display:none!important}
 body[data-opening-workspace="true"] #workspace-loading{display:block}
+.model-library {margin:24px 0}
+.model-library h4 {margin:24px 0 8px;font-size:1rem}
+.model-library ul {list-style:none;margin:0;padding:0}
+.model-library li {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 16px;padding:12px 0;border-bottom:1px solid var(--ds-line)}
+.model-library li:first-child {border-top:1px solid var(--ds-line)}
+.model-library li strong,.model-library li small {display:block;overflow-wrap:anywhere}
+.model-library li p {margin:4px 0 0;font-size:.875rem;line-height:1.5;overflow-wrap:anywhere}
+.model-library li small {margin-top:4px;color:var(--ds-muted)}
+.model-library-actions {display:flex;align-items:center;gap:8px}
+#model-library-notice {overflow-wrap:anywhere}
+#model-library-notice:empty,#model-folder-state:empty {display:none}

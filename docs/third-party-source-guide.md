@@ -16,13 +16,13 @@ v1 정식 전환으로 이전 앱 릴리즈를 정리했다. 이전 버전의 �
 
 ## libsndfile 교체
 
-앱을 종료하고 **별도로 복사한 앱 폴더**에서 작업한다. VOD·AI 모델·전사·수동 화자 배정·요약 파일을 수정할 필요가 없다.
+앱을 종료하고 별도로 복사한 화자 실행 도구에서 작업한다. 예전 배포본에 포함된 라이브러리를 교체할 경우 앱 폴더를 복사한다.
 
 1. 소스 ZIP의 해당 libsndfile·코덱·빌드 자료를 사용해 같은 OS·CPU 아키텍처의 공유 라이브러리를 빌드한다. 기존 SoundFile과 호환되는 libsndfile API·파일 형식 지원을 유지한다.
 2. 기존 라이브러리를 백업한 뒤 다음 파일을 교체한다.
-   - macOS 기본 앱: `ChiDaanalyzer.app/Contents/Resources/backend/_internal/_soundfile_data/libsndfile_arm64.dylib`
-   - Windows 기본 앱: `ChiDaanalyzer/resources/backend/_internal/_soundfile_data/libsndfile_x64.dll`
-   - 별도 sherpa·pyannote 도구: 해당 도구의 `_internal/_soundfile_data/` 아래 파일
+   - sherpa 및 pyannote 실행 도구의 `_internal/_soundfile_data/` 아래 파일
+   - 이전 macOS 배포본에 동봉된 파일은 `ChiDaanalyzer.app/Contents/Resources/backend/_internal/_soundfile_data/libsndfile_arm64.dylib`
+   - 이전 Windows 배포본에 동봉된 파일은 `ChiDaanalyzer/resources/backend/_internal/_soundfile_data/libsndfile_x64.dll`
 3. macOS 앱은 파일 교체로 기존 서명이 달라진다. 로컬 복사본에 `codesign --force --deep --sign - "ChiDaanalyzer.app"`으로 임시 서명을 다시 적용할 수 있다. 이것은 Apple 공증이나 인터넷 배포 허용을 뜻하지 않는다.
 4. 원본 대신 짧은 사본 WAV로 로드·읽기·재생을 확인한다. 호환되지 않으면 백업한 라이브러리 또는 기존 앱으로 되돌린다.
 

@@ -91,7 +91,7 @@ class SuggestionTests(unittest.TestCase):
         counter=type('Counter',(),{'count':lambda self,text:100})()
         with ProjectLock(self.path) as lock:
             job=voices.VoiceJob(self.path,self.data,lock,'suggest',self.options)
-            with patch.object(voice_models,'home',return_value=self.root),patch.object(Path,'is_file',return_value=True),\
+            with patch.object(voice_models,'home',return_value=self.root),patch('archive.speaker_tools_install.ensure',return_value=self.root/'worker'),patch.object(Path,'is_file',return_value=True),\
                  patch.object(speech_model,'digest',return_value=voice_models.FILES['embedding.onnx'][1]),\
                  patch.object(speech_media,'process',side_effect=process),patch.object(context_job.ContextJob,'check_engine'),\
                  patch.object(context_job.ContextJob,'make_tokenizer',return_value=counter),patch.object(context_job.ContextJob,'infer_value',side_effect=infer):
