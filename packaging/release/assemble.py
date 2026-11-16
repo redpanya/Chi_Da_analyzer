@@ -68,13 +68,13 @@ def mac_shell(archive, package):
 
 
 def windows_shell(archive, package):
-    from PyInstaller.utils.win32.icon import CopyIcons
+    from PyInstaller.utils.win32.icon import CopyIcons_FromIco
     with zipfile.ZipFile(archive) as content:
         content.extractall(package)
     exe = package / (NAME + '.exe')
     (package / 'electron.exe').rename(exe)
     (package / 'electron_wer.dll').rename(package / (NAME + '_wer.dll'))
-    CopyIcons(str(exe), [str(ROOT / 'packaging/icons/ChiDaanalyzer.ico')])
+    CopyIcons_FromIco(str(exe), [str(ROOT / 'packaging/icons/ChiDaanalyzer.ico')])
     resources = package / 'resources'
     shutil.copy2(ROOT / 'build/desktop-helper/chida-update.exe', resources)
     return resources
