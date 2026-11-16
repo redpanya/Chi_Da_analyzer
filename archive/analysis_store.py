@@ -4,6 +4,7 @@ import hashlib
 import json
 
 from . import analysis
+from .source import check_cancel
 from .video_replacement import analysis_duration
 from .storage import ACTIVE, Conflict, asset_path, read_json, save_json, stamp
 
@@ -20,11 +21,13 @@ def source_info(path, data):
             'state': task['state'], 'duration': analysis_duration(data) if data.get('input') else data['metadata'].get('duration',0)}
 
 
-def rows(path, data, digest=None, counter=None, mapping_offset=0):
+def rows(path, data, digest=None, counter=None, mapping_offset=0, *, stop=None):
     info = source_info(path, data)
     previous = -1
     with asset_path(path, info['file']).open('rb') as file:
         for index, line in enumerate(file):
+            if stop is not None and index % 256 == 0:
+                check_cancel(stop)
             if digest is not None:
                 digest.update(line)
             try:
@@ -69,7 +72,7 @@ def load(path, data):
     return result | {'stale': stale}
 
 
-def run(path, data, options, allow_partial):
+def run(path, data, options, allow_partial, *, stop=None):
     if type(allow_partial) is not bool:
         raise ValueError('일부 채팅 분석 여부를 확인하세요')
     if any(task['state'] in ACTIVE for task in data['tasks'].values()):
@@ -85,7 +88,7 @@ def run(path, data, options, allow_partial):
     if not complete and state != 'unavailable' and not allow_partial:
         raise ValueError('전체 수집이 완료되지 않았습니다. 일부 자료 분석을 선택하거나 수집을 마치세요')
     digest = hashlib.sha256(); counter = [0]
-    result = analysis.analyze(rows(path, data, digest, counter), (info['duration'] or 0) * 1000,
+    result = analysis.analyze(rows(path, data, digest, counter, stop=stop), (info['duration'] or 0) * 1000,
                               complete, options)
     if state == 'review':
         for bin in result['graph']:
@@ -99,6 +102,8 @@ def run(path, data, options, allow_partial):
                   source_label=summary.get('status', '상태 미확인'), unavailable=state == 'unavailable',
                   boundary_unverified=state == 'review')
     target=result_path(path)
+    if stop is not None:
+        check_cancel(stop)
     if target.exists():
         import uuid
         previous=target.parent/'versions'/(uuid.uuid4().hex+'.json'); previous.parent.mkdir(exist_ok=True)

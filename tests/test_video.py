@@ -16,9 +16,9 @@ from test_archive import metadata
 class VideoTests(unittest.TestCase):
     def test_fragment_concurrency_default_and_bounds(self):
         self.assertEqual(ydl_options()['concurrent_fragment_downloads'], 1)
-        for count in (1, 4, 16):
+        for count in (1, 4, 16, 32):
             self.assertEqual(ydl_options(count)['concurrent_fragment_downloads'], count)
-        for count in (0, 17, -1, 1.5, True, '4', None):
+        for count in (0, 33, -1, 1.5, True, '4', None):
             with self.subTest(count=count), self.assertRaises(ValueError):
                 ydl_options(count)
 

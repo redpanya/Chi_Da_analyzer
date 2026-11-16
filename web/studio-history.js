@@ -19,9 +19,14 @@ export function studioHistory({host,api,identity,refresh,onError}){
       const progress=el('progress');progress.max=1;progress.value=r.progress||0;item.append(progress,el('p',`전체 ${Math.round((r.progress||0)*100)}% · ${r.phase_name||''}${r.state==='running'&&r.phase_progress!=null?' · 현재 단계 '+Math.round(r.phase_progress*100)+'%':''} · 실행 시간 ${timecode((r.elapsed_seconds||0)*1000)}`));
       item.append(el('p',`완성 영상 ${(r.output_bytes/1024**2||0).toFixed(1)}MiB · ${r.folder||''}`));
       const files=el('div'),actions=el('div');files.className='studio-output-files';actions.className='studio-output-actions';
-      if(r.state==='running'){const b=el('button','작업 중단');b.onclick=()=>api('studio-stop',identity()).then(refresh).catch(onError);item.append(b);}
+      if(r.state==='running'){const b=el('button','작업 중단');b.onclick=()=>api('studio-stop',{...identity(),run:r.id}).then(refresh).catch(onError);item.append(b);}
       else if(r.state!=='complete'){const b=el('button','완료 자료에서 이어하기');b.onclick=()=>api('studio-resume',{...identity(),run:r.id}).then(refresh).catch(onError);item.append(b);}
-      for(const [key,out] of Object.entries(r.outputs||{}))for(const [kind,name] of Object.entries(out.assets)){const a=el('a',`${out.title} · ${kind.toUpperCase()}`);a.href='file?'+new URLSearchParams({...identity(),kind:'studio',run:r.id,key:key+':'+kind});a.className='studio-output-link';a.download=name;files.append(a);}
+      for(const out of Object.values(r.outputs||{}))files.append(el('small',Object.values(out.assets).join(', ')));
+      if(files.childElementCount){
+        const button=el('button','저장 폴더 열기');
+        button.onclick=()=>api('studio-open-folder',{...identity(),run:r.id}).catch(onError);
+        actions.append(button);
+      }
       item.append(files);
       if(r.kind==='start'&&r.state!=='running'){
         if(r.state==='complete'){const b=el('button','중간 파일 정리');b.disabled=!!r.intermediates_cleaned_at;b.onclick=()=>preview(r,'intermediate');actions.append(b);}

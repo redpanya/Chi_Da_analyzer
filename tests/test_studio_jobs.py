@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import threading
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 from archive import speech_media,speech_store,voice_store,analysis_store,context_background
 from archive.jobs import Manager
@@ -34,6 +35,33 @@ class StudioJobs(unittest.TestCase):
         value=self.manager.studio.job.value
         self.assertEqual(value['state'],'complete',value.get('message'))
         return value
+    def test_manual_order_draft_render_and_open_folder(self):
+        clips=[dict(id='later',title='두 번째 시각',start_ms=2200,end_ms=2800),
+               dict(id='early',title='첫 번째 시각',start_ms=0,end_ms=750)]
+        request={'clips':clips,'options':{'mode':'joined'}}
+        studio=self.manager.studio
+        studio.dispatch('draft',self.args|{'request':request})
+        saved=studio.dispatch('info',self.args)['draft']['request']
+        self.assertEqual(saved['clips'],clips)
+        studio.dispatch('start',self.args|{'request':saved})
+        run=self.finish()
+        file=studio.file(self.path,run['id'],'joined:video')
+        def pixels(path,seconds):
+            return subprocess.check_output(['ffmpeg','-v','error','-ss',str(seconds),'-i',str(path),
+                '-frames:v','1','-vf','scale=16:9','-pix_fmt','gray','-f','rawvideo','-'])
+        for output_time,source_time,other_time in [(0.1,2.3,0.1),(0.7,0.1,2.3)]:
+            frame=pixels(file,output_time)
+            def difference(t):
+                return sum(abs(a-b) for a,b in zip(frame,pixels(self.file,t)))
+            self.assertLess(difference(source_time),difference(other_time))
+        with patch('archive.processes.open_folder') as opener:
+            studio.dispatch('open-folder',self.args|{'run':run['id']})
+            opener.assert_called_once_with(file.parent)
+            file.unlink()
+            studio.dispatch('open-folder',self.args|{'run':run['id']})
+            opener.assert_called_with(file.parent)
+            with self.assertRaises(FileNotFoundError):
+                studio.dispatch('open-folder',self.args|{'run':'f'*32})
     def test_range_audio_chat_and_parent_preserved(self):
         context_background.save(self.path,'게임 합동 방송')
         before={str(p.relative_to(self.path)):hashlib.sha256(p.read_bytes()).hexdigest() for p in self.path.rglob('*') if p.is_file()}
@@ -72,6 +100,18 @@ class StudioJobs(unittest.TestCase):
         copied=speech_store.segments(path,run);self.assertEqual([(r['start_ms'],r['end_ms']) for r in copied],[(0,500),(1000,2000)])
         self.assertEqual(copied[0]['text'],'수동 교정 보존');self.assertEqual(voice_store.rows(path)[0]['speaker_name'],'수동 이름')
         self.assertEqual(speech_store.state(self.path)['run'],id)
+    def test_read_legacy_draft_keeps_file_and_individual_settings(self):
+        target=self.path/'studio'/'draft.json'
+        value={'revision':2,'request':{'options':{'ratio':'9:16','volume':48},'clips':[
+            {'id':'first','title':'첫 구간','start_ms':0,'end_ms':500},
+            {'id':'second','title':'둘째 구간','start_ms':500,'end_ms':1000,'options':{'volume':82}}]}}
+        save_json(target,value)
+        before=target.read_bytes()
+        info=self.manager.studio.dispatch('info',self.args)
+        self.assertEqual(info['draft']['request']['clips'],value['request']['clips'])
+        self.assertEqual(info['draft']['request']['options']['face'],[70,50,30,50])
+        self.assertEqual(info['new_clip_options'],{'ratio':'original','volume':100})
+        self.assertEqual(target.read_bytes(),before)
     def test_draft_conflict_and_paths(self):
         req={'clips':[{'title':'테스트','start_ms':0,'end_ms':1000}],'options':{'caption_x':5.5,'caption_y':-10}}
         self.manager.studio.dispatch('draft',self.args|{'request':req,'revision':0})
@@ -82,6 +122,12 @@ class StudioJobs(unittest.TestCase):
         with self.assertRaises(ValueError):local(self.path,'../../outside')
         link=self.path/'studio/runs';link.symlink_to(self.root)
         with self.assertRaises((Conflict,ValueError)):run_file(self.path,'c'*32)
+    def test_save_without_captions_during_speech_write(self):
+        request = {'clips': [{'title': '동시 저장', 'start_ms': 0, 'end_ms': 1000}]}
+        with ProjectLock(self.path, write=['speech', 'voices']):
+            self.manager.studio.dispatch('start', self.args | {'request': request})
+            self.finish()
+
     def test_resume_outputs_and_immutable_request(self):
         request={'clips':[{'title':'x','start_ms':0,'end_ms':1000}]}
         self.manager.studio.dispatch('start',self.args|{'request':request})
@@ -93,6 +139,15 @@ class StudioJobs(unittest.TestCase):
         request=validate({'start_ms':0,'end_ms':1000,'settings':{'steps':[]}},None,load_project(self.path,'1'),remote=True)
         self.assertEqual(request['settings']['steps'],[])
         with self.assertRaises(ValueError):validate({'start_ms':0,'end_ms':1000,'settings':{'steps':['context']}},None,load_project(self.path,'1'),remote=True)
+
+    def test_stop_uses_selected_run_even_on_same_vod(self):
+        workers = [SimpleNamespace(file=run_file(self.path, c*32), path=self.path,
+                                   closed=False, stop=threading.Event()) for c in ('a', 'b')]
+        with patch.object(self.manager.tasks, 'workers', [('studio', w) for w in workers]):
+            with self.assertRaises(ValueError):
+                self.manager.studio.dispatch('stop', self.args)
+            self.manager.studio.dispatch('stop', self.args | {'run':'a'*32})
+        self.assertEqual([w.stop.is_set() for w in workers], [True, False])
 
     def test_image_font_draft_restore_and_original_preserved(self):
         import base64,io

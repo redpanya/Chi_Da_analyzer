@@ -9,7 +9,7 @@ export function createBackground({api,message,onChange=()=>{},onLoad=()=>{},onEd
   const values=()=>({background:$('background').value,custom_request:$('custom').value});
   const identity=()=>({root:project.root,vod_id:project.vod_id});
   function controls(){
-    for(const id of ['background','custom','background-save'])$(id).disabled=!project||project.locked||busy||!loaded;
+    for(const id of ['background','custom','background-save'])$(id).disabled=!project||busy||!loaded;
     onChange();
   }
   function render(){
@@ -24,7 +24,7 @@ export function createBackground({api,message,onChange=()=>{},onLoad=()=>{},onEd
     settings.custom_requests=value.custom_requests||{};if(snapshot)return;render();onLoad();
   });
   async function save(){
-    if(!project||project.locked||!loaded||busy)return false;
+    if(!project||!loaded||busy)return false;
     const owner=project.path,request=serial,selected=active,revision=edits,input=values();busy=true;controls();
     try{
       const saved=await api('context-background-save',{...identity(),text:input.background,mode:selected,custom_request:input.custom_request});

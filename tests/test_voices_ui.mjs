@@ -37,9 +37,15 @@ assert.equal($('voices-number').disabled,false);assert.match($('voices-resume-hi
 await $('voices-run').onclick();assert.deepEqual(calls.at(-1).data.options,{backend:'fluid',speakers:4});
 project={...project,voices:{...project.voices,updated_at:'폴링'}};view.setProject(project);await settle();
 assert.equal($('voices-backend').value,'fluid');
-project={...project,locked:true};view.setProject(project);
+project={...project,locked:true,analysis_running:true};view.setProject(project);
+assert.equal($('voices-backend').disabled,false);assert.equal($('voices-run').disabled,false);
+assert.equal($('voices-tool-install').disabled,false);assert.equal($('voices-tool-check').disabled,false);
+const requested=$('voices-tool-check').onclick();
 assert.equal($('voices-backend').disabled,true);assert.equal($('voices-run').disabled,true);
 assert.equal($('voices-tool-install').disabled,true);assert.equal($('voices-tool-check').disabled,true);
+await requested;
+assert.equal(calls.at(-1).data.action,'check-engine');
+assert.equal($('voices-run').disabled,false);
 project={...project,path:'/검증/vod-2',locked:false,voices:{runs:[],stems:[],backend:'fluid'}};view.setProject(project);await settle();
 assert.equal($('voices-backend').value,'fluid');assert.equal($('voices-number').disabled,false);
 project={...project,path:'/검증/이전-nemo',voices:{runs:[],stems:[],backend:'nemo'}};view.setProject(project);await settle();

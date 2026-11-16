@@ -92,7 +92,8 @@ class SummaryTests(unittest.TestCase):
 
     def test_execution_dispatch_partial_status_and_reuse_report(self):
         from archive.automation_steps import execute
-        manager=SimpleNamespace(context_start=Mock(), context_job=SimpleNamespace(closed=True), reports=Mock())
+        manager=SimpleNamespace(tasks=SimpleNamespace(local=SimpleNamespace(worker=None)), reports=Mock())
+        manager.context_start=Mock(side_effect=lambda *args: setattr(manager.tasks.local,'worker',SimpleNamespace(closed=True)))
         queue=SimpleNamespace(manager=manager,root=str(self.path),stop=threading.Event())
         entry={'vod':'1','options':self.settings}
         with patch('archive.automation_steps.project_path',return_value=self.path), patch('archive.automation_steps.load_project',return_value={}), patch('archive.automation_steps.ready'):
@@ -107,7 +108,8 @@ class SummaryTests(unittest.TestCase):
 
     def test_pause_during_summary_keeps_next_mode_unstarted(self):
         from archive.automation_steps import execute, Paused
-        manager=SimpleNamespace(context_start=Mock(),context_job=SimpleNamespace(closed=True),reports=Mock())
+        manager=SimpleNamespace(tasks=SimpleNamespace(local=SimpleNamespace(worker=None)),reports=Mock())
+        manager.context_start=Mock(side_effect=lambda *args: setattr(manager.tasks.local,'worker',SimpleNamespace(closed=True)))
         stop=threading.Event();stop.set()
         queue=SimpleNamespace(manager=manager,root=str(self.path),stop=stop)
         with patch('archive.automation_steps.project_path',return_value=self.path), patch('archive.automation_steps.load_project',return_value={}), patch('archive.automation_steps.ready'):

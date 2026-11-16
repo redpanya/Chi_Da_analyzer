@@ -24,11 +24,15 @@ def sync_item(item, data):
     if data.get('video_generation') and item['format'] != data['format_id']:
         choice = next(f for f in data['metadata']['formats'] if f['id'] == data['format_id'])
         item.update(format=choice['id'], quality=choice['label'], title=data['metadata']['title'])
+        if 'concurrent_fragments' in data['tasks']['video']:
+            item['options']['concurrent_fragments'] = data['tasks']['video']['concurrent_fragments']
         if choice['height'] in (480, 720, 1080):
             item['options']['height'] = choice['height']
 
 
-def change(manager, root, vod, expected, selected, existing=None):
+def change(manager, root, vod, expected, selected, existing=None, concurrent_fragments=None):
+    if concurrent_fragments is not None:
+        source.fragment_concurrency(concurrent_fragments)
     path = project_path(root, vod)
     with manager.guard:
         manager.project_idle(path)
@@ -67,6 +71,10 @@ def change(manager, root, vod, expected, selected, existing=None):
                     raise Conflict('같은 구간·화질의 VOD가 이미 있습니다. 저장한 VOD 목록에서 해당 항목을 여세요')
                 title = data['metadata'].get('source_title') or info['title']
                 title = f'{title} · 구간 {download_scope.timecode(scope["start_ms"])}–{download_scope.timecode(scope["end_ms"])} · {choice["height"]}p'
+            count = concurrent_fragments
+            if count is None:
+                count = video_replacement.transfer_tasks(data)['video'].get('concurrent_fragments',
+                    data['tasks']['video'].get('concurrent_fragments'))
             if existing is not None:
                 video_replacement.stage(path, data, choice, info['formats'], existing, title)
             else:
@@ -74,6 +82,8 @@ def change(manager, root, vod, expected, selected, existing=None):
                 data.update(format_id=selected, video_generation=uuid.uuid4().hex)
                 data['tasks']['video'] = dict(state='idle', assets={}, progress={},
                     message=f'{choice["label"]} 선택 · 시작하면 영상을 처음부터 받습니다')
+            if count is not None:
+                video_replacement.transfer_tasks(data)['video']['concurrent_fragments'] = count
             data['updated_at'] = stamp()
             save_json(path/'project.json', data)
             project.data = data
@@ -89,7 +99,7 @@ def change(manager, root, vod, expected, selected, existing=None):
                 raise Conflict('영상 중단 처리가 끝난 뒤 다시 시도하세요')
             data = apply(job.project)
         else:
-            manager.speech_idle()
+            # 파일 교체는 아래의 전체 VOD 잠금으로 보호한다.
             with ProjectLock(path) as lock:
                 data = apply(Project(path, load_project(path, vod), lock))
         for item in queue['items']:
@@ -98,7 +108,7 @@ def change(manager, root, vod, expected, selected, existing=None):
 
     with manager.guard:
         manager.project_idle(path)
-        manager.automation.idle()
+
         manager.automation.change(str(base), update_queue)
         if existing is not None:
             return manager.start(root, vod, expected, 'video')

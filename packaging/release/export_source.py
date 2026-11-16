@@ -12,6 +12,8 @@ def export(target, *, docs=True):
     target=target.resolve()
     if target==ROOT or target in ROOT.parents:raise ValueError('별도 내보내기 폴더를 선택하세요')
     files=[ROOT/'app.py',ROOT/'requirements.txt',ROOT/'.gitignore',ROOT/'.gitattributes',ROOT/'LICENSE',ROOT/'THIRD-PARTY-NOTICES.md']
+    files += [p for p in (ROOT/'desktop').iterdir() if p.is_file() and not p.is_symlink()
+              and (p.suffix == '.cjs' or p.name in ('release-public.pem', 'package.json', 'package-lock.json', 'replace_windows.py'))]
     files += [p for p in (ROOT/'licenses').rglob('*') if p.is_file() and not p.is_symlink()]
     files += [p for p in (ROOT/'packaging/release/legal-recipes').rglob('*') if p.is_file() and not p.is_symlink()]
     for name in ('archive','web','workers','tests','.github','native', *(('docs',) if docs else ())):

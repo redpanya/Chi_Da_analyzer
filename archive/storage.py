@@ -19,6 +19,11 @@ class Conflict(ValueError):
     pass
 
 
+class ResourceBusy(Conflict):
+    """실행 중인 자료 사용이 끝나면 같은 요청을 재시도할 수 있다."""
+    pass
+
+
 def stamp():
     return datetime.now(timezone.utc).isoformat()
 
@@ -74,26 +79,55 @@ def project_path(root, vod):
     return path
 
 
+_lanes = {name: threading.Lock() for name in ('download', 'context')}
+_lanes['transcribe'] = threading.BoundedSemaphore(3)
+
+
 class ProjectLock:
-    def __init__(self, path):
+    def __init__(self, path, *, read=None, write=None, lanes=()):
         self.fd = None
-        self.path = path
-        fd = None
+        self.lanes = []
+        self.children = []
+        self.extra_fds = []
+        self.path = Path(path)
+        scoped = read is not None or write is not None
+        resources = {name: False for name in (read or ())}
+        resources.update({name: True for name in (write or ())})
+        if any(not re.fullmatch(r'[a-z][a-z0-9_-]*', name) for name in resources):
+            raise ValueError('잠금 자원 이름이 올바르지 않습니다')
         try:
+            for name in sorted(set(lanes)):
+                if not _lanes[name].acquire(blocking=False):
+                    raise ResourceBusy({'download': '다운로드가', 'context': 'AI 분석이', 'transcribe': '전사 작업 3개 중 하나가'}[name] + ' 끝나면 이어서 실행합니다')
+                self.lanes.append(_lanes[name])
+            self.path.mkdir(parents=True, exist_ok=True)
             if os.name == 'nt':
-                from .windows_runtime import exclusive_file, move_guard
-                with move_guard(path):
-                    path.mkdir(parents=True, exist_ok=True)
-                    fd = exclusive_file(path / '.write.lock')
+                from .windows_runtime import move_guard
+                with move_guard(self.path):
+                    self.fd = self.acquire(self.path / '.write.lock', shared=scoped)
             else:
-                import fcntl
-                path.mkdir(parents=True, exist_ok=True)
-                fd = os.open(path / '.write.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            if fd is not None: os.close(fd)
-            raise Conflict('다른 작업이 이 VOD 폴더를 사용 중입니다. 완료 또는 중단을 기다리세요') from None
-        self.fd = fd
+                self.fd = self.acquire(self.path / '.write.lock', shared=scoped)
+            for name, exclusive in sorted(resources.items()):
+                self.extra_fds.append(self.acquire(self.path / ('.resource-' + name + '.lock'), shared=not exclusive))
+        except BaseException as error:
+            self.close()
+            if isinstance(error, BlockingIOError):
+                raise ResourceBusy('같은 자료를 사용하는 작업이 끝나면 이어서 실행합니다') from None
+            raise
+
+    @staticmethod
+    def acquire(path, shared=False):
+        if os.name == 'nt':
+            from .windows_runtime import exclusive_file
+            return exclusive_file(path, shared=shared)
+        import fcntl
+        fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        try:
+            fcntl.flock(fd, (fcntl.LOCK_SH if shared else fcntl.LOCK_EX) | fcntl.LOCK_NB)
+        except BaseException:
+            os.close(fd)
+            raise
+        return fd
 
     @contextmanager
     def moving(self):
@@ -111,6 +145,15 @@ class ProjectLock:
                 if self.path.exists(): self.fd = exclusive_file(self.path / '.write.lock')
 
     def close(self):
+        for child in self.children:
+            child.close()
+        self.children.clear()
+        for lane in self.lanes:
+            lane.release()
+        self.lanes.clear()
+        for fd in self.extra_fds:
+            os.close(fd)
+        self.extra_fds.clear()
         if self.fd is not None:
             os.close(self.fd)
             self.fd = None
@@ -146,7 +189,7 @@ def create_or_load(path, metadata, format_id, local_input=None):
     # ExFAT에서는 잠금 파일 생성만으로도 macOS의 AppleDouble 보조 파일이 생긴다.
     allowed = {'.write.lock', '._.write.lock', '.DS_Store', '._.DS_Store'}
     unregistered = sorted(p.name for p in path.iterdir()
-                          if p.name not in allowed or p.is_symlink() or not p.is_file())
+                          if (p.name not in allowed and not re.fullmatch(r'(?:\._)?\.resource-[a-z][a-z0-9_-]*\.lock', p.name)) or p.is_symlink() or not p.is_file())
     if unregistered:
         raise Conflict(f'VOD 폴더에 등록되지 않은 자료가 있어 시작할 수 없습니다. '
                        f'폴더: {path} / 항목: {", ".join(unregistered[:5])}. '

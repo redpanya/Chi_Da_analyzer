@@ -20,8 +20,9 @@ def download(project, stop):
     def update(**values):
         fraction = values.get('progress', 0)
         project.update('video', state='verifying' if fraction >= .85 else 'running',
-                       message='지정 구간 영상 전체 검사 중' if fraction >= .85 else '지정 구간 영상 다운로드 중',
-                       progress={'percent':round(fraction*100,1)})
+                       message=values.get('message') or ('지정 구간 영상 전체 검사 중' if fraction >= .85 else '지정 구간 영상 다운로드 중'),
+                       progress={'percent':round(fraction*100,1)} | {key:values[key] for key in
+                                ('phase','connections','limit','speed','processing_rate','downloaded_bytes','total_bytes') if key in values})
     if target.exists():
         proof = clip_render.verify(target, (scope['end_ms']-scope['start_ms'])/1000, stop, project.lock,
                                    lambda **v:update(progress=.85+v.get('progress',0)*.15))
@@ -29,7 +30,8 @@ def download(project, stop):
         # 중단된 인코딩 결과는 덮어쓰지 않는다. 완료된 영상과 채팅 페이지는 재사용한다.
         part = folder/f'range-{uuid.uuid4().hex}.part.mp4'
         proof = remote_media.receive(data['vod_id'], scope['start_ms'], scope['end_ms'], part,
-                                     stop, project.lock, update, format_id=data['format_id'])
+                                     stop, project.lock, update, format_id=data['format_id'],
+                                     concurrent_fragments=data['tasks']['video'].get('concurrent_fragments', 1))
         check_cancel(stop)
         part.replace(target)
     digest = hashlib.sha256()
@@ -40,6 +42,7 @@ def download(project, stop):
                  files={k:media_timeline.identity(target) for k in ('original','playback')})
     save_json(folder/'probe.json', clip_render.probe(target))
     save_json(folder/'range-verification.json', proof)
+    check_cancel(stop)
     project.update('video', state='complete', message='지정 구간 영상 다운로드·전체 검사 완료', verification=proof,
                    assets=dict.fromkeys(('original','playback'),str(target.relative_to(project.path))),
                    progress={'percent':100, 'downloaded_bytes':target.stat().st_size, 'total_bytes':target.stat().st_size})

@@ -59,7 +59,7 @@ class ComputeTests(unittest.TestCase):
 
     def test_busy_rejects_change_before_writing(self):
         with tempfile.TemporaryDirectory() as folder:
-            manager=Manager(folder); manager.analysis_path=Path(folder)
+            manager=Manager(folder); manager.analysis_paths.add(Path(folder))
             with patch.object(compute,'apply') as apply:
                 with self.assertRaises(Conflict):manager.compute_settings({'mode':'hybrid'})
                 apply.assert_not_called()

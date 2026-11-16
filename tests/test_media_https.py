@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from archive import media_errors, remote_media, speech_media
+from archive.source import Cancelled
 from archive.storage import ProjectLock
 
 
@@ -88,6 +89,18 @@ class MediaHttpsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'HTTPS'):
                 remote_media.receive('1', 0, 1000, self.path/'range.mp4', threading.Event(), None, lambda **v: None)
         command.assert_not_called()
+
+    def test_unsupported_index_uses_single_exact_cut(self):
+        with patch.object(remote_media, 'YoutubeDL') as dl, \
+             patch.object(remote_media,'mp4_jobs',side_effect=remote_media.http_download.RangeUnsupported('부분 요청 미지원')), \
+             patch.object(remote_media.clip_render,'command') as single, patch.object(remote_media.clip_render,'verify',return_value={}):
+            dl.return_value.__enter__.return_value.extract_info.return_value = {'url':'https://example.invalid/v.mp4','protocol':'https'}
+            states = []
+            remote_media.receive('1',3000,9000,self.path/'part.mp4',threading.Event(),None,
+                                 lambda **v:states.append(v),concurrent_fragments=32)
+            self.assertEqual(single.call_count,1)
+            self.assertIn('3.0',single.call_args.args[0])
+            self.assertTrue(any('부분 요청 미지원' in v.get('message','') for v in states))
 
     def test_release_https_check_pins_real_process_paths(self):
         script = Path(__file__).resolve().parents[1]/'packaging/release/check_https.py'

@@ -13,7 +13,7 @@ import {createCaptionDesign} from './studio-caption-design.js';
 import {captionTemplates} from './studio-caption-templates.js';
 const $=id=>document.getElementById(id);
 const el=(tag,text='')=>{const e=document.createElement(tag);e.textContent=text;return e;};
-export function createStudioTools({api,identity,video,selection,getRatio,setRatio,getActive,restore,rangeDrafts,restoreRangeDrafts,onCaptionPreview,onUndoPoint}){
+export function createStudioTools({api,identity,video,isMediaReady,mix=null,selection,getRatio,setRatio,getActive,restore,rangeDrafts,restoreRangeDrafts,onCaptionPreview,onUndoPoint}){
   let revision=0,catalog=[],origin=0,ready=false,running=false,refreshing=false,designs={};
   const status=$('render-state'),history=$('render-history');
   const captionSize=bindCaptionSize($('caption-size'),$('caption-size-input'),$('caption-size-error'));
@@ -25,8 +25,8 @@ export function createStudioTools({api,identity,video,selection,getRatio,setRati
     transition:$('transition').value,volume:Number($('volume').value),brightness:Number($('brightness').value),contrast:Number($('contrast').value),saturation:Number($('saturation').value),fade:Number($('effect-fade').value),
     caption:$('caption-enabled').checked,style:captionDesign.style(),caption_design:captionDesign.read(),font:$('caption-font').value,caption_language:$('caption-language').value,font_size:Number($('caption-size').value),position:$('caption-position').value,caption_x:Number($('caption-x').value),caption_y:Number($('caption-y').value),image:decorations.imageOptions(),sidecar:$('sidecar').checked,speed:$('render-speed').value};}
   const input=()=>$('caption-version').value?{transcript_run:$('caption-version').value,speaker_run:null}:null;
-  const request=()=>({clips:selection().map(r=>({id:r.id,title:r.title,start_ms:r.start_ms,end_ms:r.end_ms,...(r.options?{options:r.options}:{})})),options:profiles.common(options()),selection:input(),caption_edits:captions.edits(),caption_versions:captions.versions(),range_drafts:rangeDrafts()});
-  const session=createEditSession({read:request,status:$('studio-save-state'),save:async value=>{if(!captionSize.valid())throw Error($('caption-size-error').textContent);if(!captionDesign.valid())throw Error($('caption-design-error').textContent);const issues=frameErrors(options(),video.videoWidth,video.videoHeight);if(Object.keys(issues).length)throw Error(Object.values(issues)[0]);const saved=await api('studio-draft',{...identity(),revision,request:value});revision=saved.revision;}});
+  const request=()=>({clips:selection().map(r=>({id:r.id,title:r.title,start_ms:r.start_ms,end_ms:r.end_ms,options:profiles.rowOptions(r)})),options:profiles.outputOptions(options()),selection:input(),caption_edits:captions.edits(),caption_versions:captions.versions(),range_drafts:rangeDrafts(),...(mix?{mix_profiles:mix.profileEdits()}:{})});
+  const session=createEditSession({read:request,status:$('studio-save-state'),save:async value=>{if(!captionSize.valid())throw Error($('caption-size-error').textContent);if(!captionDesign.valid())throw Error($('caption-design-error').textContent);const issues=frameErrors(options(),video.videoWidth,video.videoHeight);if(Object.keys(issues).length)throw Error(Object.values(issues)[0]);const saved=mix?await mix.save(value):await api('studio-draft',{...identity(),revision,request:value});revision=saved.revision;}});
   function buttons(){
     if(!ready||profiles.restoring())return;
     profiles.capture();
@@ -42,7 +42,9 @@ export function createStudioTools({api,identity,video,selection,getRatio,setRati
     decorations.busy(running);
     $('draft-save').disabled=Object.keys(frameProblems).length>0||running||!captionSize.valid()||!captionDesign.valid();session.changed();
   }
-  const captions=studioCaptions({api,identity,video,selection,onPreview:onCaptionPreview,onChange:()=>{if(ready)session.changed();},onState:buttons});
+  const captionAPI=(action,data)=>mix&&data.selection?.transcript_run==='mix-snapshot'
+    ?Promise.resolve({rows:mix.data.caption_rows}):api(action,data);
+  const captions=studioCaptions({api:captionAPI,identity,video,selection,onPreview:onCaptionPreview,onChange:()=>{if(ready)session.changed();},onState:buttons});
   const decorations=studioDecorations({api,identity,video,read:options,onChange:buttons});
   function canSwitch(){
     if(!decorations.uploading())return true;
@@ -56,21 +58,24 @@ export function createStudioTools({api,identity,video,selection,getRatio,setRati
     for(const id of ['caption-size','frame-fit','volume'])$(id).oninput?.();
     document.dispatchEvent(new Event('studio-profile-change'));
   }
-  const profiles=studioProfiles({api,identity,read:options,write:writeProfile,selection,onChange:buttons,canSwitch,onUndoPoint,
+  const profiles=studioProfiles({api,identity,mix,read:options,write:writeProfile,selection,onChange:buttons,canSwitch,onUndoPoint,
     valid:()=>captionSize.valid()&&captionDesign.valid()&&!Object.keys(frameErrors(options(),video.videoWidth,video.videoHeight)).length});
+  mix?.bind(session,profiles);
   document.addEventListener('input',buttons);document.addEventListener('change',buttons);
   document.addEventListener('click',()=>queueMicrotask(buttons));
   function layout(){const split=$('frame-layout').value==='split';$('split-controls').hidden=!split;if(split)setRatio('9:16');for(const b of document.querySelectorAll('[data-ratio]'))b.disabled=split&&b.dataset.ratio!=='9:16';}
   $('frame-layout').onchange=layout;
-  createFramePreview(video,options);
+  const preview=createFramePreview(video,options,()=>ready&&isMediaReady());
   async function refresh(){
     if(!ready||refreshing)return;refreshing=true;
-    try{const value=await api('studio-status',identity());historyUI.set(value.runs);
+    try{
+      if(mix){const job=await mix.status();if(job){running=job.state==='running';buttons();}return;}
+      const value=await api('studio-status',identity());historyUI.set(value.runs);
       running=value.runs.some(r=>r.state==='running');buttons();
     }catch(e){error(e);}finally{refreshing=false;}
   }
   function error(e){status.textContent=e.message;}
-  const historyUI=studioHistory({host:history,api,identity,refresh,onError:error});
+  const historyUI=mix?null:studioHistory({host:history,api,identity,refresh,onError:error});
   let spaceKey='';
   async function checkSpace(){
     const value=request(),key=JSON.stringify(value);$('render-space').textContent='저장 공간 계산 중…';
@@ -81,11 +86,12 @@ export function createStudioTools({api,identity,video,selection,getRatio,setRati
   $('render-space-check').onclick=checkSpace;
 
   $('draft-save').onclick=()=>session.save().catch(error);
-  $('render-start').onclick=async()=>{try{if(!profiles.previewCurrent()||$('render-start').disabled)return;$('render-start').disabled=true;status.textContent='영상 저장을 시작합니다.';await session.save();await api('studio-start',{...identity(),request:request()});await refresh();}catch(e){error(e);buttons();}};
+  $('render-start').onclick=async()=>{try{if($('render-start').disabled)return;$('render-start').disabled=true;status.textContent='영상 저장을 시작합니다.';await session.save();if(mix)await mix.start();else await api('studio-start',{...identity(),request:request()});await refresh();}catch(e){error(e);buttons();}};
   pagePolling(refresh,1500);
-  return {preparePresets:profiles.preparePresets,previewCurrent:profiles.previewCurrent,beforeSelect(){if(!canSwitch())return false;if(ready)profiles.capture();return true;},activeChanged(row){if(ready)profiles.select(row);else profiles.labels(row);},profileChecked:id=>profiles.checked(id),checkProfile:(id,value)=>profiles.check(id,value),selectionChanged(){profiles.labels(getActive());captions.render();buttons();},async init(project){
+  return {holdFrame:preview.holdFrame,allowMixSwitch:()=>ready&&canSwitch()&&session.allow(),preparePresets:profiles.preparePresets,beforeSelect(){if(!canSwitch())return false;if(ready)profiles.capture();return true;},activeChanged(row){if(ready)profiles.select(row);else profiles.labels(row);},profileChecked:id=>profiles.checked(id),checkProfile:(id,value)=>profiles.check(id,value),selectionChanged(){if(!ready)return;profiles.labels(getActive());captions.render();buttons();},async init(project,data){
+    const replacing=ready;ready=false;
     origin=Number(project.input?.start_vod_ms)||0;
-    const data=await api('studio-info',identity());catalog=data.inputs.transcripts.filter(r=>r.complete);$('caption-version').replaceChildren(new Option('자막 사용 안 함',''),...catalog.map(r=>new Option(r.label,r.id)));
+    catalog=data.inputs.transcripts.filter(r=>r.complete);$('caption-version').replaceChildren(new Option('자막 사용 안 함',''),...catalog.map(r=>new Option(r.label,r.id)));
     if(catalog.length)$('caption-version').value=catalog[0].id;
     if(data.draft){
       revision=data.draft.revision;const draft=data.draft.request,o=draft.options;restore(draft.clips);restoreRangeDrafts(draft.range_drafts||{});
@@ -98,11 +104,17 @@ export function createStudioTools({api,identity,video,selection,getRatio,setRati
       $('caption-enabled').checked=o.caption;$('sidecar').checked=o.sidecar;document.querySelector(`[name=output-mode][value=${o.mode}]`).checked=true;setRatio(o.ratio);layout();
     }
     designs=data.caption_designs;captionDesign.init(designs,data.draft?.request?.options);
-    captionSize.sync();await decorations.init(data.draft?.request?.options);
-    captions.init(origin,data.draft?.request);await captions.load();profiles.init(data.draft?.request?.options||options(),getActive());ready=true;
-    const baseline=request(),storedSize=data.draft?.request?.options?.font_size;
-    // 이전 초안의 소수 크기는 정수로 표시하되 명시적으로 저장하기 전까지 변경 상태로 둔다.
-    if(Number.isFinite(storedSize))baseline.options.font_size=storedSize;
-    session.accept(data.draft?.updated_at,baseline);await templates.load();await refresh();$('caption-enabled').dispatchEvent(new Event('input'));
+    captionSize.sync();
+    if(!replacing){
+      const loading=decorations.init(data.draft?.request?.options);
+      if(mix)void loading.catch(error);else await loading;
+    }
+    captions.init(origin,data.draft?.request);
+    const loadingCaptions=captions.load();
+    if(!mix)await loadingCaptions;
+    profiles.init({...options(),...data.draft?.request?.options},getActive(),data.new_clip_options);ready=true;
+    const initial=request();mix?.accept(initial);session.accept(data.draft?.updated_at,initial);
+    if(!replacing){void templates.load();void refresh();}
+    $('caption-enabled').dispatchEvent(new Event('input'));
   }};
 }

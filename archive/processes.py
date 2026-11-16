@@ -1,9 +1,18 @@
 """운영체제별 잠금 상속과 취소. 실행 중 자료의 중복 쓰기를 방지한다."""
 import os
 import subprocess
+import sys
 import threading
 
 _spawn_lock = threading.Lock()
+
+
+def open_folder(folder):
+    if os.name == 'nt':
+        os.startfile(str(folder))
+    else:
+        popen(['/usr/bin/open' if sys.platform == 'darwin' else 'xdg-open', str(folder)])
+    return {'ok': True}
 
 
 def inherited_lock(fd):

@@ -27,14 +27,32 @@ const newPreview=historyHost.children[1].children.at(-1).children[0].onclick();h
 historyCalls[0]({token:'A',bytes:0,folder:'A'});await oldPreview;await historyDialog.children[4].onclick();assert.equal(cleanRequest.run,'B');assert.equal(cleanRequest.token,'B');
 // 이동 취소, 저장 실패, 저장 도중 입력 변경, 이탈 경고.
 let data={nested:{value:'처음'}},written,fail=false;const events=new Element();globalThis.addEventListener=events.addEventListener.bind(events);
+globalThis.navigation=new Element();
 const session=createEditSession({read:()=>data,status:$('status'),save:async value=>{if(fail)throw Error('충돌');written=value;}});session.accept();data.nested.value='수정';session.changed();assert(session.dirty());
-const dialog=document.body.children.at(-1);let choice=session.allow();dialog.children.at(-1).onclick();assert.equal(await choice,false);
-fail=true;choice=session.allow();await dialog.children[2].onclick();assert(dialog.open);assert(session.dirty());fail=false;await dialog.children[2].onclick();assert(await choice);assert(!session.dirty());
+const dialog=document.body.children.at(-1);let choice=session.allow();dialog.children.at(-1).onclick();assert.equal(await choice,false);assert(!dialog.open);
+fail=true;choice=session.allow();await dialog.children[2].onclick();assert(dialog.open);assert(session.dirty());fail=false;await dialog.children[2].onclick();assert(await choice);assert(!session.dirty());assert(!dialog.open,'믹스 구간 전환은 같은 문서에서 확인창을 닫는다');
 data.nested.value='스냅샷';const save=session.save();data.nested.value='나중';await save;assert.equal(written.nested.value,'스냅샷');assert(session.dirty());
 let warned=false;events.dispatchEvent({type:'beforeunload',preventDefault(){warned=true;}});assert(warned);
+const destinations=[];
+globalThis.location={href:'http://localhost/session/clip-studio.html',pathname:'/session/clip-studio.html',assign:href=>destinations.push(href)};
+const backLink=new URL('./#library',location.href);
+document.dispatchEvent({type:'click',target:{closest:()=>backLink},preventDefault(){}});
+await dialog.children[3].onclick();await flush();assert.deepEqual(destinations,[backLink.href]);assert(dialog.open,'편집기를 다시 드러내지 않고 다른 문서로 이동한다');
+events.dispatchEvent({type:'beforeunload',preventDefault(){assert.fail('이미 확인한 탐색');}});
+events.dispatchEvent({type:'pageshow',persisted:true});assert(!dialog.open,'뒤로가기로 복원된 편집기는 다시 사용할 수 있다');
+warned=false;events.dispatchEvent({type:'beforeunload',preventDefault(){warned=true;}});assert(warned);
+document.dispatchEvent({type:'click',target:{closest:()=>new URL('#range',location.href)},preventDefault(){assert.fail('현재 문서 내 링크');}});
+document.dispatchEvent({type:'click',shiftKey:true,target:{closest:()=>backLink},preventDefault(){assert.fail('새 창 열기');}});
+document.dispatchEvent({type:'click',target:{closest:()=>backLink},preventDefault(){}});
+await dialog.children[4].onclick();await flush();assert(!dialog.open);assert.equal(destinations.length,1);
+document.dispatchEvent({type:'click',target:{closest:()=>backLink},preventDefault(){}});
+fail=true;await dialog.children[2].onclick();assert(dialog.open);assert.equal(destinations.length,1);
+fail=false;await dialog.children[2].onclick();await flush();assert(dialog.open);assert.equal(destinations.length,2);
+navigation.dispatchEvent({type:'navigateerror'});assert(!dialog.open,'문서 이동이 취소되면 확인창을 정리한다');
+
 // 이전 초안의 소수 크기를 정수로 적용한 상태는 자동 저장되지 않고 변경으로 남는다.
 data={options:{font_size:35}};const savedDraft={options:{font_size:34.682}};
-session.accept(null,savedDraft);assert(session.dirty());assert.equal(savedDraft.options.font_size,34.682);assert.equal(written.nested.value,'스냅샷');
+session.accept(null,savedDraft);assert(session.dirty());assert.equal(savedDraft.options.font_size,34.682);assert.equal(written.nested.value,'나중');
 await session.save();assert.equal(written.options.font_size,35);assert(!session.dirty());
 session.accept();assert(!session.dirty());
 // 전사 A보다 B 응답이 먼저 와도 B만 표시하고 버전별 교정 유지.
@@ -61,6 +79,34 @@ for(const hours of [1,10,20]){
 const detail=new Element();let builds=0;lazyDetails(detail,()=>builds++);detail.dispatchEvent({type:'toggle'});assert.equal(builds,0);detail.open=true;detail.dispatchEvent({type:'toggle'});detail.dispatchEvent({type:'toggle'});assert.equal(builds,1);
 const grouped=groupReactionTimes([1000,1050,1050,1100,1200],1100,2000);assert.equal(grouped.length,2);assert.deepEqual(grouped[0].raw,[1000,1050]);assert.deepEqual(grouped[1].raw,[1100,1200]);
 globalThis.getComputedStyle=()=>({getPropertyValue:()=>''});
-const frames=new Map();let next=0;globalThis.window=new Element();globalThis.requestAnimationFrame=fn=>{frames.set(++next,fn);return next;};globalThis.cancelAnimationFrame=id=>frames.delete(id);createFramePreview(new Element(),()=>({}));assert.equal(frames.size,1);window.dispatchEvent({type:'pagehide'});assert.equal(frames.size,0);window.dispatchEvent({type:'pageshow'});window.dispatchEvent({type:'pageshow'});assert.equal(frames.size,1);
+const frames=new Map();let next=0;globalThis.window=new Element();globalThis.requestAnimationFrame=fn=>{frames.set(++next,fn);return next;};globalThis.cancelAnimationFrame=id=>frames.delete(id);createFramePreview(new Element(),()=>({}),()=>false);assert.equal(frames.size,1);window.dispatchEvent({type:'pagehide'});assert.equal(frames.size,0);window.dispatchEvent({type:'pageshow'});window.dispatchEvent({type:'pageshow'});assert.equal(frames.size,1);
+// 새 영상이 디코딩되고 탐색이 끝날 때까지 이전 영상 프레임을 표시한다.
+window=new Element();let nextFrame,dissolve,optionsReady=false;
+const drawnTimes=[];
+globalThis.requestAnimationFrame=callback=>{nextFrame=callback;return 1;};
+document.createElement=tag=>{
+  const node=new Element(tag);
+  node.getContext=()=>({drawImage(image){if(node.id==='render-preview')drawnTimes.push(image.currentTime);},fillRect(){}});
+  node.animate=()=>dissolve={cancel(){}};
+  node.remove=()=>{node.parentElement.children=node.parentElement.children.filter(child=>child!==node);};
+  return node;
+};
+const sourceVideo=Object.assign(new Element(),{paused:true,currentTime:0,readyState:2,videoWidth:320,videoHeight:180});
+const message=$('media-empty');message.hidden=false;
+const framePreview=createFramePreview(sourceVideo,()=>({layout:'single',ratio:'original',fit:'contain'}),()=>optionsReady);
+assert.deepEqual(drawnTimes,[]);assert(!message.hidden,'영상 정보만 먼저 준비된 경우 첫 화면을 가린다');
+optionsReady=true;sourceVideo.currentTime=36;sourceVideo.seeking=true;nextFrame();
+sourceVideo.seeking=false;sourceVideo.readyState=1;nextFrame();
+assert.deepEqual(drawnTimes,[]);assert(!message.hidden,'지정한 시각을 디코딩할 때까지 기다린다');
+sourceVideo.readyState=2;nextFrame();assert.deepEqual(drawnTimes,[36]);assert(message.hidden,'첫 프레임을 그린 후 같은 프레임에서 안내를 해제한다');
+const stage=$('preview-stage');
+framePreview.holdFrame();assert.equal(stage.children.length,1);
+sourceVideo.readyState=1;nextFrame();assert.equal(dissolve,undefined);
+sourceVideo.readyState=2;sourceVideo.seeking=true;nextFrame();assert.equal(dissolve,undefined);
+sourceVideo.seeking=false;nextFrame();assert.equal(typeof dissolve.onfinish,'function');
+dissolve.onfinish();assert.equal(stage.children.length,0);
+framePreview.holdFrame();sourceVideo.error={code:3};sourceVideo.dispatchEvent({type:'error'});assert.equal(stage.children.length,0);
+message.hidden=false;nextFrame();assert(!message.hidden,'오류 전 디코딩한 프레임이 오류 안내를 덮지 않는다');
+window.dispatchEvent({type:'pagehide'});
 const opts={speed:'fast',mode:'separate',ratio:'original',layout:'single',size:'source',caption:false,sidecar:false,volume:100,brightness:0,contrast:1,saturation:1,fade:0};assert.equal(fastConflicts(opts,null).length,0);assert.deepEqual(fastConflicts({...opts,sidecar:true},{transcript_run:'B'}),['편집용 자막 끄기']);assert.equal(fastConflicts({...opts,speed:'exact',caption:true},null).length,0);
 console.log('P01~P10: 이동/충돌/교정 보존, 응답 역전, 501번째 자막, 1·10·20시간 탐색, 반응 경계, 타이머·프레임 복귀 통과');

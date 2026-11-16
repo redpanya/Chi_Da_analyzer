@@ -180,17 +180,20 @@ class ReplacementTests(unittest.TestCase):
                 raise AssertionError('중단 신호 누락')
             raise Cancelled()
         with patch.object(video,'download',side_effect=interrupted):
-            video_quality.change(self.manager,self.root,'1','360p','new','delete')
+            video_quality.change(self.manager,self.root,'1','360p','new','delete', concurrent_fragments=16)
             self.assertTrue(started.wait(4))
             self.manager.stop(self.root,'1','video')
             self.manager.job.thread.join(8)
         data=self.project()
         generation=data['video_replacement']['generation']
+        self.assertEqual(data['video_replacement']['task']['concurrent_fragments'],16)
+        self.assertNotEqual(data['tasks']['video'].get('concurrent_fragments'),16)
         self.assertEqual(data['video_replacement']['task']['state'],'paused')
         self.assertTrue(self.original.exists() and self.old.exists())
         manager=Manager(self.root)
         self.addCleanup(manager.close)
         def resumed(project, stop):
+            self.assertEqual(project.data['tasks']['video']['concurrent_fragments'],16)
             self.assertEqual((project.data['video_generation'],project.data['format_id']),(generation,'new'))
             folder=video_quality.media_directory(project);folder.mkdir(parents=True)
             target=folder/'original.mp4';shutil.copyfile(FIXTURE,target)

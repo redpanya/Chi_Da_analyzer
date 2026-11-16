@@ -36,7 +36,7 @@
 .brand-mark .brand-tile {fill:var(--ds-surface);}
 .brand-mark .brand-handle {fill:none;stroke:var(--ds-accent);stroke-width:5;stroke-linecap:round;}
 .brand-mark .brand-lens {fill:var(--ds-input);stroke:var(--ds-accent);stroke-width:2.8;}
-.brand-mark .brand-chzzk {fill:var(--ds-accent);}
+.brand-mark .brand-start-fill {fill:#00ffa3;}
 .brand-mark image {image-rendering:pixelated;}
 :root[data-theme] {
   color:var(--ds-text); background:var(--ds-bg);
@@ -149,6 +149,15 @@
 :root[data-theme] wa-button:not(:defined) {display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:8px 12px;border:1px solid var(--ds-border-strong);border-radius:8px;background:var(--ds-surface);color:var(--ds-text);}
 :root[data-theme] wa-badge::part(base) {font-family:inherit;}
 :root[data-theme] :is(*):not(video):not(canvas) {scrollbar-color:var(--ds-scrollbar) transparent;}
+/* 문서 이동은 도착한 화면만 움직인다. 이전 버전에서 보낸 캡처도 숨긴다. */
+@media(prefers-reduced-motion:no-preference) {
+  @view-transition {navigation:auto;}
+  :root {view-transition-name:none;}
+  ::view-transition {pointer-events:none;}
+  ::view-transition-old(outgoing-page) {display:none;}
+  .document-motion-fallback .studio-grid,.document-motion-fallback .step-workspace>main {animation:studio-arrive 150ms var(--ds-ease);}
+}
+@keyframes studio-arrive {from {transform:translateY(4px);} to {transform:none;}}
 @media(prefers-reduced-motion:reduce) {
   :root {--ds-motion:0ms;--ds-motion-layout:0ms;}
   :root[data-theme] :is(button,a,summary,dialog,wa-button) {transition:none;scroll-behavior:auto;}
@@ -210,7 +219,7 @@
 :root[data-theme] body details.version-details.always-visible :is(p,.version-info-popover){position:static!important;inset:auto;width:auto;max-width:100%;padding:10px 12px;margin:0;border:1px solid var(--ds-line);border-radius:7px;box-shadow:none;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
 :root[data-theme] body details.version-details.always-visible .version-info-popover p{border:0;padding:0}
 :root[data-theme] body details.version-details.always-visible .version-info-popover>button{margin-top:10px}
-#ui-toasts{position:fixed;z-index:2200;top:auto;bottom:18px;right:18px;width:min(560px,calc(100vw - 48px));display:grid;gap:10px;pointer-events:none}
+#ui-toasts{max-height:calc(100vh - 36px);overflow-y:auto;position:fixed;z-index:2200;top:auto;bottom:18px;right:18px;width:min(560px,calc(100vw - 48px));display:grid;gap:10px;pointer-events:none}
 :root[data-theme] .ui-toast{display:flex;gap:12px;align-items:center;padding:14px 16px;border:1px solid var(--ds-border-strong);border-radius:10px;background:var(--ds-raised);color:var(--ds-text);box-shadow:var(--ds-shadow);pointer-events:auto;font-size:13px;line-height:1.6;animation:toast-enter 180ms ease-out}
 .ui-toast>span{flex:1;min-width:0;overflow-wrap:anywhere;max-height:130px;overflow:auto}
 .ui-toast-countdown{flex:none;white-space:nowrap;font-size:11px;font-variant-numeric:tabular-nums;min-width:72px;text-align:right;color:var(--ds-muted)}
@@ -230,4 +239,73 @@ dialog[open]:not(.settings-panel):not(.result-drawer):not(.inline-task){animatio
 @keyframes dialog-enter{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){
  dialog[open]{animation:none!important}
+}
+.clip-order-preview{
+  position:fixed;inset:0 auto auto 0;z-index:9999;pointer-events:none;
+  display:grid;grid-template-columns:10px minmax(0,1fr);align-items:center;gap:4px 10px;
+  box-sizing:border-box;width:max-content;max-width:min(310px,calc(100vw - 8px));padding:10px 14px;
+  background:var(--ds-raised);color:var(--ds-text);border:1px solid var(--ds-accent);
+  border-radius:var(--ds-radius);box-shadow:0 6px 18px #0004;
+}
+.clip-order-preview::before{
+  content:"";grid-row:1 / span 2;width:10px;height:15px;
+  background:radial-gradient(circle,var(--ds-accent) 1.4px,transparent 1.6px) 0 0 / 5px 5px;
+}
+.clip-order-preview :is(strong,small){grid-column:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.clip-order-preview small{color:var(--ds-muted)}
+.clip-order-source{opacity:.48;outline:1px dashed var(--ds-muted);outline-offset:-2px}
+.clip-drop-target{position:relative}
+.clip-drop-target::after{
+  content:"";position:absolute;z-index:1;pointer-events:none;border-radius:3px;background:var(--ds-accent);
+  inset:0 0 auto;height:3px;
+}
+.clip-order-source ~ .clip-drop-target::after{top:auto;bottom:0}
+[data-clip-order-axis="horizontal"] > .clip-drop-target::after{inset:0 auto 0 0;width:3px;height:auto}
+[data-clip-order-axis="horizontal"] > .clip-order-source ~ .clip-drop-target::after{left:auto;right:0}
+[data-clip-grip]{cursor:grab;touch-action:none;user-select:none}
+[data-clip-grip]:active{cursor:grabbing}
+#audio-job-slot:empty{display:none}
+
+/* 접힌 주 메뉴와 인접한 열만 움직이고 본문의 폭은 유지한다. */
+:is(.studio-workspace, .step-workspace[data-rail-depth="2"], .step-workspace[data-rail-depth="3"]) {
+  &:has(> :is(.step-primary, .studio-app-rail) :focus-visible) {
+    --rail-expansion:20px;
+    --rail-label-visible:1;
+  }
+  @media (any-hover:hover) {
+    &:has(> :is(.step-primary, .studio-app-rail):hover) {
+      --rail-expansion:20px;
+      --rail-label-visible:1;
+    }
+  }
+  & > :is(.step-primary, .studio-app-rail) {
+    width:calc(30px + var(--rail-expansion, 0px));
+    overflow:hidden;
+    transition:width var(--ds-motion-layout) var(--ds-ease);
+
+    & :is(.rail-action, .studio-rail-link) {
+      position:relative;
+      & > :is(.rail-icon, svg) {
+        transform:translateY(calc(-6px * var(--rail-label-visible, 0)));
+        transition:transform var(--ds-motion) var(--ds-ease);
+      }
+      & > span:not(.rail-icon) {
+        position:absolute;
+        bottom:3px;
+        width:max-content;
+        max-width:none;
+        font-size:10px;
+        line-height:1.35;
+        letter-spacing:-.03em;
+        white-space:nowrap;
+        opacity:var(--rail-label-visible, 0);
+        pointer-events:none;
+        transition:opacity var(--ds-motion) var(--ds-ease);
+      }
+    }
+  }
+  & > :is(.selected-vod-rail, .task-rail, .studio-vod-rail, .studio-step-rail) {
+    translate:var(--rail-expansion, 0px) 0;
+    transition:translate var(--ds-motion-layout) var(--ds-ease);
+  }
 }

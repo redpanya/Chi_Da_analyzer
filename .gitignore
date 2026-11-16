@@ -38,3 +38,5 @@ outputs/
 ._*
 
 .release-venv/
+
+desktop/node_modules/

@@ -69,7 +69,7 @@ view.navigate(6);view.update({...running,context:{...running.context,run:'new-ru
 view.navigate(3);view.update({...running,context:{state:'error',action:'clips',message:'입력 읽기 실패',owned:false}});
 assert.equal($('global-jobs').hidden,true);assert.equal(toastItems().length,1);assert.match(toastItems()[0].children[0].textContent,/입력 읽기 실패/);
 view.update({...p,path:'/test-2',vod_id:'2'});toastItems()[0].children[1].onclick();assert.equal(jobsOpened,1,'알림 대상과 현재 VOD가 다르면 전체 진행 상태로 이동');assert.equal(opened,1);
-view.update(running);view.update({...running,context:{state:'complete',action:'clips',message:'완료 결과 저장'}});assert.equal(toastItems().length,2);assert.match(toastItems().at(-1).children[0].textContent,/완료 결과 저장/);
+view.update(running);view.update({...running,context:{state:'complete',action:'clips',message:'완료 결과 저장'}});assert.equal(toastItems().length,1,'완료는 대기열에서 한 번만 알린다');
 clearToasts();view.update(null);assert.equal($('download-details').hidden,true);assert.equal($('global-jobs').hidden,true);
 console.log('작업 상태별 15초 토스트·중복 억제·대상별 열기·완료 전환·작업 수락·원본 불변 검사 통과');
 
@@ -109,9 +109,7 @@ assert.equal($('delete-confirm').disabled,true);assert.equal(deleted,0);
 $('delete-cancel').onclick();resolvePreview(preview);await opening;
 assert.equal($('delete-dialog').open,false);assert.equal(deleted,0);
 const second=$('delete-project').onclick();resolvePreview(preview);await second;
-$('delete-confirmation').value='wrong';$('delete-confirmation').oninput();assert.equal($('delete-confirm').disabled,true);
-$('delete-confirmation').value='1';$('delete-confirmation').oninput();assert.equal($('delete-confirm').disabled,false);
 assert.equal(deleted,0);selected={...p,path:'/test-2'};
 await $('delete-form').onsubmit({preventDefault(){}});assert.equal(deleted,0);assert.deepEqual(requests,['delete-preview','delete-preview']);
 selected=p;await $('delete-form').onsubmit({preventDefault(){}});assert.equal(deleted,1);assert.equal(requests.at(-1),'delete-project');
-console.log('삭제 모달 즉시 표시·취소 뒤 응답 무시·번호 확인·대상 변경 차단 검사 통과 (가짜 API)');
+console.log('삭제 모달 즉시 표시·취소 뒤 응답 무시·확인 버튼·대상 변경 차단 검사 통과 (가짜 API)');

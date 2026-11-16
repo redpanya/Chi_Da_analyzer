@@ -7,8 +7,8 @@ $('queue-height').value='480';$('queue-language').value='ko';$('queue-vad').valu
 $('queue-fragments').value='1';
 const options=createQueueOptions($),toggle=(id,value)=>{$(id).checked=value;$(id).change();};
 assert.equal(options.read().concurrent_fragments,1);
-for(const value of ['4','16']){$('queue-fragments').value=value;assert.equal(options.read().concurrent_fragments,Number(value));}
-for(const value of ['','0','17','2.5','NaN']){$('queue-fragments').value=value;assert.throws(()=>options.read(),/1~16/);}
+for(const value of ['4','16','32']){$('queue-fragments').value=value;assert.equal(options.read().concurrent_fragments,Number(value));}
+for(const value of ['','0','33','2.5','NaN']){$('queue-fragments').value=value;assert.throws(()=>options.read(),/1~32/);}
 $('queue-fragments').value='4';
 assert.deepEqual(options.read().steps,['download']);assert.equal(options.read().height,480);assert.equal($('queue-ai-options').hidden,true);
 for(const height of [720,1080]){$('queue-height').value=String(height);assert.equal(options.read().height,height);}

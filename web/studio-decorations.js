@@ -6,6 +6,7 @@ export function studioDecorations({api,identity,video,read,onChange}){
   let image=null,ready=false,busy=false,uploading=false,timer=null;
   let wanted=0,sampleWanted=0,last='',sampleLast='',checked='',sampleChecked='';
   const canvas=$('decoration-canvas'),sample=$('caption-sample');
+  const drawnText=new WeakMap();
   const editor=studioImageEditor({api,identity,read,size,locked:()=>busy||uploading,onChange});
   function imageOptions(){return image?{asset:image.asset,name:image.name,...Object.fromEntries(['x','y','width','opacity'].map(k=>[k,Number($('image-'+k).value)]))}:null;}
   function controls(){
@@ -25,11 +26,15 @@ export function studioDecorations({api,identity,video,read,onChange}){
     return [Math.max(2,Math.round(w*scale/2)*2),Math.max(2,Math.round(h*scale/2)*2)];
   }
   async function draw(target,payload,valid){
+    if(drawnText.has(target)&&drawnText.get(target)!==payload.text){
+      target.getContext('2d').clearRect(0,0,target.width,target.height);
+      drawnText.delete(target);
+    }
     const result=await api('studio-decoration-preview',{...identity(),...payload});
     if(!valid())return;
     const bytes=Uint8Array.from(atob(result.png),c=>c.charCodeAt(0));
     const bitmap=await createImageBitmap(new Blob([bytes],{type:'image/png'}));
-    if(valid()){target.width=bitmap.width;target.height=bitmap.height;target.getContext('2d').drawImage(bitmap,0,0);}
+    if(valid()){target.width=bitmap.width;target.height=bitmap.height;target.getContext('2d').drawImage(bitmap,0,0);drawnText.set(target,payload.text);}
     bitmap.close();
   }
   const captionOptions=o=>Object.fromEntries(['caption','style','caption_design','font','caption_language','font_size','position','caption_x','caption_y'].map(k=>[k,o[k]]));
@@ -44,7 +49,7 @@ export function studioDecorations({api,identity,video,read,onChange}){
     const o=read(),current=payload(o),key=JSON.stringify(current),pending=[];
     if(key!==last){
       const serial=++wanted;
-      last=key;checked='';canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+      last=key;checked='';
       $('decoration-state').classList.toggle('error',false);
       $('decoration-state').textContent=o.caption&&current.text.trim()?'자막 문장 렌더링 검사 중…':'';
       pending.push(draw(canvas,current,()=>serial===wanted).then(()=>{if(serial===wanted){checked=key;$('decoration-state').textContent=o.caption&&current.text.trim()?'현재 자막 문장 렌더링 확인 완료':'';}})
@@ -55,7 +60,6 @@ export function studioDecorations({api,identity,video,read,onChange}){
     if(sampleKey!==sampleLast){
       const serial=++sampleWanted;
       sampleLast=sampleKey;sampleChecked='';
-      sample.getContext('2d').clearRect(0,0,sample.width,sample.height);
       $('caption-sample-status').textContent='자막 예시 확인 중…';
       $('caption-sample-status').classList.toggle('error',false);
       pending.push(draw(sample,samplePayload,()=>serial===sampleWanted)
@@ -94,8 +98,8 @@ export function studioDecorations({api,identity,video,read,onChange}){
       (read().caption&&(checked!==JSON.stringify(payload())||sampleChecked!==JSON.stringify(example()))),
     restore(options){image=options.image||null;if(image)for(const k of ['x','y','width','opacity'])$('image-'+k).value=image[k];fonts.restore(options);controls();schedule();},
     busy(value){busy=value;controls();},async init(options={}){
-      await fonts.init(options);image=options.image||null;
+      const loading=fonts.init(options);image=options.image||null;
       if(image)for(const k of ['x','y','width','opacity'])$('image-'+k).value=image[k];
-      controls();ready=true;schedule();
+      controls();ready=true;schedule();await loading;
     }};
 }

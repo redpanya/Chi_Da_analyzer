@@ -7,15 +7,32 @@ const node=(tag,text='')=>{const el=document.createElement(tag);el.textContent=t
 const active=new Set(['queued','running','downloading','verifying','exporting','stopping']);
 const labels={idle:'준비 전',queued:'대기',running:'진행 중',downloading:'다운로드 중',verifying:'검사 중',exporting:'정리 중',stopping:'중단 중',paused:'중단됨',error:'확인 필요',review:'확인 필요',complete:'완료',empty:'제공 없음',unavailable:'미제공',cancelled:'취소됨'};
 export function projectStatus(p){
- const states=[...Object.values(p.tasks||{}),...Object.values(p.summaries||{}),p.video_replacement?.task||{}];
- return states.some(s=>active.has(s.state))?'working':states.some(s=>['error','review','paused'].includes(s.state))?'review':'ready';
+ return libraryStatus(p).group;
 }
 export function libraryStatus(p){
- const rows=[['영상',p.video_replacement?.task||p.tasks?.video],['채팅',p.tasks?.chat],['전사',p.summaries?.speech],['화자',p.summaries?.voices],['문맥',p.summaries?.context]];
- const ongoing=rows.find(([,s])=>active.has(s?.state)),review=rows.find(([,s])=>['error','review','paused'].includes(s?.state));
- const chosen=ongoing||review||[...rows].reverse().find(([,s])=>s?.state==='complete')||rows[0];
+ const speech=p.summaries?.speech;
+ const audio=speech?.action==='audio'?speech:{state:speech?.audio_ready?'complete':'idle'};
+ const transcript=speech?.action==='transcribe'||speech&&!speech.action&&!('transcript_state' in speech)?speech:{state:speech?.transcript_state||'idle'};
+ const rows=[['영상',p.video_replacement?.task||p.tasks?.video],['채팅',p.tasks?.chat],['원음 추출',audio],['전사',transcript],['화자',p.summaries?.voices],['문맥',p.summaries?.context]];
+ if(speech?.action==='model'&&speech.state!=='complete')rows.splice(3,0,['전사 모델',speech]);
+ const usable=s=>s?.results?.usable;
+ const ongoing=rows.find(([,s])=>active.has(s?.state)),review=rows.find(([,s])=>['error','review','paused'].includes(s?.state)&&!usable(s));
+ const chosen=ongoing||review||[...rows].reverse().find(([,s])=>s?.state==='complete'||usable(s))||rows[0];
  const [label,state]=chosen;
- return {group:ongoing?'working':review?'review':'ready',label:`${label} ${labels[state?.state]||'준비 전'}`,detail:rows.filter(([,s])=>s?.state&&s.state!=='idle').map(([n,s])=>`${n} ${labels[s.state]||s.state}`).join(' · ')};
+ function status(s){
+  if(active.has(s?.state))return labels[s.state];
+  if(usable(s)){
+   if(s.results.previous)return '이전 결과 사용 가능';
+   if(s.state==='paused'||s.state==='cancelled')return '일부 완료 (중단)';
+   if(s.state==='error')return '일부 완료 (작업 실패)';
+   if(s.state==='review'||s.results.issues)return '사용 가능 (일부 확인)';
+   return s.results.complete?'완료':'일부 결과 사용 가능';
+  }
+  if(s?.state==='error'&&s.results)return '실패 (결과 없음)';
+  return labels[s?.state]||'준비 전';
+ }
+ const detail=rows.filter(([,s])=>s?.state&&s.state!=='idle'||usable(s)).map(([n,s])=>`${n} ${status(s)}${s.results?.previous?` / 최근 작업 ${labels[s.state]||s.state}`:''}${s.results?.origin==='external'?' / 외부 AI 결과':''}`).join(' / ');
+ return {group:ongoing?'working':review?'review':'ready',label:`${label} ${status(state)}`,detail};
 }
 export function initialProjectPage(p){
  return p.context?.runs?.length?6:p.speech?.run?3:p.tasks?.video?.state==='complete'?5:2;
@@ -46,7 +63,7 @@ export function sortLibraryProjects(projects,order='recent'){
  const time=p=>{const value=Date.parse(p.updated_at);return Number.isFinite(value)?value:0;};
  return [...projects].sort((a,b)=>order==='broadcast'?(broadcastTime(b)??-Infinity)-(broadcastTime(a)??-Infinity)||time(b)-time(a):time(b)-time(a));
 }
-const stageLabels={download:'영상·채팅',audio:'원음 추출',speech:'음성 전사',voices:'화자 구분',analysis:'채팅 반응 분석',context:'AI 문맥',detail:'상세 문맥',timestamps:'타임스탬프',clips:'클립 후보'};
+const stageLabels={download:'영상과 채팅',audio:'원음 추출',transcribe:'음성 전사',speech:'음성 전사',diarize:'화자 구분',voices:'화자 구분',reactions:'채팅 반응 분석',context:'AI 문맥',summary:'상세 문맥',detail:'상세 문맥',timestamps:'타임스탬프',clips:'클립 후보'};
 const stageLabel=stage=>stageLabels[stage]||stageLabels[String(stage||'').replace(/^context[-_:]/,'')]||'순차 작업';
 const stateGroup=state=>active.has(state)||state==='starting'?'active':['error','review','paused','partial','cancelled'].includes(state)?'review':'complete';
 const stateLabel=state=>labels[state]||({starting:'준비 중',partial:'일부 처리·확인 필요'})[state]||state;
@@ -54,23 +71,57 @@ const jobProjectKey=(root,vod)=>{let path=String(root||'').replace(/\\/g,'/').re
 // 다운로드 구간은 저장 루트로 구분하며, 한 VOD의 작업 상태는 같은 행에 모은다.
 export function groupedJobs(library={},heavy={},queue={},filter='all'){
  const groups=new Map();
- function append(key,title,project,item){if(!groups.has(key))groups.set(key,{key,title,project,items:[]});groups.get(key).items.push(item);}
- for(const p of library.projects||[])for(const [label,key,step] of [['영상','video',2],['채팅','chat',2],['전사','speech',3],['화자','voices',4],['AI 문맥','context',6]]){
+ function append(key,item){groups.get(key)?.items.push(item);}
+ for(const p of library.projects||[]){
+  const projectKey=jobProjectKey(p.root,p.vod_id);
+  groups.set(projectKey,{key:projectKey,title:p.metadata?.title||'제목 없음',project:p,items:[]});
+  for(const [label,key] of [['영상','video'],['채팅','chat'],['전사','speech'],['화자 구분','voices'],['AI 문맥','context']]){
   const state=(key==='video'?p.video_replacement?.task:null)||p.tasks?.[key]||p.summaries?.[key];
   if(!state?.state||state.state==='idle')continue;
-  append(jobProjectKey(p.root,p.vod_id),p.metadata?.title||'제목 없음',p,{id:key,label,state:state.state,group:stateGroup(state.state),message:state.message||'',elapsed:elapsedText(state),step,detail:{root:p.root,vod_id:p.vod_id,kind:key}});
+  const phase=key==='speech'?state.action||'transcribe':key;
+  append(projectKey,{id:key,phase,label:stageLabels[phase]||(phase==='model'?'전사 모델':label),state:state.state,group:stateGroup(state.state),message:state.message||'',elapsed:state.timing?elapsedText(state):'',at:state.timing?.finished_ms||Date.parse(state.updated_at)||0,detail:{root:p.root,vod_id:p.vod_id,kind:key}});
+  }
+  for(const result of p.external_results||[]){
+   append(projectKey,{id:'external:'+result.export_id,phase:'external:'+result.mode,label:'외부 AI '+stageLabel(result.mode),state:result.state,group:stateGroup(result.state),at:Date.parse(result.created_at)||0,detail:{root:p.root,vod_id:p.vod_id,kind:'external',id:result.export_id}});
+  }
  }
- for(const p of library.projects||[])for(const result of p.external_results||[]){
-  append(jobProjectKey(p.root,p.vod_id),p.metadata?.title||'제목 없음',p,{id:'external:'+result.export_id,label:'외부 AI '+stageLabel(result.mode),state:result.state,group:stateGroup(result.state),message:result.state==='complete'?'외부 결과 가져오기 완료':'완료된 외부 결과부터 사용 가능',step:6,detail:{root:p.root,vod_id:p.vod_id,kind:'external',id:result.export_id}});
+ const aliases={'voices-start':'voices','context-start':'context','video-quality':'video',analyze:'reactions',diarize:'voices',summary:'context',timestamps:'context',clips:'context'};
+ for(const item of heavy.items||[]){
+  if(item.action==='queue-start' && (item.state!=='queued'||jobProjectKey(item.root,'')!==jobProjectKey(queue.root||library.root,'')))continue;
+  const key=item.vod_id?jobProjectKey(item.root,item.vod_id):'heavy:'+item.id;
+  if(!item.vod_id)groups.set(key,{key,title:item.title||item.label||'보관함 작업',project:null,items:[]});
+  const phase=item.stage||aliases[item.action]||item.action||item.id;
+  append(key,{id:'heavy:'+item.id,phase,label:item.label||'대기열 작업',state:item.state,group:stateGroup(item.state),message:item.message||'',at:Date.parse(item.finished_at||item.created_at)||0,cancelId:item.state==='queued'?item.id:null,detail:{kind:'heavy',id:item.id}});
  }
- for(const item of heavy.items||[]){const key=item.vod_id&&item.root?jobProjectKey(item.root,item.vod_id):'heavy:'+item.id;
-  const p=item.vod_id&&item.root?{root:item.root,vod_id:item.vod_id,metadata:{title:item.title}}:null;
-  append(key,item.title||'보관함 작업',p,{id:'heavy:'+item.id,label:item.label||'무거운 작업',state:item.state,group:stateGroup(item.state),message:item.message||'',cancelId:item.state==='queued'?item.id:null,step:7,detail:{kind:'heavy',id:item.id}});
+ for(const item of [...(queue.results||[]),...(queue.items||[])]){
+  const key=jobProjectKey(item.project_root||queue.root,item.vod),phase=aliases[item.stage]||item.stage||'queue';
+  append(key,{id:'queue:'+item.id,phase,label:item.stage?stageLabel(item.stage):'등록 작업',state:item.state,group:stateGroup(item.state),message:item.message||'',at:Date.parse(item.finished_at)||0,detail:{kind:'queue',root:queue.root,id:item.id}});
  }
- for(const item of queue.items||[]){const root=item.project_root||queue.root,p={root,vod_id:item.vod,metadata:{title:item.title}};
-  append(jobProjectKey(root,item.vod),item.title||`VOD ${item.vod||''}`,p,{id:'queue:'+item.id,label:'순차 작업',state:item.state,group:stateGroup(item.state),message:item.message||'',stage:stageLabel(item.stage),step:2,detail:{kind:'queue',root:queue.root,id:item.id}});
+ const visible=[];
+ for(const group of groups.values()){
+  const live=group.items.filter(i=>i.group==='active');
+  const covers=(job,other)=>other.phase===job.phase||(['start','download','all'].includes(job.phase)&&['video','chat'].includes(other.phase));
+  const sourceOrder={queue:0,heavy:1};
+  const priority=i=>sourceOrder[i.detail.kind]??2;
+  const current=live.filter(i=>i.state==='queued'||priority(i)===2||!live.some(other=>priority(other)>priority(i)&&other.state!=='queued'&&covers(i,other)));
+  const needsReview=group.items.filter(i=>i.group==='review'&&(i.detail.kind==='queue'||!group.items.some(other=>other.group!=='review'&&covers(i,other)&&
+    (other.group==='active'||other.at>i.at))));
+  const completed=group.items.filter(i=>i.group==='complete');
+  let rows=current;
+  if(filter==='review')rows=needsReview;
+  else if(!current.length&&filter!=='active'){
+   rows=needsReview;
+   if(!rows.length&&completed.length){
+    const done=completed.filter(i=>i.state==='complete');
+    const last=(done.length?done:completed).reduce((a,b)=>b.at>=a.at?b:a);
+    const outputs=done.filter(i=>priority(i)===2||!done.some(other=>priority(other)>priority(i)&&covers(i,other)));
+    rows=[{...last,summary:[...new Set(outputs.map(i=>stageLabels[i.phase]||i.label))].join(', ')||last.label+' '+stateLabel(last.state)}];
+   }
+  }
+  if(filter==='complete')rows=rows.filter(i=>i.group==='complete');
+  if(rows.length)visible.push({...group,items:rows});
  }
- return [...groups.values()].filter(group=>filter==='all'||group.items.some(item=>item.group===filter));
+ return visible.sort((a,b)=>Number(b.items[0].group==='active')-Number(a.items[0].group==='active'));
 }
 export function createProductWorkspace({api,getRoot,getProject,navigate,openProject,openJobResult,refreshLibrary,onDelete}){
  let catalog={projects:[]},page=0,listPage=0,query='',filter='all',order='recent',jobBusy=false,jobSignature='';const pageMemory=createProjectPageMemory();
@@ -79,8 +130,9 @@ export function createProductWorkspace({api,getRoot,getProject,navigate,openProj
  const jobs=node('section');jobs.id='jobs-page';jobs.className='panel';jobs.hidden=true;
  jobs.innerHTML=`<div class="library-intro"><div><h2>진행 상태</h2></div><button id="jobs-refresh">새로고침</button></div><label class="jobs-filter">작업 상태<select id="jobs-filter"><option value="all">전체</option><option value="active">실행·대기</option><option value="review">확인 필요·중단</option><option value="complete">완료</option></select></label><p id="jobs-state" role="status"></p><div id="jobs-rows"></div>`;
  document.querySelector('main').append(home,jobs);
- const detailButtons=new Map();
+ const detailButtons=new Map();let detailProject=null;
  const jobDetail=createJobDetail({api,onResult:openJobResult,onChanged:()=>{jobSignature='';refreshJobs();},onSelection:key=>{
+  if(!key)detailProject=null;
   for(const [id,button] of detailButtons){button.setAttribute('aria-expanded',String(id===key));button.closest('.workspace-job-stage').classList.toggle('selected',id===key);}
  }});
  const navigation=node('nav');navigation.className='workspace-navigation';navigation.setAttribute('aria-label','앱 메뉴');
@@ -111,15 +163,15 @@ export function createProductWorkspace({api,getRoot,getProject,navigate,openProj
    const summary=libraryStatus(p),status=node('span');status.className='library-statuses';status.title=summary.detail;
    const badge=node('span',summary.label);badge.className='state-pill';badge.dataset.state=summary.group;
    const detail=node('small',summary.detail);status.append(badge,detail);
-   const duration=vodDuration(p),clock=node('time',Number.isFinite(duration)?timecode(duration*1000):'길이 미확인'),arrow=node('span','→');arrow.className='library-row-arrow';arrow.setAttribute('aria-hidden','true');
-   open.append(titleText,status,clock,arrow);card.append(open,remove);$('library-cards').append(card);
+   const duration=vodDuration(p),clock=node('time',Number.isFinite(duration)?timecode(duration*1000):'길이 미확인');
+   open.append(titleText,status,clock);card.append(open,remove);$('library-cards').append(card);
   }
   if(!values.length&&catalog.projects.length)$('library-cards').append(node('p','검색·필터에 맞는 VOD가 없습니다.'));
   $('library-page-label').textContent=`${listPage+1} / ${pages}쪽 · ${values.length}개`;$('library-prev').disabled=!listPage;$('library-next').disabled=listPage+1>=pages;
  }
  const palette=node('dialog');palette.className='workspace-palette';palette.setAttribute('aria-label','빠른 찾기');palette.innerHTML='<div class="play-actions"><h2>빠른 찾기</h2><button id="workspace-search-close">닫기</button></div><input id="workspace-search" type="search" aria-label="VOD·메뉴 찾기" placeholder="VOD 제목이나 메뉴 이름 검색"><div id="workspace-search-results"></div>';
  document.body.append(palette);$('workspace-search-close').onclick=()=>palette.close();
- function paletteResults(){const q=$('workspace-search').value.trim();const values=matching(q).slice(0,20);$('workspace-search-results').replaceChildren();for(const [title,step] of [['보관함',0],['VOD 등록',1],['진행 상태',10],['영상 나누기',11],['설정',9]])if(!q||title.includes(q)){const b=node('button',title);b.onclick=()=>{palette.close();navigate(step);};$('workspace-search-results').append(b);}for(const p of values){const b=node('button',vodLabel(p));b.onclick=()=>{palette.close();openProject(p);};$('workspace-search-results').append(b);}}
+ function paletteResults(){const q=$('workspace-search').value.trim();const values=matching(q).slice(0,20);$('workspace-search-results').replaceChildren();for(const [title,step] of [['보관함',0],['VOD 등록',1],['진행 상태',10],['영상 나누기',11],['믹스클립',12],['설정',9]])if(!q||title.includes(q)){const b=node('button',title);b.onclick=()=>{palette.close();navigate(step);};$('workspace-search-results').append(b);}for(const p of values){const b=node('button',vodLabel(p));b.onclick=()=>{palette.close();openProject(p);};$('workspace-search-results').append(b);}}
  searchButton.onclick=()=>{if(document.querySelector('dialog[open]'))return;palette.showModal();paletteResults();$('workspace-search').focus();};$('workspace-search').oninput=paletteResults;
  document.addEventListener('keydown',e=>{if(!e.isComposing&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){if(document.querySelector('dialog[open]')!==palette&&document.querySelector('dialog[open]'))return;e.preventDefault();searchButton.click();}});
  palette.addEventListener('keydown',e=>{if(!['ArrowDown','ArrowUp'].includes(e.key)||e.isComposing)return;const buttons=[...$('workspace-search-results').querySelectorAll('button')];if(!buttons.length)return;e.preventDefault();const i=buttons.indexOf(document.activeElement);buttons[i<0?(e.key==='ArrowDown'?0:buttons.length-1):(i+(e.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length].focus();});
@@ -129,6 +181,8 @@ export function createProductWorkspace({api,getRoot,getProject,navigate,openProj
    const reads=await Promise.allSettled([api('library-catalog',{root:requested}),api('work-queue',{}),api('queue-status',{root:requested})]);
    if(page!==10||requested!==getRoot())return;
    const [library,heavy,queue]=reads.map(read=>read.status==='fulfilled'?read.value:{}),errors=reads.filter(read=>read.status==='rejected').map(read=>read.reason?.message||'작업 상태 조회 실패');
+   if(library.message)errors.push(library.message);
+   if(detailProject&&reads[0].status==='fulfilled'&&['ready','empty'].includes(library.status)&&!library.projects.some(p=>jobProjectKey(p.root,p.vod_id)===detailProject))jobDetail.close();
    const filter=$('jobs-filter').value,signature=JSON.stringify([library,heavy,queue,filter,errors]);if(signature===jobSignature)return;jobSignature=signature;
    const groups=groupedJobs(library,heavy,queue,filter),focused=[...detailButtons].find(([,button])=>button===document.activeElement)?.[0];$('jobs-rows').replaceChildren();detailButtons.clear();
    for(const group of groups){
@@ -137,24 +191,25 @@ export function createProductWorkspace({api,getRoot,getProject,navigate,openProj
     const stages=node('div');stages.className='workspace-job-stages';
     for(const item of group.items){
      const stage=node('div');stage.className='workspace-job-stage';stage.dataset.state=item.group;
-     const label=node('strong',`${item.label} ${stateLabel(item.state)}${item.stage?' · '+item.stage:''}`);stage.append(label);
+     const label=node('strong',item.summary?'완료 결과':`${item.label} ${stateLabel(item.state)}`);stage.append(label);
+     if(item.summary)stage.append(node('p',item.summary));
      if(item.message&&item.group!=='complete')stage.append(node('p',item.message));
      if(item.elapsed)stage.append(node('small',item.elapsed));
      const controls=node('div');controls.className='workspace-job-actions';
      if(item.cancelId){const cancel=node('button','대기 취소');cancel.onclick=async()=>{cancel.disabled=true;try{await api('work-cancel',{id:item.cancelId});jobSignature='';await refreshJobs();}catch(error){$('jobs-state').textContent=error.message;cancel.disabled=false;}};controls.append(cancel);}
      const open=node('button','상세'),key=jobDetailKey(item.detail);open.type='button';open.setAttribute('aria-label',`${group.title} ${item.label} 상세`);open.setAttribute('aria-controls','job-detail');open.setAttribute('aria-haspopup','dialog');open.setAttribute('aria-expanded',String(key===jobDetail.key()));stage.classList.toggle('selected',key===jobDetail.key());
-     open.onclick=()=>jobDetail.open(item.detail,{opener:open,getOpener:()=>detailButtons.get(key)});detailButtons.set(key,open);controls.append(open);
+     open.onclick=()=>{detailProject=group.project?group.key:null;jobDetail.open(item.detail,{opener:open,getOpener:()=>detailButtons.get(key)});};detailButtons.set(key,open);controls.append(open);
      stage.append(controls);stages.append(stage);
     }
     row.append(title,stages);$('jobs-rows').append(row);
    }
    if(focused)detailButtons.get(focused)?.focus({preventScroll:true});
-   $('jobs-state').textContent=errors.length?errors.join(' / '):`${groups.length}개 자료 / 무거운 작업 대기 ${(heavy.items||[]).filter(i=>i.state==='queued').length}개 / 순차 목록 ${(queue.items||[]).length}개${queue.active?' 진행 중':''}`;
+   $('jobs-state').textContent=errors.length?errors.join(' / '):`${groups.length}개 자료`;
    $('jobs-state').className=errors.length?'notice-warning':'hint';
    if(!groups.length)$('jobs-rows').append(node('p','이 상태에 해당하는 작업이 없습니다.'));
   }catch(e){$('jobs-state').textContent=e.message;}finally{jobBusy=false;}
  }
- const appearance=node('section');appearance.className='settings-appearance';appearance.innerHTML=`<h2>화면과 사용성</h2><label>화면 테마<select id="workspace-theme"><option value="system">시스템 설정 따르기</option><option value="light">라이트</option><option value="dark">다크</option></select></label><h3>보관함 저장 공간</h3><button id="storage-read">용량 확인</button><p id="storage-status" role="status"></p><div id="storage-sizes"></div><h3>치다 분석기 1.1.0</h3><div class="play-actions"><a class="secondary" href="https://redpanya.github.io/Chi_Da_analyzer/" target="_blank" rel="noopener noreferrer">사용설명서</a><a class="secondary" href="https://github.com/redpanya/Chi_Da_analyzer/releases/latest" target="_blank" rel="noopener noreferrer">최신 배포</a><a class="secondary" href="https://github.com/redpanya/Chi_Da_analyzer/blob/main/THIRD-PARTY-NOTICES.md" target="_blank" rel="noopener noreferrer">라이선스 고지</a></div>`;
+ const appearance=node('section');appearance.className='settings-appearance';appearance.innerHTML=`<h2>화면과 사용성</h2><label>화면 테마<select id="workspace-theme"><option value="system">시스템 설정 따르기</option><option value="light">라이트</option><option value="dark">다크</option></select></label><h3>보관함 저장 공간</h3><button id="storage-read">용량 확인</button><p id="storage-status" role="status"></p><div id="storage-sizes"></div>`;
  $('settings-page').prepend(appearance);window.ChidaTheme?.connect($('workspace-theme'));
  $('storage-read').onclick=async()=>{const button=$('storage-read'),requested=getRoot();button.disabled=true;$('storage-status').textContent='보관함 용량을 계산하는 중…';try{const result=await api('storage-info',{root:requested});if(requested!==getRoot())return;$('storage-sizes').replaceChildren(...Object.entries(result.sizes).map(([key,value])=>node('p',`${key}: ${(value/1024**3).toFixed(2)} GiB`)));$('storage-status').textContent=`남은 공간 ${(result.free/1024**3).toFixed(1)} GiB${result.unreadable?' / 읽지 못한 파일과 폴더 '+result.unreadable+'개':''}`;}catch(e){$('storage-status').textContent=e.message;}finally{button.disabled=false;}};
  for(const [dialogId,sourceId] of [['context-settings','context-external-open'],['clip-settings','context-clips-external']]){const dialog=$(dialogId),source=$(sourceId);if(!dialog||!source)continue;const choice=node('div');choice.className='analysis-method';choice.append(node('span','이 PC에서 Gemma로 분석'));const external=node('button','외부 AI 파일로 작업');external.className='secondary';external.onclick=()=>{dialog.close();source.click();};choice.append(external);dialog.querySelector('.settings-body')?.prepend(choice);}
@@ -168,7 +223,7 @@ export function createProductWorkspace({api,getRoot,getProject,navigate,openProj
  return {
   initialPage:p=>pageMemory.page(p),
   setCatalog(value){catalog=value;renderLibrary();},
-  navigate(step){if(step!==10)jobDetail.close();pageMemory.remember(getProject(),step);page=step;home.hidden=step!==0;jobs.hidden=step!==10;homeButton.setAttribute('variant',step===0?'brand':'neutral');jobButton.setAttribute('variant',step===10?'brand':'neutral');stepNav.hidden=!getProject()||[0,1,7,8,9,10,11].includes(step);$('global-jobs').hidden=[0,1,7,8,9,10,11].includes(step)||$('global-jobs').hidden;document.body.dataset.workspacePage=String(step);if(step===0)$('workspace-subtitle').textContent='내 컴퓨터의 보관함';if(step===10){$('workspace-subtitle').textContent='다른 VOD를 재생·편집하면서 작업 진행을 확인하세요.';refreshJobs();}},
+  navigate(step){if(step!==10)jobDetail.close();pageMemory.remember(getProject(),step);page=step;home.hidden=step!==0;jobs.hidden=step!==10;homeButton.setAttribute('variant',step===0?'brand':'neutral');jobButton.setAttribute('variant',step===10?'brand':'neutral');stepNav.hidden=!getProject()||[0,1,7,8,9,10,11,12].includes(step);$('global-jobs').hidden=[0,1,7,8,9,10,11,12].includes(step)||$('global-jobs').hidden;document.body.dataset.workspacePage=String(step);if(step===0)$('workspace-subtitle').textContent='내 컴퓨터의 보관함';if(step===10){$('workspace-subtitle').textContent='다른 VOD를 재생·편집하면서 작업 진행을 확인하세요.';refreshJobs();}},
   update(){if([0,10].includes(page)){$('global-jobs').hidden=true;$('workspace-subtitle').textContent=page===0?'내 컴퓨터의 보관함':'다른 VOD를 재생·편집하면서 작업 진행을 확인하세요.';}}
  };
 }

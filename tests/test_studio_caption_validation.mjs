@@ -3,7 +3,7 @@ import {studioDecorations} from '../web/studio-decorations.js';
 class El extends EventTarget{
   constructor(){super();this.value='';this.textContent='';this.children=[];this.dataset={};this.style={};this.classList={toggle(){},remove(){}};this.width=660;this.height=180;this.open=false;}
   append(...rows){this.children.push(...rows);}replaceChildren(...rows){this.children=rows;}setAttribute(){}get options(){return this.children;}
-  getContext(){return {clearRect(){},drawImage(){}};}
+  getContext(){return {clearRect:()=>this.blank=true,drawImage:()=>this.blank=false};}
 }
 const nodes=new Map(),$=id=>{if(!nodes.has(id))nodes.set(id,new El());return nodes.get(id);};
 globalThis.document=new EventTarget();document.getElementById=$;document.createElement=()=>new El();
@@ -26,6 +26,7 @@ await ui.init({font:'a'});assert.equal(ui.blocked(),true);await tick();assert.eq
 await settle(pending.splice(0));assert.equal(ui.blocked(),false);assert.match($('decoration-state').textContent,/문장 렌더링 확인 완료/);
 // 새 설정은 응답 전부터 막고, 실패해도 기존 선택은 지우지 않는다.
 $('caption-font').value='b';document.dispatchEvent(new Event('change'));assert.equal(ui.blocked(),true);await tick();
+assert.equal($('decoration-canvas').blank,false);assert.equal($('caption-sample').blank,false);
 await settle(pending.splice(0),true);assert.equal(ui.blocked(),true);assert.equal($('caption-font').value,'b');
 assert.match($('caption-sample-status').textContent,/실패/);
 enabled=false;assert.equal(ui.blocked(),false);enabled=true;
@@ -34,5 +35,9 @@ for(const font of ['a','b','a']){$('caption-font').value=font;document.dispatchE
 assert.equal(pending.length,6);await settle(pending.splice(0,4));assert.equal(ui.blocked(),true);
 await settle(pending.splice(0));assert.equal(ui.blocked(),false);assert.ok(changed>4);
 assert.equal($('caption-sample-status').textContent,'');
+$('caption-text').textContent='다음 대사';document.dispatchEvent(new Event('change'));await tick();
+assert.equal($('decoration-canvas').blank,true);await settle(pending.splice(0));assert.equal($('decoration-canvas').blank,false);
+enabled=false;document.dispatchEvent(new Event('change'));await tick();assert.equal($('decoration-canvas').blank,true);
+await settle(pending.splice(0));
 window.dispatchEvent(new Event('pagehide'));
 console.log('실제 자막 검사 대기·실패 차단, 자막 해제, 빠른 글꼴 변경의 오래된 응답 무시 검사 통과');

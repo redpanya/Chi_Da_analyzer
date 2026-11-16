@@ -4,7 +4,7 @@ import sys
 from urllib.request import urlopen
 from . import model_paths, speech_model, speech_media, voice_models
 from .source import check_cancel
-from .storage import ProjectLock, save_json, read_json
+from .storage import save_json, read_json
 
 SHA256 = '9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6'
 SIZE = 643854
@@ -32,7 +32,7 @@ def prepare(stop, update):
     if not speaker_tools.status('sherpa')['ready']: raise ValueError('화자 도구에서 sherpa 실행 도구를 먼저 설치하세요')
     folder = model_paths.available()
     target = folder/'silero-vad.onnx'
-    with ProjectLock(folder):
+    with speech_model.prepare_lock(folder, 'speech-vad', stop, update):
         if target.is_symlink(): raise ValueError('발화 모델의 연결 파일은 지원하지 않습니다')
         if target.is_file() and speech_model.digest(target, stop) == SHA256: return target
         if target.exists(): raise ValueError('발화 검출 모델이 손상됐습니다. 기존 파일을 별도 보관한 뒤 다시 준비하세요')

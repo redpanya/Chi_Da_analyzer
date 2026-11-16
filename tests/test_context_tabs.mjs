@@ -85,8 +85,14 @@ assert.equal($('context-clips-result').children.length,0);assert.equal($('contex
 $('context-tab-timestamps').onclick();await flush();assert.equal($('context-delete').disabled,false);
 await $('context-delete').onclick();await flush();assert.equal($('context-version').value,'');assert.equal($('context-delete').disabled,true);
 $('context-tab-detail').onclick();await flush();assert.equal($('context-version').value,'detail');
-view.setProject({...lastProject,locked:true});assert.equal($('context-delete').disabled,true);
-view.setProject(lastProject);await flush();await $('context-delete').onclick();await flush();
+view.setProject({...lastProject,locked:true,context:{...lastProject.context,owned:true,state:'running'}});
+assert.equal($('context-delete').disabled,true);
+const beforeBusyDelete=calls.length;
+await $('context-delete').onclick();
+assert.equal(calls.length,beforeBusyDelete);
+view.setProject({...lastProject,locked:true,analysis_running:true});
+assert.equal($('context-delete').disabled,false);
+await $('context-delete').onclick();await flush();
 assert.equal($('context-version').value,'');assert.equal($('context-delete').disabled,true);
 assert.deepEqual(calls.filter(r=>r.action==='context-delete').slice(-3).map(r=>r.args.run),['clips','timestamps','detail']);
 console.log('세 모드 선택 버전 삭제·취소·잠금·실패 재시도·빈 목록 갱신 검사 통과');

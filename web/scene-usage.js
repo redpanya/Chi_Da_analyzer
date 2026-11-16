@@ -1,10 +1,10 @@
-import {collectRanges,sortedRanges} from './clip-studio-model.js';
+import {collectRanges} from './clip-studio-model.js';
 import {timecode} from './player.js';
 import {resultDrawer,closeResultDrawer} from './result-flow.js';
 import {enterView} from './workspace-motion.js';
 
 // 편집기와 같은 ID·VOD 절대 시각 계약을 쓴다. 기존 수동 편집은 깊은 복사로 유지한다.
-export function prepareBasketAdd({result,run,indices,project,draft}){
+export function prepareBasketAdd({result,run,indices,project,draft,newClipOptions={}}){
   if(result.stale)throw Error('현재 입력과 다른 이전 결과입니다. 영상·분석 버전을 확인하세요.');
   const origin=Number(project.input?.start_vod_ms)||0;
   const duration=Math.round((project.tasks?.video?.verification?.duration||project.metadata?.duration||0)*1000);
@@ -15,10 +15,11 @@ export function prepareBasketAdd({result,run,indices,project,draft}){
     const id=JSON.stringify([run,index]),row=ranges.find(row=>row.id===id);
     if(!row||row.end_ms-row.start_ms<100)throw Error('저장 영상 안의 0.1초 이상 구간만 담을 수 있습니다.');
     if(existing.has(id))continue;
-    request.clips.push({id,title:row.title,start_ms:row.start_ms,end_ms:row.end_ms});existing.add(id);added++;
+    const clip={id,title:row.title,start_ms:row.start_ms,end_ms:row.end_ms};
+    if(Object.keys(newClipOptions).length)clip.options=structuredClone(newClipOptions);
+    request.clips.push(clip);existing.add(id);added++;
   }
   if(request.clips.length>100)throw Error('담은 구간은 최대 100개입니다. 클립 만들기에서 목록을 정리하세요.');
-  request.clips=sortedRanges(request.clips);
   return {request,revision:draft?.revision||0,added};
 }
 
@@ -32,7 +33,7 @@ export function createSceneUsage({api,player,comments,onOpenEditor}){
   const basket=node('section');basket.className='scene-clip-basket';
   const actions=node('div');actions.className='play-actions';
   const reload=node('button','다시 불러오기'),editor=node('button','클립 편집기 열기');
-  reload.type=editor.type='button';reload.className='subtle';editor.className='secondary';actions.append(reload,editor);
+  reload.type=editor.type='button';reload.className='subtle';editor.className='secondary';const send=node('button','믹스클립 보내기');send.type='button';send.className='secondary';actions.append(reload,editor,send);
   const list=node('div'),notice=node('p');notice.className='hint';notice.setAttribute('role','status');
   // ID로 댓글 자식 노드를 찾는 기존 처리보다 먼저 문서에 연결한다.
   // 분리된 panel에 먼저 옮기면 첫 VOD를 여는 동안 getElementById가 null이 된다.
@@ -61,14 +62,15 @@ export function createSceneUsage({api,player,comments,onOpenEditor}){
     reload.disabled=!project||busy;editor.disabled=!project;
     editComments.disabled=commentSnapshot.blocked||!commentSnapshot.rows.length;
     list.replaceChildren();
+    send.disabled=!project||busy||reading||!draft?.request?.clips.length;
     const rows=draft?.request?.clips||[],origin=Number(project?.input?.start_vod_ms)||0;
     if(!rows.length)list.append(node('p',draft?'담은 구간이 없습니다. 후보에서 클립에 담기를 누르세요.':'저장된 편집 초안을 불러오세요.'));
     for(const row of rows){
       const item=node('article'),play=node('button'),clock=node('time',timecode(row.start_ms)),title=node('span',row.title);play.append(clock,title);play.type='button';play.className='subtle scene-basket-play';play.title=row.title;
       play.disabled=project?.tasks?.video?.state!=='complete';
       play.onclick=()=>player.seek(row.start_ms-origin,true,row.end_ms-origin);
-      const remove=node('button','×');remove.type='button';remove.className='scene-selected-remove';remove.setAttribute('aria-label',row.title+' 클립에서 제거');remove.disabled=busy||project?.locked;remove.onclick=()=>mutateClip({id:row.id},false);
-      item.append(play,remove,node('small',`${timecode(row.end_ms-row.start_ms)} · ${row.options?'개별 화면·자막 설정':'공통 화면·자막 설정'}`));list.append(item);
+      const remove=node('button','×');remove.type='button';remove.className='scene-selected-remove';remove.setAttribute('aria-label',row.title+' 클립에서 제거');remove.disabled=busy;remove.onclick=()=>mutateClip({id:row.id},false);
+      item.append(play,remove,node('small',timecode(row.end_ms-row.start_ms)));list.append(item);
     }
   }
   function updateComments(value){
@@ -87,7 +89,7 @@ export function createSceneUsage({api,player,comments,onOpenEditor}){
     if(!project||busy||reading)return;reading=true;
     const token=generation,ticket=++loadId,target=identity();notice.textContent='담은 클립을 불러오는 중…';
     try{const value=await api('studio-info',target);if(token!==generation||ticket!==loadId)return;draft=value.draft||{revision:0,request:{clips:[]}};notice.textContent='';render();}
-    catch(error){if(token===generation&&ticket===loadId)notice.textContent='클립 목록을 불러오지 못했습니다: '+error.message;}finally{if(token===generation)reading=false;}
+    catch(error){if(token===generation&&ticket===loadId)notice.textContent='클립 목록을 불러오지 못했습니다: '+error.message;}finally{if(token===generation){reading=false;render();}}
   }
   function choose(value,read=true){const changed=mode!==value;if(changed)closeResultDrawer('comments');mode=value;render();if(changed)enterView(mode==='clips'?basket:summary,mode==='clips'?1:-1);if(mode==='clips'&&read)void load();}
   document.addEventListener?.('studio-draft-changed',event=>{
@@ -95,8 +97,21 @@ export function createSceneUsage({api,player,comments,onOpenEditor}){
     if(project&&target?.root===project.root&&String(target.vod_id)===String(project.vod_id))void load();
   });
   commentTab.onclick=()=>choose('comments');basketTab.onclick=()=>choose('clips');reload.onclick=load;editor.onclick=onOpenEditor;
+  send.onclick=async()=>{
+    if(send.disabled)return;
+    const token=generation,target=identity();
+    busy=true;render();
+    try{
+      const result=await api('mix-send',{...target,library_root:document.getElementById('root').value,revision:draft.revision});
+      if(token!==generation)return;
+      notice.textContent=`믹스에 ${result.added}개 추가했습니다.`+(result.duplicates?` 이미 담긴 구간 ${result.duplicates}개.`:'');
+      const open=node('button','믹스클립 열기');open.type='button';open.className='subtle';
+      open.onclick=()=>document.getElementById('open-mix').click();notice.append(open);
+    }catch(error){if(token===generation)notice.textContent=error.message;}
+    finally{busy=false;render();}
+  };
   tabs.onkeydown=event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();choose(event.key==='Home'?'comments':event.key==='End'?'clips':mode==='clips'?'comments':'clips');(mode==='clips'?basketTab:commentTab).focus();}};
-  function clipBlocked(source){return !project||busy||project.locked||project.tasks?.video?.state!=='complete'||!draft||!!source.stale;}
+  function clipBlocked(source){return !project||busy||project.tasks?.video?.state!=='complete'||!draft||!!source.stale;}
   function checkbox(comment,source){
     if(!comment)return null;
     const input=comment.querySelector('input'),commentChange=input.onchange;
@@ -129,7 +144,7 @@ export function createSceneUsage({api,player,comments,onOpenEditor}){
         await api('studio-transcript-add',{...target,run:source.run,segment:source.segment});
         if(token!==generation)return;saved=(await api('studio-info',target)).draft;
       }else{
-        const next=prepareBasketAdd({result:source.result,run:source.run,indices:[source.index],project:snapshot,draft:previous});
+        const next=prepareBasketAdd({result:source.result,run:source.run,indices:[source.index],project:snapshot,draft:previous,newClipOptions:value.new_clip_options});
         saved=next.added?await api('studio-draft',{...target,revision:next.revision,request:next.request}):previous;
       }
       if(token!==generation)return;draft=saved;
@@ -149,12 +164,12 @@ export function createSceneUsage({api,player,comments,onOpenEditor}){
     setProject(value){const changed=project?.path!==value?.path;project=value;if(changed){closeResultDrawer('comments');generation++;loadId++;reading=false;draft=null;mode='comments';notice.textContent='';}render();},
     async add(result,run,indices){
       if(!project||busy)return;
-      if(project.locked||project.tasks?.video?.state!=='complete'){notice.textContent='이 VOD의 영상 처리가 끝난 뒤 클립을 담을 수 있습니다.';return;}
+      if(project.tasks?.video?.state!=='complete'){notice.textContent='이 VOD의 영상 처리가 끝난 뒤 클립을 담을 수 있습니다.';return;}
       if(!indices.length){notice.textContent='채택한 후보가 없습니다. 후보 검토에서 채택을 선택하세요.';return;}
       const token=generation,target=identity(),snapshot=project;busy=true;loadId++;notice.textContent='기존 편집 초안에 구간을 추가하는 중…';render();
       try{
         const value=await api('studio-info',target);if(token!==generation)return;
-        const next=prepareBasketAdd({result,run,indices,project:snapshot,draft:value.draft});
+        const next=prepareBasketAdd({result,run,indices,project:snapshot,draft:value.draft,newClipOptions:value.new_clip_options});
         const saved=next.added?await api('studio-draft',{...target,revision:next.revision,request:next.request}):value.draft;
         if(token!==generation)return;
         draft=saved||{revision:0,request:{clips:[]}};choose('clips',false);

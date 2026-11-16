@@ -24,10 +24,13 @@ def preview(path, vod):
             'entries': len(rows), 'token': token}
 
 
-def trash(path, vod, token, confirmation):
+def trash(path, vod, token, confirmation, *, readers=None):
     value = preview(path, vod)
     if confirmation != vod or token != value['token']:
         raise Conflict('확인한 VOD 또는 자료가 바뀌었습니다. 삭제 내용을 다시 확인하세요')
+    if readers is not None:
+        with readers.drain(path):
+            return trash_path(path)
     return trash_path(path)
 
 

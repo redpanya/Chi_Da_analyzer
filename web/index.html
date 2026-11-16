@@ -4,7 +4,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="icons/chida-16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/chida-32.png">
 <link rel="stylesheet" href="style.css"><link rel="stylesheet" href="pattern-background.css"><link rel="stylesheet" href="workspace.css">
-<link rel="stylesheet" href="mini-player.css"><link rel="stylesheet" href="product-workspace.css"><link rel="stylesheet" href="results-redesign.css"><link rel="stylesheet" href="desktop-panels.css"><link rel="stylesheet" href="vendor/webawesome/styles/themes/default.css"><link rel="stylesheet" href="design-system.css"><link rel="stylesheet" href="step-workspace.css"><link rel="stylesheet" href="video-split.css"><script type="module" src="design-system.js"></script><script src="app.js" type="module"></script><script src="error-capture.js" type="module"></script></head>
+<link rel="stylesheet" href="mini-player.css"><link rel="stylesheet" href="product-workspace.css"><link rel="stylesheet" href="results-redesign.css"><link rel="stylesheet" href="desktop-panels.css"><link rel="stylesheet" href="vendor/webawesome/styles/themes/default.css"><link rel="stylesheet" href="design-system.css"><link rel="stylesheet" href="step-workspace.css"><link rel="stylesheet" href="video-split.css"><script type="module" src="design-system.js"></script><script src="app.js" type="module" blocking="render"></script><script src="error-capture.js" type="module"></script></head>
 <body>
 <aside>
   <a class="brand" href="./" aria-label="치(지직) 다(시보기) 분석기"><img class="mark" src="icons/chida-32.png" srcset="icons/chida-64.png 2x" width="32" height="32" alt=""><span class="brand-name" aria-hidden="true"><span class="brand-term">치<small>(지직)</small></span><span class="brand-term">다<small>(시보기)</small></span><span>분석기</span></span></a>
@@ -12,9 +12,10 @@
   <button id="new" class="primary wide">＋ VOD 리스트 등록</button>
   <div class="library-head"><h2>저장한 VOD</h2><button id="refresh" class="subtle" aria-label="프로젝트 목록 새로고침">↻</button></div>
   <div id="projects"><p class="muted">저장한 프로젝트가 여기에 표시됩니다.</p></div>
-  <footer><a id="open-video-split" class="secondary wide" href="#split">✂ 영상 나누기</a><button id="step9" class="secondary wide">⚙ 설정</button><span class="dot"></span> 이 컴퓨터에 저장<br><small>공개 VOD · 1.1.0</small></footer>
+  <footer><a id="open-video-split" class="secondary wide" href="#split">✂ 영상 나누기</a><a id="open-mix" class="secondary wide" href="#mix">믹스클립</a><button id="step9" class="secondary wide">⚙ 설정</button><span class="dot"></span> 이 컴퓨터에 저장<br><small>공개 VOD</small></footer>
 </aside>
 <main>
+  <p id="workspace-loading" class="muted" role="status">화면을 불러오는 중입니다.</p>
   <header><div><span class="eyebrow">내 컴퓨터의 방송 기록</span><h1 id="heading" tabindex="-1" data-help="import">VOD 리스트 등록</h1></div><div class="play-actions"><span class="local-badge">로컬 보관함</span><button id="delete-project" class="danger" hidden>VOD 삭제</button></div></header>
   <nav aria-label="작업 단계"><button id="step1" class="step current">1 <span>가져오기</span></button><button id="step2" class="step" disabled>2 <span>가져오기 진행</span></button><button id="step3" class="step" disabled>3 <span>음성 전사</span></button><button id="step4" class="step" disabled>4 <span>화자 구분 (선택)</span></button><button id="step5" class="step" disabled>5 <span>통합 분석·재생</span></button><button id="step6" class="step" disabled>6 <span>AI 문맥 정리</span></button><button id="step7" class="step">7 <span>리포트</span></button><button id="step8" class="step" disabled>8 <span>외부 AI 파일 분석</span></button></nav>
   <div id="notice" role="status" aria-live="polite" hidden></div>
@@ -37,9 +38,9 @@
           <div class="settings-grid queue-settings">
             <label>다운로드 최대 화질<select id="queue-height"><option value="480" selected>480p</option><option value="720">720p</option><option value="1080">1080p</option></select></label>
             <label>다운로드 범위<select id="queue-download-scope"><option value="full">전체 영상</option><option value="range">지정 구간</option></select></label>
-            <label>동시 다운로드 개수<input id="queue-fragments" type="number" min="1" max="16" step="1" value="1" aria-describedby="queue-fragments-note"></label>
+            <label>동시 다운로드 개수<input id="queue-fragments" type="number" min="1" max="32" step="1" value="1" aria-describedby="queue-fragments-note"></label>
           </div>
-          <p id="queue-fragments-note" class="hint">영상 조각을 동시에 받는 개수입니다. 최대 16개이며 단일 MP4와 지정 구간 다운로드에는 적용되지 않습니다.</p>
+          <p id="queue-fragments-note" class="hint">전체 영상과 지정 구간 모두 최대 32개까지 나누어 받습니다. 서버가 분할 수신을 지원하지 않으면 1개로 받습니다.</p>
           <div id="queue-download-range" hidden>
             <div class="settings-grid queue-settings"><label>시작 시각<input id="queue-range-start" type="text" value="00:00:00" placeholder="00:15:00" aria-label="다운로드 시작 시각"></label><label>끝 시각<input id="queue-range-end" type="text" placeholder="00:30:00" aria-label="다운로드 끝 시각"></label></div>
             <p class="hint">원본 VOD 시각 기준</p>
@@ -66,7 +67,7 @@
       <div class="play-actions"><button id="queue-add" class="primary">목록에 등록</button><button id="queue-apply" class="secondary" disabled>선택한 대기 항목에 설정 적용</button></div>
       <p id="queue-notice" role="status" class="queue-error"></p>
       <h3>등록된 VOD 목록</h3><p id="queue-status" role="status"></p><div id="queue-list"></div>
-      <div class="play-actions"><button id="queue-start" class="primary" disabled>순차 작업 시작·이어가기</button><button id="queue-pause" class="secondary" disabled>일시정지</button></div>
+      <div class="play-actions"><button id="queue-start" class="primary" disabled>목록 시작 또는 이어가기</button><button id="queue-pause" class="secondary" disabled>목록 전체 일시정지</button></div>
     </section>
     <div class="folder-settings" aria-labelledby="folder-heading">
       <h3 id="folder-heading" data-help="folders">저장 폴더</h3>
@@ -79,7 +80,32 @@
       <p id="compute-status" class="hint" role="status"></p><p id="compute-notice" role="status" aria-live="polite"></p>
     </div>
   </section>
-  <section id="settings-page" class="panel" hidden><section><h2>오류 진단 로그</h2><label><input id="error-log-enabled" type="checkbox" checked> 오류 진단 로그 저장</label><button id="error-log-apply">설정 적용</button><p id="error-log-setting-state" role="status"></p><p class="hint">이 컴퓨터에만 저장합니다. 끄면 새 진단 오류를 저장하지 않으며 기존 기록은 유지합니다. 작업 이어하기에 필요한 상태·결과와 실행 도구 자체 로그는 별도로 유지됩니다.</p></section></section>
+  <section id="settings-page" class="panel" hidden><section><h2>오류 진단 로그</h2><label><input id="error-log-enabled" type="checkbox" checked> 오류 진단 로그 저장</label><button id="error-log-apply">설정 적용</button><p id="error-log-setting-state" role="status"></p><p class="hint">이 컴퓨터에만 저장합니다. 끄면 새 진단 오류를 저장하지 않으며 기존 기록은 유지합니다. 작업 이어하기에 필요한 상태·결과와 실행 도구 자체 로그는 별도로 유지됩니다.</p></section>
+    <section id="app-info" class="form-section" hidden>
+      <h2>앱 정보</h2>
+      <p>치다 분석기는 스트리머와 클리퍼를 위한 독립 도구입니다. 네이버 및 치지직과 제휴 관계가 없습니다.</p>
+      <div class="play-actions">
+        <a class="secondary" href="https://redpanya.github.io/Chi_Da_analyzer/" target="_blank" rel="noopener noreferrer">사용설명서</a>
+        <a class="secondary" id="web-latest-release" href="https://github.com/redpanya/Chi_Da_analyzer/releases/latest" target="_blank" rel="noopener noreferrer">최신 배포</a>
+        <a class="secondary" id="web-licenses" href="https://github.com/redpanya/Chi_Da_analyzer/blob/main/THIRD-PARTY-NOTICES.md" target="_blank" rel="noopener noreferrer">라이선스 고지</a>
+        <button class="secondary" id="desktop-licenses" hidden>라이선스 고지 열기</button>
+      </div>
+      <section id="desktop-update" hidden aria-labelledby="desktop-update-title">
+        <h3 id="desktop-update-title">앱 업데이트</h3>
+        <p id="desktop-update-version"></p>
+        <p id="desktop-update-guide" class="hint"></p>
+        <p id="desktop-update-status" role="status"></p>
+        <progress id="desktop-update-progress" aria-label="업데이트 다운로드" hidden></progress>
+        <div class="play-actions">
+          <button id="desktop-update-check" class="secondary">업데이트 확인</button>
+          <button id="desktop-update-download" class="primary" hidden>업데이트 다운로드</button>
+          <button id="desktop-update-cancel" class="secondary" hidden>다운로드 취소</button>
+          <button id="desktop-update-reveal" class="secondary" hidden>다운로드 위치 열기</button>
+          <button id="desktop-update-apply" class="primary" hidden>교체 후 재실행</button>
+        </div>
+      </section>
+    </section>
+  </section>
   <section id="download-panel" hidden>
     <div class="project-heading"><h2 id="project-title"></h2><p id="project-meta" class="muted"></p><p id="project-path" class="path"></p></div>
     <p id="lock-note" class="hint"></p>
@@ -105,6 +131,7 @@
         <label class="inline-check"><input type="checkbox" value="context" checked>AI 문맥 정리</label>
       </fieldset>
       <label class="inline-check"><input id="scope-remote" type="checkbox">서버에서 이 구간의 영상만 받기</label><label id="scope-quality-label" hidden>구간 다운로드 화질<select id="scope-quality"><option value="480">480p</option><option value="720">720p 이하</option><option value="1080">1080p 이하</option></select></label>
+      <label id="scope-fragments-label" hidden>동시 다운로드 개수<input id="scope-fragments" type="number" min="1" max="32" step="1" value="1" required></label>
       <label>재사용할 완료 전사<select id="scope-transcript"><option value="">새 전사 또는 이미 생성한 범위 전사 사용</option></select></label><label>함께 복사할 화자 배정<select id="scope-speaker"><option value="">화자 배정 사용 안 함</option></select></label>
       <label>새 화자 구분 도구<select id="scope-backend"><option value="sherpa">sherpa-onnx</option><option value="pyannote">pyannote Community-1</option><option value="fluid">FluidAudio</option></select></label>
       <fieldset><legend>진행할 AI 모드</legend><label class="inline-check"><input type="checkbox" name="scope-ai-mode" value="timestamps" checked>빠른 타임스탬프</label><label class="inline-check"><input type="checkbox" name="scope-ai-mode" value="detail">상세 문맥</label><label class="inline-check"><input type="checkbox" name="scope-ai-mode" value="clips">클립 후보</label></fieldset>
@@ -119,9 +146,9 @@
     <div class="section-heading"><h2 data-help="speech">방송의 목소리를 글로 남기세요</h2></div>
     <h3 id="speech-title"></h3>
     <div class="speech-steps">
-      <article><h3 data-help="speech-source">1. 원음 추출</h3><p id="speech-source" class="hint">저장된 영상 확인 중</p><label for="speech-track">오디오 트랙</label><select id="speech-track"></select><button id="extract-audio" class="secondary" disabled>원음 추출</button></article>
-      <article><h3 data-help="speech-model">2. 전사 모델·언어</h3><p id="speech-model" class="hint">모델 확인 중</p><button id="prepare-model" class="secondary" disabled>전사 모델 준비·검사</button><label for="speech-language">음성 언어</label><select id="speech-language"><option value="ko">한국어</option><option value="auto">자동 감지</option><option value="en">영어</option><option value="ja">일본어</option></select></article>
-      <article><h3 data-help="speech-options">3. 전사 옵션·시작</h3><label for="speech-vad">발화 검출</label><select id="speech-vad"><option value="standard">표준 · 기본</option><option value="sensitive">민감 · 작은 발화 포함</option><option value="off">끄기 · 전체 오디오 처리</option></select><label for="speech-prompt">용어 힌트 (선택)</label><textarea id="speech-prompt" maxlength="500" rows="3" placeholder="이름·게임 용어 등을 500자 이내로 입력"></textarea><button id="transcribe" class="primary" disabled>원음으로 전체 전사·이어받기</button></article>
+      <article><h3 data-help="speech-source">원음 추출</h3><p id="speech-source" class="hint">저장된 영상 확인 중</p><label for="speech-track">오디오 트랙</label><div class="audio-extract-controls"><select id="speech-track"></select><button id="extract-audio" class="secondary" disabled>원음 추출</button></div></article>
+      <article><h3 data-help="speech-model">전사 모델과 언어</h3><p id="speech-model" class="hint">모델 확인 중</p><button id="prepare-model" class="secondary" disabled>전사 모델 준비·검사</button><label for="speech-language">음성 언어</label><select id="speech-language"><option value="ko">한국어</option><option value="auto">자동 감지</option><option value="en">영어</option><option value="ja">일본어</option></select></article>
+      <article><h3 data-help="speech-options">전사 옵션과 시작</h3><label for="speech-vad">발화 검출</label><select id="speech-vad"><option value="standard">표준 · 기본</option><option value="sensitive">민감 · 작은 발화 포함</option><option value="off">끄기 · 전체 오디오 처리</option></select><label for="speech-prompt">용어 힌트 (선택)</label><textarea id="speech-prompt" maxlength="500" rows="3" placeholder="이름·게임 용어 등을 500자 이내로 입력"></textarea><button id="transcribe" class="primary" disabled>원음으로 전체 전사·이어받기</button></article>
     </div>
     <p id="speech-result-status" role="status"></p><p id="speech-notice" role="status" aria-live="polite"></p><p id="speech-status" role="status" aria-live="polite"></p>
     <progress id="speech-progress" max="100" value="0" aria-label="음성 작업 진행"></progress><p id="speech-elapsed" class="hint task-elapsed">작업을 시작하면 소요 시간을 기록합니다.</p><div class="play-actions"><span id="speech-progress-text" class="hint"></span><button id="speech-stop" class="secondary" disabled>음성 작업 중단</button></div>
@@ -131,7 +158,6 @@
 
     <form id="speech-search" class="input-row"><input id="speech-query" placeholder="전사 내용 검색" aria-label="전사 내용 검색" maxlength="200"><button class="secondary">전사 검색</button></form>
     <div id="transcript-rows"></div><div class="play-actions"><button id="speech-prev" class="subtle" disabled>이전 100개</button><span id="speech-count" class="hint"></span><button id="speech-next" class="subtle" disabled>다음 100개</button></div>
-    <div class="exports"><button id="speech-export" class="secondary" disabled>현재 전사 내보내기 생성</button><div id="speech-exports" class="play-actions"></div></div>
   </section>
   <section id="voices-panel" class="panel" hidden>
     <div class="section-heading"><h2 data-help="voices">누가 말했는지 확인하세요</h2></div>
@@ -388,8 +414,78 @@
     <div id="external-preview-result" aria-live="polite"></div>
 
   </section>
-<section id="video-split-page" class="split-page" aria-label="영상 나누기" hidden></section>
+<section id="mix-page" class="panel" aria-labelledby="mix-heading" hidden>
+  <header><h1 id="mix-heading" tabindex="-1">믹스클립</h1><div class="play-actions"><p id="mix-count" class="hint"></p><button id="mix-clear" class="secondary" disabled>목록 비우기</button></div></header>
+  <div class="mix-layout">
+    <section aria-label="편집 순서"><ol id="mix-list"></ol></section>
+    <section class="mix-preview" aria-label="미리보기 및 저장">
+      <video id="mix-video" playsinline preload="metadata" hidden></video>
+      <div class="play-actions"><a id="mix-editor-open" class="secondary" hidden>믹스 편집기 열기</a><button id="mix-preview" class="secondary">순서 미리보기</button><button id="mix-save" class="primary">한 영상으로 저장</button></div>
+      <p id="mix-playing" class="hint" role="status"></p>
+      <div id="mix-result" hidden><button id="mix-open-folder" class="secondary">저장 폴더 열기</button><button id="mix-watch" class="secondary">저장 영상 재생</button><p id="mix-file" class="hint"></p></div>
+      <p id="mix-status" role="status"></p>
+    </section>
+  </div>
+</section>
+<section id="video-split-page" class="split-page" aria-label="영상 나누기" hidden>
+  <header class="split-heading"><div class="split-heading-title"><h1>영상 나누기</h1></div></header>
+  <p id="split-error" role="alert" hidden></p>
+  <section class="panel source-panel" aria-labelledby="source-heading">
+    <div class="split-source-top"><div class="split-source-description"><h2 id="source-heading">내 비디오를 선택하세요</h2><p id="split-source-info" class="hint">MP4, M4V, MOV, MKV, WebM</p></div></div>
+    <div class="split-source-tools"><form id="split-source-form" class="input-row"><input id="split-path" placeholder="선택한 비디오 파일" aria-label="선택한 비디오 파일 경로" readonly><button id="split-load" class="primary" type="submit">파일 열기</button></form></div>
+
+  </section>
+  <div id="split-workspace" hidden>
+    <div class="split-grid">
+      <section class="panel preview-panel" aria-label="원본 영상 미리보기">
+        <video id="split-video" controls preload="metadata" playsinline></video>
+        <div class="play-actions split-player-controls"><button id="split-play" class="primary">재생</button><output id="split-clock">00:00:00.000</output><span id="split-duration" class="split-duration">/ 00:00:00.000</span><button id="split-back" class="secondary">−3초</button><button id="split-forward" class="secondary">+3초</button></div>
+        <div id="split-timeline" tabindex="0" aria-label="확대 가능한 영상 타임라인"><canvas id="split-canvas" height="72"></canvas></div>
+        <section class="split-inline-options split-timeline-options" aria-label="시각 이동과 타임라인 확대"><div class="play-actions split-timeline-controls"><button id="split-layout-reset" class="secondary">배치 초기화</button><label class="inline-control">확대<select id="split-zoom"><option value="1">전체</option><option value="4">4배</option><option value="16">16배</option><option value="64">64배</option></select></label><button id="split-follow" class="secondary">현재 위치 보기</button></div>
+        <form id="split-seek-form" class="input-row"><input id="split-seek-time" value="00:00:00.000" aria-label="이동할 영상 시각"><button class="secondary">시각 이동</button><button id="split-add-current" type="button" class="secondary">현재 위치에 분할점 추가</button></form>
+        </section>
+        <div class="split-media-notes"><p id="split-format-note" class="hint"></p><p id="split-preview-note" class="hint"></p></div>
+      </section>
+      <div class="boundaries-panel">
+      <section class="split-control-section" aria-labelledby="split-boundary-heading"><h2 id="split-boundary-heading">분할 지점</h2>
+        <form id="split-point-form" class="input-row"><input id="split-time" placeholder="00:10:00.000" aria-label="분할할 시각" required><button class="secondary" aria-label="분할점 추가">추가</button></form>
+        <section class="split-inline-options split-interval-options" aria-label="일정 간격으로 나누기"><div class="play-actions"><label class="inline-control">간격 (분)<input id="split-minutes" type="number" min="0.1" step="0.1" value="30"></label><button id="split-interval" class="secondary">간격 적용</button><button id="split-clear" class="secondary">초기화</button></div></section>
+        <div id="split-points"></div><p class="hint">키프레임 기준, 분할점 최대 200개</p>
+      </section>
+      <section class="split-control-section" aria-labelledby="split-audio-heading"><h2 id="split-audio-heading">오디오 트랙</h2>
+        <fieldset class="split-audio-options"><legend class="sr-only">저장할 오디오</legend>
+          <select id="split-audio-mode" aria-label="오디오 유지 방식"><option value="all">전체 오디오 유지</option><option value="selected">선택한 오디오 트랙들 유지</option></select>
+          <div id="split-audio-tracks" hidden></div><p id="split-audio-summary" class="hint" role="status"></p>
+        </fieldset>
+        <div class="split-audio-preview">
+          <label for="split-audio-listen">미리듣기 트랙</label><select id="split-audio-listen" aria-label="미리듣기 트랙"></select>
+          <button id="split-audio-toggle" class="secondary" aria-pressed="false">선택 트랙으로 미리보기</button>
+          <label id="split-audio-volume-row" class="inline-control" hidden>미리듣기 음량<input id="split-audio-volume" type="range" min="0" max="100" value="100"></label>
+          <p id="split-audio-status" class="hint" role="status"></p>
+        </div>
+      </section>
+      </div>
+    </div>
+    <div class="split-plan-action"><p class="hint">재인코딩 없이 원본을 보존합니다.</p><button id="split-plan" class="primary" disabled>실제 분할 시각 확인 →</button></div>
+    <section id="split-plan-panel" class="panel" hidden><h2>확인하고 저장</h2><p class="hint">지정한 시각과 실제 분할 시각의 차이를 확인하세요.</p>
+      <div class="table-scroll"><table><thead><tr><th>분할점</th><th>지정 시각</th><th>실제 시각</th><th>차이</th></tr></thead><tbody id="split-boundaries"></tbody></table></div>
+      <div id="split-parts" class="split-parts"></div>
+      <p id="split-plan-audio" class="hint"></p>
+      <label for="split-folder">저장할 상위 폴더</label><div class="input-row"><input id="split-folder" aria-label="저장할 상위 폴더" readonly><button id="split-folder-pick" class="secondary">폴더 선택</button></div>
+      <p id="split-space" class="hint"></p><button id="split-start" class="primary">영상 나누기 시작</button>
+    </section>
+  </div>
+  <section id="split-job-panel" class="panel" hidden aria-labelledby="split-job-heading"><h2 id="split-job-heading">작업 상태</h2><p id="split-state" role="status" aria-live="polite"></p><progress id="split-progress" max="1" value="0"></progress><p id="split-elapsed" class="hint"></p>
+    <div class="play-actions"><button id="split-stop" class="secondary" hidden>작업 중단</button><button id="split-resume" class="secondary" hidden>완료 파일 유지하고 다시 시도</button><button id="split-open-folder" class="secondary" hidden>출력 폴더 열기</button></div>
+    <p id="split-resume-note" class="hint" hidden>완료 파일은 유지합니다. 나머지 구간을 저장하기 위해 원본을 처음부터 다시 읽습니다.</p><div id="split-outputs"></div>
+  </section>
+</section>
 </main>
+<dialog id="mix-clear-dialog" aria-labelledby="mix-clear-title">
+  <h2 id="mix-clear-title">믹스클립 목록을 비울까요?</h2>
+  <p>VOD별 담은 클립과 저장한 영상은 그대로 보관합니다.</p>
+  <form method="dialog" class="play-actions"><button class="secondary" autofocus>취소</button><button id="mix-clear-confirm" class="danger">모두 비우기</button></form>
+</dialog>
 <dialog id="comment-time-editor" class="comment-time-editor" aria-labelledby="comment-time-heading">
   <h2 id="comment-time-heading">댓글 시각 수정</h2>
   <p id="comment-time-title"></p>
@@ -408,11 +504,13 @@
   <p id="queue-saved-status" role="status"></p><div id="queue-saved-list"></div>
   <div class="play-actions"><button id="queue-saved-confirm" class="primary" type="button">선택 순서대로 가져오기</button></div>
 </dialog>
-<dialog id="delete-dialog" aria-labelledby="delete-title"><h2 id="delete-title">이 VOD를 정말 삭제할까요?</h2><p id="delete-description"></p><p id="delete-path" class="path"></p><p>이 VOD 폴더의 영상·채팅·전사·분석·화자·분리 음원·구간 영상·요약·진단을 모두 휴지통으로 이동합니다. 공용 모델과 폴더 밖 복사본은 유지합니다. 휴지통을 비우기 전에는 복원할 수 있습니다.</p><form id="delete-form"><label>확인할 VOD 번호<input id="delete-confirmation" required autocomplete="off"></label><p id="delete-error" role="status"></p><div class="play-actions"><button id="delete-cancel" type="button" class="secondary">취소</button><button id="delete-confirm" class="danger">관련 자료 모두 휴지통으로 이동</button></div></form></dialog>
+<dialog id="delete-dialog" aria-labelledby="delete-title"><h2 id="delete-title">이 VOD를 정말 삭제할까요?</h2><p id="delete-description"></p><p id="delete-path" class="path"></p><p>이 VOD 폴더의 영상·채팅·전사·분석·화자·분리 음원·구간 영상·요약·진단을 모두 휴지통으로 이동합니다. 공용 모델과 폴더 밖 복사본은 유지합니다. 휴지통을 비우기 전에는 복원할 수 있습니다.</p><form id="delete-form"><p id="delete-error" role="status"></p><div class="play-actions"><button id="delete-cancel" type="button" class="secondary">취소</button><button id="delete-confirm" class="danger">관련 자료 모두 휴지통으로 이동</button></div></form></dialog>
 <dialog id="video-quality-dialog" aria-labelledby="video-quality-title">
   <h2 id="video-quality-title">다운로드 화질 변경</h2>
   <p id="video-quality-title-vod"></p>
   <label>새 화질<select id="video-quality-select"></select></label>
+  <div><label>동시 다운로드 개수<input id="video-quality-fragments" type="number" min="1" max="32" step="1" value="1" required aria-describedby="video-quality-fragments-note"></label>
+    <p id="video-quality-fragments-note" class="hint"></p></div>
   <fieldset id="video-quality-existing" hidden><legend>새 영상 검증 후 기존 파일 처리</legend>
     <label class="inline-check"><input type="radio" id="video-quality-keep" name="old-video" checked> 기존 영상 보존</label>
     <label class="inline-check"><input type="radio" id="video-quality-delete" name="old-video"> 기존 원본·재생용 영상 삭제</label>

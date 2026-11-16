@@ -34,9 +34,8 @@ class JobResumeTests(unittest.TestCase):
         self.manager.tasks.submit.assert_called_once_with('start', self.request | {'kind': 'video', 'format_id': 'saved-480'})
         self.assertEqual(before, self.snapshot())
         self.manager.tasks.items = [{'state': 'queued', 'paths': [str(self.path)]}]
-        with self.assertRaises(Conflict):
-            self.submit('video')
-        self.assertFalse(self.query('video')['actions'])
+        self.submit('video')  # 충돌 대기와 중복 등록은 작업 대기열이 판정한다.
+        self.assertTrue(self.query('video')['actions'])
         self.manager.tasks.items = []
         self.project['tasks']['video']['state'] = 'complete'
         self.save('project.json', self.project)
@@ -194,8 +193,8 @@ class JobResumeTests(unittest.TestCase):
                 self.manager.tasks.submit.assert_called_once_with('start', self.request | {'kind': 'video', 'format_id': 'saved-480'})
                 self.assertEqual(call('https://example.org')[0], 403)
                 self.manager.tasks.items = [{'state': 'queued', 'paths': [str(self.path)]}]
-                self.assertEqual(call()[0], 409)
-                self.assertEqual(self.manager.tasks.submit.call_count, 1)
+                self.assertEqual(call()[0], 200)
+                self.assertEqual(self.manager.tasks.submit.call_count, 2)
                 self.assertEqual(before, self.snapshot())
         finally:
             client.close()

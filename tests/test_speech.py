@@ -184,15 +184,19 @@ class SpeechTests(unittest.TestCase):
         (folder/'state.json').unlink();folder.rmdir();folder.symlink_to(self.root,target_is_directory=True)
         with self.assertRaises(Conflict):store.update(self.path,state='running')
 
-    def test_global_and_project_locks_stop_and_restart(self):
+    def test_resource_locks_stop_and_restart(self):
         manager=Manager(self.root);entered=threading.Event()
         def worker(stop,update):entered.set();stop.wait(3);raise Cancelled()
         with patch.object(model,'prepare',side_effect=worker):
-            manager.speech_start(str(self.root),'1','model');self.assertTrue(entered.wait(1))
-            self.assertTrue(manager.view(str(self.root),'1')['speech']['owned'])
-            for action in [lambda:manager.start(str(self.root),'2','360p','all'),lambda:manager.analyze(str(self.root),'1',{}),lambda:Manager(self.root).speech_start(str(self.root),'1','model')]:
-                with self.assertRaises(Conflict):action()
-            manager.speech_stop(str(self.root),'1');manager.close()
+            try:
+                manager.speech_start(str(self.root),'1','model');self.assertTrue(entered.wait(1))
+                self.assertTrue(manager.view(str(self.root),'1')['speech']['owned'])
+                with patch('archive.analysis_store.run',return_value={'complete':True}):
+                    self.assertEqual(manager.analyze(str(self.root),'1',{}),{'complete':True})
+                with self.assertRaises(Conflict):Manager(self.root).speech_start(str(self.root),'1','model')
+                manager.speech_stop(str(self.root),'1')
+            finally:
+                manager.close()
         self.assertEqual(Manager(self.root).view(str(self.root),'1')['speech']['state'],'paused')
         store.update(self.path,state='running')
         self.assertEqual(Manager(self.root).view(str(self.root),'1')['speech']['state'],'paused')
@@ -204,8 +208,15 @@ class SpeechTests(unittest.TestCase):
             response=conn.getresponse();data=json.loads(response.read());self.assertEqual(response.status,200);self.assertEqual(len(data['items']),3)
             conn.request('GET',parsed.path+'file?'+urlencode({'root':str(self.root),'vod_id':'1','kind':'speech','key':'audio'}),headers={'Range':'bytes=0-43'})
             response=conn.getresponse();self.assertEqual(response.status,206);self.assertEqual(response.getheader('Content-Type'),'audio/wav');self.assertEqual(len(response.read()),44)
+            before=store.state(self.path)
             conn.request('POST',parsed.path+'api/speech-start',json.dumps({'root':str(self.root),'vod_id':'1','action':'unknown'}),{'Content-Type':'application/json'})
-            response=conn.getresponse();response.read();self.assertEqual(response.status,400)
+            response=conn.getresponse();queued=json.loads(response.read())['queued'];self.assertEqual(response.status,200)
+            deadline=time.monotonic()+3
+            while time.monotonic()<deadline and m.tasks.items[-1]['state'] in ('queued','starting','running'):
+                time.sleep(.02)
+            self.assertEqual(m.tasks.items[-1]['id'],queued['id'])
+            self.assertEqual(m.tasks.items[-1]['state'],'error')
+            self.assertEqual(store.state(self.path),before)
         finally:conn.close();server.shutdown();server.server_close();thread.join();m.close()
 
     @unittest.skipUnless(shutil.which('ffmpeg') and shutil.which('ffprobe'),'FFmpeg 필요')

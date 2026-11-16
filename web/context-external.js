@@ -20,7 +20,7 @@ export function createExternal({api,onResult}){
   const identity=()=>({root:project.root,vod_id:project.vod_id});
   const call=(action,args={})=>api('context-exchange-'+action,{...identity(),...args});
   function controls(){
-    const locked=!project||project.locked||busy;
+    const locked=!project||busy;
     $('external-create').disabled=locked||!inputs.ready()||!background.ready()||promptPending||!$('external-prompt').value;
     $('external-preview').disabled=locked||(!upload&&!$('external-json').value.trim());
     $('external-import').disabled=locked||!preview?.accepted||(preview.errors.length>0&&!$('external-partial').checked);
@@ -104,9 +104,9 @@ export function createExternal({api,onResult}){
           });row.append(repair);
         }
         if(r.latest_run){const open=node('button','결과 보기');open.className='secondary';open.onclick=()=>onResult(r.latest_run,r.mode);row.append(open);}
-        if(!r.cancelled&&r.received<r.chunks.length){const cancel=node('button','외부 작업 취소');cancel.className='subtle';cancel.disabled=project.locked;
+        if(!r.cancelled&&r.received<r.chunks.length){const cancel=node('button','외부 작업 취소');cancel.className='subtle';cancel.disabled=busy;
           cancel.onclick=()=>{if(confirm('외부 결과 대기를 취소할까요? 원본과 가져온 결과는 유지됩니다.'))perform(async()=>{await call('cancel',{export_id:r.id});if(project?.path===path){invalidate();await refresh();status('외부 작업을 취소했습니다. 저장한 결과는 유지됩니다.');}});};row.append(cancel);}
-        if(r.cancelled){const resume=node('button','작업 재개');resume.className='secondary';resume.disabled=project.locked;
+        if(r.cancelled){const resume=node('button','작업 재개');resume.className='secondary';resume.disabled=busy;
           resume.onclick=()=>perform(async()=>{await call('resume',{export_id:r.id});if(project?.path===path){invalidate();await refresh();status('원래 입력이 유지된 작업을 재개했습니다. 결과 파일을 다시 검사하세요.');}});row.append(resume);}
         box.append(row);
       }

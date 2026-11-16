@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {studioSteps,nextStudioStep,previewFrameGeometry,createStudioWorkspace,bindStudioSelection,studioReturnLinks} from '../web/studio-workspace.js';
+import {studioSteps,nextStudioStep,previewFrameGeometry,createStudioWorkspace,studioReturnLinks,setStudioMenuLinks} from '../web/studio-workspace.js';
 import {createStudioInspector} from '../web/studio-inspector.js';
 
 test('편집 단계 키보드 순서와 세로 영상의 높이 기준 맞춤',()=>{
@@ -21,6 +21,7 @@ test('편집 단계 키보드 순서와 세로 영상의 높이 기준 맞춤',(
 
 test('단계 패널 HTML의 ID·연결 대상과 설정 입력을 중복 없이 유지',()=>{
   const html=readFileSync(new URL('../web/clip-studio.html',import.meta.url),'utf8');
+  assert.match(html,/<a href="\.\/#split"[^>]+aria-label="영상 나누기"/);
   assert.doesNotMatch(html,/<details|studio-drawer-heading/);
   assert.doesNotMatch(html,/💡|data-help=|id="(?:studio-help|inspector-help|inspector-help-content)"/);
   assert.doesNotMatch(html,/class="studio-header"|id="studio-project-title"/);
@@ -30,6 +31,9 @@ test('단계 패널 HTML의 ID·연결 대상과 설정 입력을 중복 없이 
     for(const id of match[1].split(' '))assert.ok(ids.includes(id),'존재하는 연결 대상: '+id);
   for(const step of studioSteps)assert.ok(ids.includes('panel-'+step)&&ids.includes('tab-'+step));
   assert.match(html,/<div id="studio-presets" data-inline="true"/);
+  assert.ok(ids.indexOf('profile-target')<ids.indexOf('preset-target-names')&&ids.indexOf('preset-target-names')<ids.indexOf('studio-preset-list'));
+  assert.match(html,/<option value="current">현재 구간<\/option>/);
+  assert.doesNotMatch(html,/공통 기본값|id="preset-save-source"/);
   for(const id of ['source-version','source-list','range-form','image-file','image-width','caption-font','caption-size','preset-apply','profile-undo','render-start'])assert.ok(ids.includes(id));
 });
 
@@ -47,6 +51,29 @@ test('편집기 복귀는 진입 화면과 선택 VOD를 유지하고 준비 링
     assert.match(studioReturnLinks(project,invalid).back,/#use$/);
 });
 
+test('구간 VOD에서 주 메뉴는 보관함을 열고 이전 화면은 같은 VOD를 연다',()=>{
+  const page='http://127.0.0.1:1234/session/clip-studio.html';
+  const library='/Volumes/테스트 & 보관함', projectRoot=library+'/.download-ranges/1234567890abcdef1234567890abcdef';
+  const project={root:projectRoot,vod_id:'123'};
+  const menus=['library','register','library','jobs','split','mix','settings','library'];
+  const links=menus.map(route=>({hash:'#'+route}));
+  setStudioMenuLinks(links,project);
+  for(const link of links)assert.equal(new URL(link.href,page).searchParams.get('root'),projectRoot);
+  setStudioMenuLinks(links,{library_root:library});
+  for(const [index,link] of links.entries()){
+    const target=new URL(link.href,page);
+    assert.equal(target.hash,'#'+menus[index]);
+    assert.deepEqual([...target.searchParams],[['library_root',library]]);
+  }
+  const back=studioReturnLinks({...project,library_root:library},'speech');
+  for(const link of [back.prepare,back.back]){
+    const target=new URL(link,page);
+    assert.equal(target.searchParams.get('root'),projectRoot);
+    assert.equal(target.searchParams.get('library_root'),library);
+    assert.equal(target.searchParams.get('vod_id'),'123');
+  }
+});
+
 test('자막 내용·글꼴 색상·크기 위치는 별도로 열리며 입력 노드를 보존',()=>{
   const previous={document:globalThis.document,MutationObserver:globalThis.MutationObserver};
   const nodes=new Map(),buttons=new Map(),panels=[];let focused=null;
@@ -62,9 +89,11 @@ test('자막 내용·글꼴 색상·크기 위치는 별도로 열리며 입력 
     focus(){focused=this;}
   }
   const $=id=>{if(!nodes.has(id))nodes.set(id,new Node());return nodes.get(id);};
-  const keys=['sources','range-edit','layout','image','effects','volume','caption-content','caption-appearance','transcript','captions','font','caption-position'];
+  const keys=['sources','layout','image','effects','volume','caption-content','caption-appearance','transcript','captions','font','caption-position'];
   for(const key of keys){const b=new Node();b.dataset.inspectorOpen=key;buttons.set(key,b);const p=$('inspector-'+key);p.dataset.inspector=key;panels.push(p);}
   const ratio=new Node();ratio.dataset.ratio='original';const body=new Node();
+  const slides=[];
+  body.animate=frames=>{slides.push(frames[0].transform);return {cancel(){}};};
   globalThis.document={getElementById:$,createElement:()=>new Node(),addEventListener(){},dispatchEvent(){},querySelectorAll:s=>s==='[data-inspector]'?panels:s==='[data-inspector-open]'?[...buttons.values()]:[],querySelector:s=>s==='.inspector-body'?body:s==='[data-ratio][aria-pressed=true]'?ratio:buttons.get(/data-inspector-open="([^"]+)"/.exec(s)?.[1])||null};
   globalThis.MutationObserver=class{observe(){}};
   try{
@@ -82,12 +111,20 @@ test('자막 내용·글꼴 색상·크기 위치는 별도로 열리며 입력 
     $('inspector-back').onclick();assert.equal($('overview-caption').hidden,false);
     ui.open('caption-position');assert.equal($('inspector-caption-position').hidden,false);assert.equal($('inspector-caption-appearance').hidden,true);assert.equal(sample.parentElement,$('inspector-caption-position'));
     $('inspector-back').onclick();
-    ui.setTab('range');ui.open('sources');assert.equal($('inspector-sources').hidden,false);
+    ui.setTab('range');
+    assert.equal($('overview-range').hidden,false);assert.equal($('inspector-heading').hidden,true);
+    buttons.get('sources').onclick();assert.equal($('inspector-sources').hidden,false);
+    assert.equal($('overview-range').hidden,true);assert.equal($('inspector-back').textContent,'← 구간 다듬기');
+    $('inspector-back').onclick();assert.equal($('overview-range').hidden,false);assert.equal(focused,buttons.get('sources'));
+    slides.length=0;
     ui.setTab('preset');assert.ok(panels.every(p=>p.hidden));
+    ui.setTab('range');ui.setTab('range');
+    ui.setTab('export',false);
+    assert.deepEqual(slides,['translateX(12px)','translateX(-12px)']);
   }finally{Object.assign(globalThis,previous);}
 });
 
-test('설정 패널을 닫는 중 다시 열어도 이전 애니메이션이 새 패널을 숨기지 않음',()=>{
+test('편집기 바깥 클릭은 설정 패널을 유지하고 닫기 버튼과 단계 선택으로 닫고 다시 연다',()=>{
   const previous={document:globalThis.document,ResizeObserver:globalThis.ResizeObserver};
   const nodes=new Map();let focused=null;const animations=[];
   class Node{
@@ -98,12 +135,18 @@ test('설정 패널을 닫는 중 다시 열어도 이전 애니메이션이 새
     animate(){const animation={cancel(){this.cancelled=true;}};animations.push(animation);return animation;}
   }
   const $=id=>{if(!nodes.has(id))nodes.set(id,new Node());return nodes.get(id);};
-  const body=new Node(),events=[];
-  globalThis.document={body,cookie:'',createElement:()=>new Node(),getElementById:$,querySelector:$,addEventListener(){},dispatchEvent:e=>events.push(e)};
+  const body=new Node(),events=[],listeners=new EventTarget();
+  globalThis.document={body,cookie:'',createElement:()=>new Node(),getElementById:$,querySelector:s=>s==='dialog:modal'?null:$(s),
+    addEventListener:(...args)=>listeners.addEventListener(...args),dispatchEvent:e=>events.push(e)};
   globalThis.ResizeObserver=class{observe(){}disconnect(){}};
   try{
     const ui=createStudioWorkspace({onStep(){}}),panel=$('.inspector');
-    ui.close();assert.equal(panel.inert,true);const pending=animations.at(-1);
+    for(const type of ['pointerdown','click']){
+      const event=Object.assign(new Event(type),{button:0,clientX:40,clientY:80,composedPath:()=>[$('.preview-panel'),body]});
+      listeners.dispatchEvent(event);
+    }
+    assert.equal(panel.inert,false);assert.equal(panel.hidden,false);
+    $('studio-panel-close').onclick();assert.equal(panel.inert,true);const pending=animations.at(-1);
     ui.setStep('frame');assert.equal(pending.cancelled,true);assert.equal(panel.inert,false);pending.onfinish();assert.equal(panel.hidden,false);
     ui.close();animations.at(-1).onfinish();assert.equal(panel.hidden,true);assert.ok(body.classes.has('studio-panel-closed'));assert.equal(events.at(-1).detail.panel,'');
     assert.equal(focused,$('tab-frame'));ui.setStep('caption');assert.equal(panel.hidden,false);assert.ok(!body.classes.has('studio-panel-closed'));
@@ -111,16 +154,12 @@ test('설정 패널을 닫는 중 다시 열어도 이전 애니메이션이 새
 });
 
 
-test('구간 단계의 담은 목록은 기존 구간 선택 경로를 재사용하고 원본 목록을 변경하지 않음',()=>{
-  const previous={document:globalThis.document,MutationObserver:globalThis.MutationObserver};let refresh,selected=0;
-  const make=()=>({children:[],attrs:{},append(...items){this.children.push(...items);},replaceChildren(...items){this.children=items;},setAttribute(k,v){this.attrs[k]=v;}});
-  const source={getAttribute:()=> 'true',querySelector:s=>({textContent:s==='strong'?'1. 현재 장면':'00:01:00 · 00:00:30'}),click(){selected++;}};
-  let rows=[source];const assembly={querySelectorAll:()=>rows},container=make(),count=make();
-  globalThis.document={createElement:make};globalThis.MutationObserver=class{constructor(callback){refresh=callback;}observe(){}disconnect(){}};
-  try{
-    const ui=bindStudioSelection(assembly,container,count);
-    assert.equal(count.textContent,'담은 구간 1개');assert.equal(container.children[0].attrs['aria-pressed'],'true');
-    container.children[0].onclick();assert.equal(selected,1);assert.equal(rows[0],source);
-    rows=[];refresh();assert.equal(count.textContent,'담은 구간 0개');assert.match(container.children[0].textContent,/직접 추가/);ui.destroy();
-  }finally{Object.assign(globalThis,previous);}
+test('담은 구간 목록과 추가 버튼은 미리보기에 있고 구간 단계는 다듬기로 열린다',()=>{
+  const html=readFileSync(new URL('../web/clip-studio.html',import.meta.url),'utf8');
+  const main=html.slice(html.indexOf('<main '),html.indexOf('</main>'));
+  const inspector=html.slice(html.indexOf('class="inspector"'));
+  assert.match(main,/id="assembly-list"/);
+  assert.match(main,/id="assembly-add"[^>]*data-inspector-open="sources"/);
+  assert.doesNotMatch(inspector,/id="studio-selected-(?:clips|count)"|data-inspector-open="(?:range-edit|sources)"/);
+  assert.match(inspector,/<section id="overview-range">\s*<div class="panel-title"><h2>시작과 끝 다듬기/);
 });

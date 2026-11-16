@@ -22,7 +22,7 @@ export function createWorkspaceStatus(layout) {
   function jobs() {
     const descriptors = [
       ['video','영상',2,'video-stop',project?.video_replacement?.task||project?.tasks?.video], ['chat','채팅',2,'chat-stop',project?.tasks?.chat],
-      ['speech','음성 전사',3,'speech-stop',project?.speech], ['voices','화자 구분',4,'voices-stop',project?.voices],
+      ['speech',project?.speech?.action==='audio'?'원음 추출':'음성 전사',3,'speech-stop',project?.speech], ['voices','화자 구분',4,'voices-stop',project?.voices],
       ['context','AI 문맥',6,'context-stop',project?.context],
     ];
     const sourcePath = project?.path;
@@ -33,7 +33,7 @@ export function createWorkspaceStatus(layout) {
       const previous = seenStates.get(identity);
       if (previous === signature) continue;
       seenStates.set(identity, signature);
-      if (step === page || !(active.has(state.state) || needsReview.has(state.state) || (previous && state.state === 'complete'))) continue;
+      if (step === page || !(active.has(state.state) || needsReview.has(state.state))) continue;
       showToast(`${project.metadata.title} · ${name} · ${state.message || state.state}`, {
         key:identity+':'+signature, action:() => {if (project?.path === sourcePath) $('step'+step).click(); else $('nav-jobs').click();},
       });
@@ -44,13 +44,20 @@ export function createWorkspaceStatus(layout) {
   function update(value = project) {
     const changed = path !== value?.path, previous = project; project = value;
     if (changed) {layout.closeMore?.(); path = value?.path; layout.panels.forEach(panel => panel.reset());}
-    for (const [key, panels] of [['context',[layout.contextSettings, layout.clipSettings]], ['speech',[layout.speechSettings]], ['voices',[layout.voiceSettings]]]) {
+    for (const [key, panels] of [['context',[layout.contextSettings, layout.clipSettings]], ['speech',[layout.audioSettings, layout.speechSettings]], ['voices',[layout.voiceSettings]]]) {
       const state = value?.[key];
-      if (state?.owned && !previous?.[key]?.owned) panels.forEach(panel => {panel.accepted(); panel.close();});
+      if (state?.owned && !previous?.[key]?.owned) panels.forEach(panel => {
+        panel.accepted();
+        if(key!=='speech')panel.close();
+      });
     }
     for (const picker of layout.versions) picker.update();
     for (const id of ['context-resume','context-clips-resume']) $(id).hidden = $(id).disabled;
     readiness();
+    const extracting=value?.speech?.action==='audio', job=$('speech-job');
+    const host=$(extracting?'audio-job-slot':'speech-materials');
+    if(host && job.parentElement!==host)host.append(job);
+    setText('speech-stop',extracting?'원음 추출 중단':value?.speech?.action==='transcribe'?'음성 전사 중단':'음성 작업 중단');
     for (const [id, state] of [['context-job',value?.context],['clips-job',value?.context],['speech-job',value?.speech],['voices-job',value?.voices]]) {
       $(id).classList.toggle('needs-review', needsReview.has(state?.state));
       // 완료 상태도 보이되 빈 작업의 큰 진행 게이지는 생략한다.

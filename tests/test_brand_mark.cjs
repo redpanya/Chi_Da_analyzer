@@ -40,8 +40,9 @@ const identity = app => JSON.stringify(app.art());
 const choices = new Set();
 for (let index = 0; index < 20; index++) {
   const app = boot({random: (index + .5) / 20});
-  assert.equal(app.calls(), 0, '처음에는 무작위 선택 없이 치지직 마크');
-  assert.equal(app.art().attributes.class, 'brand-chzzk');
+  assert.equal(app.calls(), 0, '처음에는 무작위 선택 없이 녹색 돋보기');
+  assert.equal(app.art().tag, 'circle');
+  assert.deepEqual(app.art().attributes, {class: 'brand-start-fill', cx: '17', cy: '17', r: '11.1'});
   const frames = app.logos.map(logo => JSON.stringify(logo.children.slice(0, 3)));
   for (const options of [{trusted: false}, {disabled: true}, {active: true}, {menu: false}]) app.click(options);
   assert.equal(app.calls(), 0, '자동 복원, 사용 불가, 현재 메뉴, 일반 클릭은 무시');
@@ -79,9 +80,9 @@ for (const suffix of ['#library', 'clip-studio.html?vod_id=1', 'video-split.html
   assert.equal(next.calls(), 0, '문서 로드에서 추가 교체 없음');
 }
 assert.equal(boot({storage: original.storage, href: 'http://127.0.0.1:1234/new-run/'}).art().attributes.class,
-  'brand-chzzk', '새 실행 주소는 치지직 마크로 시작');
+  'brand-start-fill', '새 실행 주소는 녹색 돋보기로 시작');
 for (const saved of ['-1', '20', 'NaN', '', 'bad']) {
-  assert.equal(boot({storage: new Map([['chida-brand:/run/', saved]])}).art().attributes.class, 'brand-chzzk');
+  assert.equal(boot({storage: new Map([['chida-brand:/run/', saved]])}).art().attributes.class, 'brand-start-fill');
 }
 const restricted = boot({blocked: true}); restricted.click();
 assert.equal(restricted.art().attributes.class, 'brand-motif', '저장소 제한에도 메뉴와 로고 동작');
@@ -95,7 +96,7 @@ keyboard.events.keydown(arrow); selected = {}; keyboard.flush();
 assert.equal(keyboard.calls(), 1, '방향키로 실제 선택 탭을 옮기면 한 번 교체');
 const design = fs.readFileSync(path.join(web, 'design-system.js'), 'utf8');
 assert.equal(design.split("import './pattern-background.js'").length - 1, 1);
-for (const page of ['index.html', 'clip-studio.html', 'video-split.html']) {
+for (const page of ['index.html', 'clip-studio.html']) {
   const html = fs.readFileSync(path.join(web, page), 'utf8');
   assert.ok(html.includes('src="design-system.js"'));
   assert.ok(!html.includes('src="pattern-background.js"'), '중복 초기화 방지');
@@ -104,5 +105,5 @@ for (const page of ['index.html', 'clip-studio.html', 'video-split.html']) {
 const css = fs.readFileSync(path.join(web, 'design-system.css'), 'utf8');
 assert.match(css, /\.brand-mark \.brand-lens \{fill:var\(--ds-input\);stroke:var\(--ds-accent\)/);
 assert.match(css, /\.brand-mark \.brand-tile \{fill:var\(--ds-surface\)/);
-assert.match(css, /\.brand-mark \.brand-chzzk \{fill:var\(--ds-accent\)/);
-console.log('통과: 첫 치지직 마크, 메뉴별 교체, 소품 확대, 직전 중복 방지, 문서 이동, 저장소 예외, 3개 화면과 테마');
+assert.match(css, /\.brand-mark \.brand-start-fill \{fill:#00ffa3;/);
+console.log('첫 녹색 돋보기, 메뉴별 교체, 소품 확대, 직전 중복 방지, 문서 이동, 저장소 예외와 테마 검사 통과');

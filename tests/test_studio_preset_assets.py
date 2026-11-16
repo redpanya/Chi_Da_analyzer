@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 from PIL import Image
 from archive import studio_profiles as presets, studio_images as images
-from archive.storage import Conflict, read_json, save_json
+from archive.storage import Conflict, ProjectLock, read_json, save_json
 
 class PresetAssets(unittest.TestCase):
     def setUp(self):
@@ -33,6 +33,16 @@ class PresetAssets(unittest.TestCase):
         presets.dispatch('delete',{'id':item['id']})
         self.assertEqual(images.location(self.target,self.image['asset']).read_bytes(),stored)
         self.assertEqual(applied['image']['y'],80)
+    def test_shared_preset_during_other_draft_write_and_image_collision(self):
+        item=self.save()
+        args=dict(id=item['id'],revision=1)
+        with ProjectLock(self.target,write=['studio-draft']):
+            with ProjectLock(self.target,read=['studio-images']):
+                with self.assertRaises(Conflict):
+                    presets.dispatch('apply',args,self.target)
+                self.assertFalse(images.location(self.target,self.image['asset']).exists())
+            self.assertEqual(presets.dispatch('apply',args,self.target)['options']['image'],self.image)
+
     def test_overwrite_archives_old_revision_and_rejects_stale_writers(self):
         old=self.save();file=presets.folder()/(old['id']+'.json');before=file.read_bytes()
         payload=dict(id=old['id'],revision=1,name=old['name'],options={'image':self.image,'ratio':'1:1'})

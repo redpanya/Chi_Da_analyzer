@@ -51,12 +51,15 @@ export function createContext({api,player,onProject,onExternal}) {
   const message=text=>$('context-notice').textContent=text;
   const background=createBackground({api,message,onChange:controls,mode:()=>viewMode});
   const inputs=createContextInputs(controls);
+  function canDelete(run){
+    return !deleting&&!project?.context?.owned&&project?.context?.runs?.some(r=>r.id===run);
+  }
   function controls(){
     for(const [button,select] of [['context-delete','context-version'],['context-clips-delete','context-clips-version']]){
-      $(button).disabled=deleting||!project||project.locked||project.analysis_running||!(project.context?.runs||[]).some(r=>r.id===$(select).value);
+      $(button).disabled=!canDelete($(select).value);
     }
-    $('context-resume').disabled=viewMode==='clips'||!project||project.locked||currentResult?.scope!=='full'||currentResult.complete||currentResult.stale||currentResult.origin==='external';
-    $('context-generate').disabled=viewMode==='clips'||!project||project.locked||!inputs.ready()||!background.ready();
+    $('context-resume').disabled=viewMode==='clips'||!project||currentResult?.scope!=='full'||currentResult.complete||currentResult.stale||currentResult.origin==='external';
+    $('context-generate').disabled=viewMode==='clips'||!project||!inputs.ready()||!background.ready();
   }
   function changeTab(mode,{allowEmpty=false}={}){
     if(!modes.includes(mode)||(!allowEmpty&&!availableResultModes(project).includes(mode)))return;
@@ -130,7 +133,7 @@ export function createContext({api,player,onProject,onExternal}) {
     if(item.reaction_index){const badge=node('span','🤩'.repeat(item.reaction_index)+` ${item.reaction_index}/10`,'context-reaction-index');badge.setAttribute('aria-label',`이 VOD 내 채팅 반응 ${item.reaction_index}/10`);badge.title=reactionHelp;extra.append(badge);}
     const scene=node('button','','scene-copy'),clock=node('time',label,'result-time');scene.type='button';scene.disabled=project?.tasks.video.state!=='complete';scene.setAttribute('aria-label',label+' '+title.textContent+' 구간 재생');scene.append(clock,title);box.append(scene);
     if(item.parallel)detailNote('동시에 진행된 별개 대화 · 시간 범위가 다른 문맥과 겹칠 수 있습니다.');
-    if(item.adaptive&&(item.interpretations?.length||item.omissions?.length||item.held_claims?.length||item.review_issues?.length))extra.append(interpretationDetails(item,player,!project.locked&&currentResult?.complete?rejectInterpretation:null));
+    if(item.adaptive&&(item.interpretations?.length||item.omissions?.length||item.held_claims?.length||item.review_issues?.length))extra.append(interpretationDetails(item,player,currentResult?.complete?rejectInterpretation:null));
     if(item.kind)extra.append(node('p',({topic:'상위 주제',story:'하위 이야기',moment:'하위 반응 장면',reaction:'별도 반응'}[item.kind])+(item.relation_status?' · '+relationLabel[item.relation_status]:''),'context-kind'));
     if(item.review||item.parent_review)extra.append(node('p',item.kind==='topic'||item.parent_review?'상위 주제 연결 확인 필요':'이야기 경계 확인 필요','hint'));
     if(item.gap){box.classList.add('context-gap');detailNote(currentResult?.version===10?'이 범위에는 사용할 전사가 없거나 자료 형식 확인이 필요합니다. 음성 미검출이 실제 무음의 확정 판정은 아닙니다.':'이 범위는 대화 문맥을 생성하지 않았습니다. 전사가 없거나 반복·경계 검토 대상 발언만 있습니다.');}
@@ -288,7 +291,7 @@ export function createContext({api,player,onProject,onExternal}) {
     catch(error){if(project?.path===selected)message(error.message);}
   }
   async function rejectInterpretation(change){
-    if(!project||project.locked||!currentResult?.complete)return;
+    if(!project||!currentResult?.complete)return;
     const selected=project.path;
     try{
       const value=await api('context-reject-interpretation',{...identity(),run:currentResult.id,item:change.owner_id,part:change.part_id,interpretation:change.id});
@@ -302,7 +305,7 @@ export function createContext({api,player,onProject,onExternal}) {
   $('context-open').onclick=()=>load($('context-version').value);
   async function deleteSelected(selectId){
     const run=$(selectId).value,entry=project?.context?.runs?.find(r=>r.id===run);
-    if(!entry||deleting||project.locked||project.analysis_running)return;
+    if(!canDelete(run))return;
     if(!confirm(`선택한 결과 버전을 휴지통으로 이동할까요?\n${entry.label} · ${entry.title||''}\n영상·채팅·전사·화자 배정·다른 결과·외부 AI 파일은 유지합니다.\n이 버전의 댓글 초안은 보관함에 보존되며 목록에서는 함께 숨겨집니다.`))return;
     const path=project.path,identityValue={...identity(),run};deleting=true;serial++;controls();$('context-delete-notice').textContent='댓글 저장 확인 후 선택한 버전을 삭제하고 있습니다…';
     try{
@@ -336,9 +339,9 @@ export function createContext({api,player,onProject,onExternal}) {
       if(changed){const previous=projectViews.get(value?.path);viewMode=initialContextMode(value,previous?.mode);selectedRuns.detail=previous?.runs.detail||null;selectedRuns.timestamps=previous?.runs.timestamps||null;thinking.detail=true;thinking.timestamps=false;serial++;key='';currentRun=selectedRuns[viewMode]||null;currentResult=null;latestRun=null;listItems=[];setCommentItems([],'');$('context-min-reaction').value='0';renderList(true);$('context-log').open=false;$('context-overview').replaceChildren(node('p','문맥 결과를 열면 처리 내역이 표시됩니다.','hint'));$('context-offset').value='0';$('context-playing').textContent='';$('context-playing').title='목록에서 구간을 누르면 영상을 재생합니다.';message('');}
       const state=value?.context,p=state?.progress||{},model=state?.model;
       if(changed)$('context-thinking').checked=thinking[viewMode];setTabs();
-      $('context-thinking').disabled=!value||value.locked;
+      $('context-thinking').disabled=!value;
       $('context-title').textContent=value?.metadata.title||'';
-      $('context-prepare').disabled=!value||value.locked;$('context-stop').disabled=!state?.owned||state.state==='stopping';$('context-generate').disabled=!value||value.locked||!value.speech?.transcript?.complete||value.speech.stale;controls();
+      $('context-prepare').disabled=!value;$('context-stop').disabled=!state?.owned||state.state==='stopping';$('context-generate').disabled=!value||!value.speech?.transcript?.complete||value.speech.stale;controls();
       $('context-model').textContent=model?`Gemma 4 E4B · ${model.ready?'모델 준비됨':'모델 준비 필요'} · ${model.engine?'엔진 포함/설치됨':'엔진 없음'}`:'';
       const finished=['complete','review'].includes(state?.state);
       const status=state?.state==='review'&&currentResult?.id===state.run&&currentResult.complete

@@ -1,7 +1,7 @@
 // 같은 로컬 앱에서 발생한 오류만 모은다. 로그 전송 자체의 실패는 재전송하지 않는다.
 export function installErrorCapture(host=window){
   const original=host.fetch.bind(host),recent=new Map();
-  const here=new URL(host.location.href),page=here.pathname.endsWith('clip-studio.html')?'clip-studio':here.pathname.endsWith('video-split.html')?'video-split':'index';
+  const here=new URL(host.location.href),page=here.pathname.endsWith('mix-studio.html')?'mix-studio':here.pathname.endsWith('clip-studio.html')?'clip-studio':here.pathname.endsWith('video-split.html')?'video-split':'index';
   const endpoint=new URL('api/error-log-client',here).href;
   let sent=0,started=Date.now();
   function report(kind,message){

@@ -24,6 +24,12 @@ def media(path, vod):
                 audio=any(s['codec_type']=='audio' for s in info['streams']), data=data)
 
 
+def default_options():
+    return dict(ratio='original',fit='contain',x=50,y=50,layout='single',split=60,game=[0,0,100,100],face=[70,50,30,50],
+                 size='source',mode='separate',transition='cut',volume=100,brightness=0,contrast=1,saturation=1,fade=0,
+                 caption=False,style='basic',caption_design=None,font='auto',caption_language='ko',font_size=22,position='bottom',caption_x=0,caption_y=0,image=None,sidecar=True,speed='exact')
+
+
 def validate(value, src, *, draft=False):
     if not isinstance(value, dict): raise ValueError('편집 설정을 확인하세요')
     clips=value.get('clips')
@@ -37,10 +43,7 @@ def validate(value, src, *, draft=False):
         item=dict(title=c['title'],start_ms=round(a),end_ms=round(b),id=c.get('id'))
         if 'options' in c:item['options']=c['options']
         result.append(item)
-    result.sort(key=lambda c:(c['start_ms'],c['end_ms']))
-    options=dict(ratio='original',fit='contain',x=50,y=50,layout='single',split=60,game=[0,0,100,100],face=[70,50,30,50],
-                 size='source',mode='separate',transition='cut',volume=100,brightness=0,contrast=1,saturation=1,fade=0,
-                 caption=False,style='basic',caption_design=None,font='auto',caption_language='ko',font_size=22,position='bottom',caption_x=0,caption_y=0,image=None,sidecar=True,speed='exact')
+    options=default_options()
     supplied=value.get('options',{})
     if not isinstance(supplied,dict) or set(supplied)-set(options):raise ValueError('지원하지 않는 편집 옵션입니다')
     options.update(supplied)

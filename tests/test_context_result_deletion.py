@@ -1,5 +1,7 @@
 """임시 보관함에서 문맥 버전 삭제·실패 복구·자료 보존을 검사한다."""
+from concurrent.futures import ThreadPoolExecutor
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -57,11 +59,39 @@ class ContextResultDeletionTests(unittest.TestCase):
             with self.assertRaises(ValueError):result_deletion.context(self.path, self.ids[0])
             trash.assert_not_called()
 
-    def test_active_work_and_project_lock_block_manager_delete(self):
-        manager = Manager(self.root);manager.analysis_path = self.path
-        with patch('archive.deletion.trash_path') as trash:
-            with self.assertRaises(Conflict):manager.context_delete(str(self.root), '1', self.ids[0])
-            manager.analysis_path = None
-            with ProjectLock(self.path):
-                with self.assertRaises(Conflict):manager.context_delete(str(self.root), '1', self.ids[0])
-            trash.assert_not_called()
+    def test_delete_while_analysis_owns_chat_but_not_context(self):
+        manager = Manager(self.root)
+        self.addCleanup(manager.close)
+        with ProjectLock(self.path, read=['chat'], write=['analysis']):
+            with patch('archive.deletion.trash_path', side_effect=self.move):
+                manager.context_delete(str(self.root), '1', self.ids[0])
+        self.assertTrue((self.trash/self.ids[0]/'result.json').is_file())
+        self.assertEqual([r['id'] for r in store.state(self.path)['runs']], self.ids[1:])
+
+    def test_two_deletes_cannot_change_the_same_catalog_concurrently(self):
+        writer, other = Manager(self.root), Manager(self.root)
+        self.addCleanup(writer.close)
+        self.addCleanup(other.close)
+        entered, release = threading.Event(), threading.Event()
+        def move(folder):
+            entered.set()
+            self.assertTrue(release.wait(10))
+            self.move(folder)
+        with patch('archive.deletion.trash_path', side_effect=move) as trash, ThreadPoolExecutor(1) as pool:
+            first = pool.submit(writer.context_delete, str(self.root), '1', self.ids[0])
+            try:
+                self.assertTrue(entered.wait(10))
+                catalog = store.local(self.path, 'state.json')
+                state = catalog.read_bytes()
+                with self.assertRaises(Conflict):
+                    other.context_delete(str(self.root), '1', self.ids[1])
+                self.assertEqual(catalog.read_bytes(), state)
+                self.assertTrue(store.local(self.path, f'runs/{self.ids[1]}/result.json').is_file())
+                trash.assert_called_once()
+            finally:
+                release.set()
+            first.result(10)
+        with ProjectLock(self.path):
+            with self.assertRaises(Conflict):
+                other.context_delete(str(self.root), '1', self.ids[1])
+        self.assertEqual([r['id'] for r in store.state(self.path)['runs']], self.ids[1:])

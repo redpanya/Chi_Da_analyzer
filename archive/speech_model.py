@@ -3,11 +3,12 @@
 import hashlib
 import shutil
 import subprocess
+from contextlib import contextmanager
 from urllib.request import Request, urlopen
 
 from . import model_paths
 from .source import check_cancel
-from .storage import ProjectLock, read_json, save_json
+from .storage import ProjectLock, ResourceBusy, read_json, save_json
 
 NAME = 'large-v3-turbo-q5_0'
 SIZE = 574041195
@@ -52,9 +53,27 @@ def verify():
     return path
 
 
+@contextmanager
+def prepare_lock(cache, resource, stop, update):
+    announced = False
+    while True:
+        check_cancel(stop)
+        try:
+            lock = ProjectLock(cache, write=[resource])
+            break
+        except ResourceBusy:
+            if not announced:
+                update(message='다른 작업의 모델 사용이 끝나기를 기다립니다')
+                announced = True
+            stop.wait(0.25)
+    with lock:
+        check_cancel(stop)
+        yield
+
+
 def prepare(stop, update):
     cache = model_paths.available()
-    with ProjectLock(cache):
+    with prepare_lock(cache, 'speech-models', stop, update):
         target = model_path()
         part = target.with_suffix('.part')
         if target.is_symlink() or part.is_symlink():

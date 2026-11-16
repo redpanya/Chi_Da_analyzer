@@ -50,7 +50,7 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
   }
   function controls() {
     if(!project)return;
-    const s=project.voices, disabled=busy||project.locked, ready=project.speech.transcript?.complete&&!project.speech.stale;
+    const s=project.voices, disabled=busy, ready=project.speech.transcript?.complete&&!project.speech.stale;
     $('voices-title').textContent=project.metadata.title;
     $('voices-status').textContent=(s.message||'')+(s.stale?' · 현재 전사와 다른 입력입니다. 이 버전은 이전 자료로 보존됩니다.':'');
     const progress=$('voices-progress'),p=s.progress||{};
@@ -177,7 +177,7 @@ export function createVoices({api, player, showVideo, showExplore, onProject}) {
   $('voices-select').onclick=()=>edit('select',{run:$('voices-version').value});
   $('voices-delete').onclick=()=>{
     const run=$('voices-version').value;
-    if(!run||project?.locked||!confirm('선택한 화자 분석과 그 버전의 이름·수동 배정을 휴지통으로 이동할까요?\n영상·오디오·전사·다른 화자 분석·내보낸 파일·기존 요약은 유지됩니다.'))return;
+    if(!run||!confirm('선택한 화자 분석과 그 버전의 이름·수동 배정을 휴지통으로 이동할까요?\n영상·오디오·전사·다른 화자 분석·내보낸 파일·기존 요약은 유지됩니다.'))return;
     stopPreview();return edit('delete',{run});
   };
   $('voices-export').onclick=()=>edit('export');

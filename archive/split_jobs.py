@@ -1,7 +1,6 @@
 """현재 앱 실행 동안만 유지하는 독립 영상 분할 작업."""
 from . import error_log
 import copy
-import os
 from pathlib import Path
 import tempfile
 import threading
@@ -62,8 +61,9 @@ class Splitter:
 
     def state(self, id):
         file = self.file(id)
-        if self.job and not self.job.closed and self.job.file == file:
-            result = self.job.snapshot()
+        worker = self.manager.tasks.find('split', file=file)
+        if worker:
+            result = worker.snapshot()
         else:
             result = read_json(file)
             if result['state'] in ('planning', 'running'):
@@ -89,8 +89,9 @@ class Splitter:
             return {'runs': [], 'total': 0, 'offset': offset, 'limit': limit}
         if action == 'stop':
             with self.manager.guard:
-                if self.job and self.job.value['id'] == data.get('id') and not self.job.closed:
-                    self.job.stop.set()
+                worker = self.manager.tasks.find('split', file=self.file(data['id']))
+                if worker:
+                    worker.stop.set()
             return self.state(data['id'])
         if action == 'pick':
             from .split_picker import choose
@@ -100,22 +101,19 @@ class Splitter:
             folder = contract.local_path(state['folder'], directory=True)
             if (folder.stat().st_dev, folder.stat().st_ino) != tuple(state['folder_identity']):
                 raise ValueError('출력 폴더가 변경되었습니다')
-            if os.name == 'nt': os.startfile(str(folder))
-            else: processes.popen(['/usr/bin/open', str(folder)])
-            return {'ok': True}
+            return processes.open_folder(folder)
         with self.manager.guard:
-            if action in ('register', 'delete-preview', 'delete'):
+            if action in ('delete-preview', 'delete'):
                 self.idle()
                 if action in ('delete-preview', 'delete'):
                     self.manager.tasks.split_idle()
-            else:
-                self.manager.speech_idle()
+
             if action == 'register':
                 source = media.inspect(data.get('path'), threading.Event())
                 id = uuid.uuid4().hex; self.sources[id] = source
                 self.job = None
                 return {'source_id': id, 'source': source}
-            lock = ProjectLock(self.root)
+            lock = ProjectLock(self.root) if action in ('delete-preview', 'delete') else ProjectLock(self.root, write=['split-'+contract.run_id(data.get('id') or data.get('source_id'))])
             work = None
             try:
                 if action in ('delete-preview', 'delete'):
@@ -141,6 +139,7 @@ class Splitter:
                     requested = contract.points(data.get('points'), source['duration'])
                     audio = split_audio.selection(source, data.get('audio_selection'))
                     id = uuid.uuid4().hex
+                    lock.children.append(ProjectLock(self.root, write=['split-'+id]))
                     value = {'id': id, 'created_at': stamp(), 'source_id': source_id, 'source': source,
                              'requested': requested, 'audio_selection': audio, 'plan': None, 'outputs': {}, 'elapsed_seconds': 0, 'state': 'planning'}
                 elif action in ('start', 'resume'):
@@ -165,6 +164,7 @@ class Splitter:
                 work = Work(self.file(value['id']), copy.deepcopy(value), lock)
                 self.job = work
                 self.job.update(message='분할 경계를 확인합니다' if value['state'] == 'planning' else '분할을 준비합니다', progress=0)
+                self.manager.tasks.track('split', self.job)
                 self.job.thread.start()
                 return self.job.snapshot()
             except BaseException:
@@ -190,7 +190,7 @@ class Work:
     def __init__(self, file, value, lock):
         self.file, self.value, self.lock = file, value, lock
         owner = source_project(value['source'])
-        self.source_lock = ProjectLock(owner) if owner else None
+        self.source_lock = ProjectLock(owner, read=['media']) if owner else None
         self.stop = threading.Event(); self.closed = False
         self.started = time.monotonic(); self.elapsed = value.get('elapsed_seconds', 0); self.last_save = 0
         self.guard = threading.RLock()

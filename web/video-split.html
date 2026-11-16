@@ -1,73 +1,10 @@
 <!doctype html>
 <html lang="ko">
-<head><script src="theme.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>영상 나누기 | 치다 분석기</title>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>영상 나누기 | 치다 분석기</title>
 <link rel="icon" type="image/png" sizes="16x16" href="icons/chida-16.png">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/chida-32.png">
-
-<link rel="stylesheet" href="style.css"><link rel="stylesheet" href="workspace.css">
-<link rel="stylesheet" href="desktop-panels.css"><link rel="stylesheet" href="vendor/webawesome/styles/themes/default.css"><link rel="stylesheet" href="design-system.css"><link rel="stylesheet" href="video-split.css"><script type="module" src="design-system.js"></script><script src="video-split-entry.js" type="module"></script><script src="error-capture.js" type="module"></script></head>
-<body class="result-first split-page">
-<aside id="split-primary-rail" class="split-rail" aria-label="주 메뉴">
-  <a class="brand" href="./#library" aria-label="치다 분석기 보관함" title="치다 분석기"><img class="mark" src="icons/chida-32.png" srcset="icons/chida-64.png 2x" width="40" height="40" alt=""></a>
-  <nav aria-label="작업 메뉴">
-    <a class="split-rail-link" href="./#register" title="VOD 등록"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>VOD 등록</span></a>
-    <a class="split-rail-link" href="./#library" title="보관함"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v15H3zM3 9h18M8 5v15"/></svg><span>보관함</span></a>
-    <a class="split-rail-link" href="./#jobs" title="진행 상태"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18m0 4v5l3 2"/></svg><span>진행 상태</span></a>
-    <a class="split-rail-link active" href="video-split.html" aria-current="page" title="영상 나누기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l14 14M6 18L20 4M8 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0M8 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0"/></svg><span>영상 나누기</span></a>
-  </nav>
-  <div class="split-rail-bottom"><button id="split-theme-toggle" class="split-rail-link" type="button" aria-label="테마 변경" title="테마 변경"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1"/></svg><span>테마</span></button><a class="split-rail-link" href="./#settings" title="설정"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z"/></svg><span>설정</span></a></div>
-</aside>
-<main>
-  <header class="split-heading"><div class="split-heading-title"><h1>영상 나누기</h1></div></header>
-  <p id="split-error" role="alert" hidden></p>
-  <section class="panel source-panel" aria-labelledby="source-heading">
-    <div class="split-source-top"><div class="split-source-description"><h2 id="source-heading">내 비디오를 선택하세요</h2><p id="split-source-info" class="hint">MP4, M4V, MOV, MKV, WebM</p></div></div>
-    <div class="split-source-tools"><form id="split-source-form" class="input-row"><input id="split-path" placeholder="선택한 비디오 파일" aria-label="선택한 비디오 파일 경로" readonly><button id="split-load" class="primary" type="submit">파일 열기</button></form></div>
-
-  </section>
-  <div id="split-workspace" hidden>
-    <div class="split-grid">
-      <section class="panel preview-panel" aria-label="원본 영상 미리보기">
-        <video id="split-video" controls preload="metadata" playsinline></video>
-        <div class="play-actions split-player-controls"><button id="split-play" class="primary">재생</button><output id="split-clock">00:00:00.000</output><span id="split-duration" class="split-duration">/ 00:00:00.000</span><button id="split-back" class="secondary">−3초</button><button id="split-forward" class="secondary">+3초</button></div>
-        <div id="split-timeline" tabindex="0" aria-label="확대 가능한 영상 타임라인"><canvas id="split-canvas" height="72"></canvas></div>
-        <section class="split-inline-options split-timeline-options" aria-label="시각 이동과 타임라인 확대"><div class="play-actions split-timeline-controls"><button id="split-layout-reset" class="secondary">배치 초기화</button><label class="inline-control">확대<select id="split-zoom"><option value="1">전체</option><option value="4">4배</option><option value="16">16배</option><option value="64">64배</option></select></label><button id="split-follow" class="secondary">현재 위치 보기</button></div>
-        <form id="split-seek-form" class="input-row"><input id="split-seek-time" value="00:00:00.000" aria-label="이동할 영상 시각"><button class="secondary">시각 이동</button><button id="split-add-current" type="button" class="secondary">현재 위치에 분할점 추가</button></form>
-        </section>
-        <div class="split-media-notes"><p id="split-format-note" class="hint"></p><p id="split-preview-note" class="hint"></p></div>
-      </section>
-      <div class="boundaries-panel">
-      <section class="split-control-section" aria-labelledby="split-boundary-heading"><h2 id="split-boundary-heading">분할 지점</h2>
-        <form id="split-point-form" class="input-row"><input id="split-time" placeholder="00:10:00.000" aria-label="분할할 시각" required><button class="secondary" aria-label="분할점 추가">추가</button></form>
-        <section class="split-inline-options split-interval-options" aria-label="일정 간격으로 나누기"><div class="play-actions"><label class="inline-control">간격 (분)<input id="split-minutes" type="number" min="0.1" step="0.1" value="30"></label><button id="split-interval" class="secondary">간격 적용</button><button id="split-clear" class="secondary">초기화</button></div></section>
-        <div id="split-points"></div><p class="hint">키프레임 기준, 분할점 최대 200개</p>
-      </section>
-      <section class="split-control-section" aria-labelledby="split-audio-heading"><h2 id="split-audio-heading">오디오 트랙</h2>
-        <fieldset class="split-audio-options"><legend class="sr-only">저장할 오디오</legend>
-          <select id="split-audio-mode" aria-label="오디오 유지 방식"><option value="all">전체 오디오 유지</option><option value="selected">선택한 오디오 트랙들 유지</option></select>
-          <div id="split-audio-tracks" hidden></div><p id="split-audio-summary" class="hint" role="status"></p>
-        </fieldset>
-        <div class="split-audio-preview">
-          <label for="split-audio-listen">미리듣기 트랙</label><select id="split-audio-listen" aria-label="미리듣기 트랙"></select>
-          <button id="split-audio-toggle" class="secondary" aria-pressed="false">선택 트랙으로 미리보기</button>
-          <label id="split-audio-volume-row" class="inline-control" hidden>미리듣기 음량<input id="split-audio-volume" type="range" min="0" max="100" value="100"></label>
-          <p id="split-audio-status" class="hint" role="status"></p>
-        </div>
-      </section>
-      </div>
-    </div>
-    <div class="split-plan-action"><p class="hint">재인코딩 없이 원본을 보존합니다.</p><button id="split-plan" class="primary" disabled>실제 분할 시각 확인 →</button></div>
-    <section id="split-plan-panel" class="panel" hidden><h2>확인하고 저장</h2><p class="hint">지정한 시각과 실제 분할 시각의 차이를 확인하세요.</p>
-      <div class="table-scroll"><table><thead><tr><th>분할점</th><th>지정 시각</th><th>실제 시각</th><th>차이</th></tr></thead><tbody id="split-boundaries"></tbody></table></div>
-      <div id="split-parts" class="split-parts"></div>
-      <p id="split-plan-audio" class="hint"></p>
-      <label for="split-folder">저장할 상위 폴더</label><div class="input-row"><input id="split-folder" aria-label="저장할 상위 폴더" readonly><button id="split-folder-pick" class="secondary">폴더 선택</button></div>
-      <p id="split-space" class="hint"></p><button id="split-start" class="primary">영상 나누기 시작</button>
-    </section>
-  </div>
-  <section id="split-job-panel" class="panel" hidden aria-labelledby="split-job-heading"><h2 id="split-job-heading">작업 상태</h2><p id="split-state" role="status" aria-live="polite"></p><progress id="split-progress" max="1" value="0"></progress><p id="split-elapsed" class="hint"></p>
-    <div class="play-actions"><button id="split-stop" class="secondary" hidden>작업 중단</button><button id="split-resume" class="secondary" hidden>완료 파일 유지하고 다시 시도</button><button id="split-open-folder" class="secondary" hidden>출력 폴더 열기</button></div>
-    <p id="split-resume-note" class="hint" hidden>완료 파일은 유지합니다. 나머지 구간을 저장하기 위해 원본을 처음부터 다시 읽습니다.</p><div id="split-outputs"></div>
-  </section>
-</main>
-</body></html>
+<script src="theme.js"></script><script src="video-split-entry.js"></script>
+</head>
+<body><a href="./#split">영상 나누기 열기</a></body>
+</html>

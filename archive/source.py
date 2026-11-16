@@ -86,8 +86,8 @@ class Logger:
 
 
 def fragment_concurrency(value):
-    if type(value) is not int or not 1 <= value <= 16:
-        raise ValueError('동시 다운로드 개수는 1~16 사이의 정수로 입력하세요')
+    if type(value) is not int or not 1 <= value <= 32:
+        raise ValueError('동시 다운로드 개수는 1~32 사이의 정수로 입력하세요')
     return value
 
 

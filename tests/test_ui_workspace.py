@@ -52,6 +52,20 @@ class WorkspaceCatalogTests(unittest.TestCase):
         self.assertEqual([p['vod_id'] for p in value['projects']], ['1'])
         self.assertTrue(value['warnings'])
 
+    def test_audio_completion_and_saved_transcript_are_separate(self):
+        path = self.project(); folder = path / 'speech'; folder.mkdir()
+        state = {'state': 'complete', 'action': 'audio', 'raw_audio': {'file': 'source.wav'}}
+        (folder / 'state.json').write_text(json.dumps(state))
+        summary = ui_workspace.catalog(str(self.root))['projects'][0]['summaries']['speech']
+        self.assertEqual((summary['action'], summary['audio_ready'], summary['transcript_state']), ('audio', True, 'idle'))
+        run = 'a' * 32; target = folder / 'runs' / run; target.mkdir(parents=True)
+        (target / 'manifest.json').write_text(json.dumps({'complete': True, 'segment_count': 2}))
+        (folder / 'state.json').write_text(json.dumps(state | {'run': run}))
+        summary = ui_workspace.catalog(str(self.root))['projects'][0]['summaries']['speech']
+        self.assertEqual(summary['transcript_state'], 'complete')
+        self.assertNotIn('raw_audio', summary)
+        self.assertNotIn('transcript', summary)
+
     def test_external_results_are_separate_latest_metadata_and_read_only(self):
         path = self.project()
         context = path / 'context'; context.mkdir()
@@ -80,6 +94,44 @@ class WorkspaceCatalogTests(unittest.TestCase):
             (target / run / 'result.json').write_text(json.dumps({'id': run, 'scope': 'external', 'export_id': 'b' * 32, 'mode': 'detail', 'complete': True}))
             (context / 'runs').symlink_to(target, target_is_directory=True)
             self.assertEqual(ui_workspace.catalog(str(self.root))['projects'][0]['external_results'], [])
+
+    def test_context_usable_results_and_failure_flags_are_read_only_and_cache_refreshes(self):
+        path = self.project(); run = 'a' * 32
+        folder = path / 'context/runs' / run; folder.mkdir(parents=True)
+        state = {'state': 'review', 'run': run, 'runs': [{'id': run, 'scope': 'timestamps'}]}
+        (path / 'context/state.json').write_text(json.dumps(state))
+        (folder / 'result.json').write_text(json.dumps({'complete': True}))
+        work = folder / 'work.json'
+        work.write_text(json.dumps({'chunks': [{'error': '중단'}], 'replies': {'1': {'topics': [{'title': '저장된 주제'}]}}}))
+        before = {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in path.rglob('*') if p.is_file()}
+        with patch('archive.context_job.result', side_effect=AssertionError('보관함은 전체 결과 재구성을 호출하지 않음')):
+            result = ui_workspace.catalog(str(self.root))['projects'][0]['summaries']['context']['results']
+        self.assertEqual(result, {'usable': True, 'previous': False, 'issues': True, 'complete': True, 'origin': 'local'})
+        self.assertEqual(before, {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in path.rglob('*') if p.is_file()})
+        # 같은 경로의 결과 변경 시 이전의 사용 가능 판정을 재사용하지 않는다.
+        work.write_text(json.dumps({'chunks': [{'error': '중단'}], 'replies': {}}))
+        self.assertFalse(ui_workspace.catalog(str(self.root))['projects'][0]['summaries']['context']['results']['usable'])
+
+    def test_context_previous_external_results_survive_current_failure(self):
+        path = self.project(); current, previous = 'a' * 32, 'b' * 32
+        for run in (current, previous):
+            folder = path / 'context/runs' / run; folder.mkdir(parents=True)
+            (folder / 'result.json').write_text(json.dumps({'complete': run == previous}))
+        (path / f'context/runs/{current}/dialogue-state.json').write_text(json.dumps({'items': [
+            {'title': '요약 실패', 'failed': True}, {'title': '전사 없음', 'gap': True}]}))
+        (path / f'context/runs/{previous}/work.json').write_text(json.dumps({'replies': {'1': {'clips': [{'title': '이전 후보'}]}}}))
+        state = {'state': 'error', 'run': current, 'runs': [{'id': previous, 'scope': 'external'}, {'id': current, 'scope': 'full'}]}
+        state_file = path / 'context/state.json'; state_file.write_text(json.dumps(state))
+        result = ui_workspace.catalog(str(self.root))['projects'][0]['summaries']['context']['results']
+        self.assertTrue(result['usable']); self.assertTrue(result['previous']); self.assertTrue(result['issues'])
+        self.assertEqual(result['origin'], 'external')
+        # 현재 버전이 없는 옛 상태 파일도 최신 사용 가능 버전의 완료 여부를 표시한다.
+        state.pop('run'); state_file.write_text(json.dumps(state))
+        result = ui_workspace.catalog(str(self.root))['projects'][0]['summaries']['context']['results']
+        self.assertTrue(result['complete']); self.assertFalse(result['previous'])
+        (path / f'context/runs/{previous}/work.json').write_text('{')
+        result = ui_workspace.catalog(str(self.root))['projects'][0]['summaries']['context']['results']
+        self.assertFalse(result['usable'])
 
     def test_wrong_shape_is_reported_per_project(self):
         self.project()

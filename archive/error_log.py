@@ -7,7 +7,7 @@ import threading
 import time
 import traceback
 from pathlib import Path
-from . import runtime
+from . import __version__, runtime
 from .storage import ProjectLock, read_json, save_json, stamp
 
 _guard = threading.RLock()
@@ -129,7 +129,7 @@ def snapshot(*, export=False, ids=None):
             if set(ids) - {event['event_id'] for event in events}:
                 raise ValueError('선택한 오류 기록이 변경됐습니다. 새로고침 후 다시 선택하세요')
             events = [event for event in events if event['event_id'] in ids]
-        return dict(schema=1, app_version='1.1.0', system=platform.system(), architecture=platform.machine(), created_at=stamp(), **config(), events=events)
+        return dict(schema=1, app_version=__version__, system=platform.system(), architecture=platform.machine(), created_at=stamp(), **config(), events=events)
 
 
 def install_hooks():
@@ -152,7 +152,7 @@ def dispatch(action, data):
     if action == 'export': return snapshot(export=True, ids=data.get('ids'))
     if action == 'client':
         page, kind = data.get('page'), data.get('kind')
-        if page not in ('index','clip-studio','video-split') or kind not in ('script','promise','network','response','media'):
+        if page not in ('index','clip-studio','mix-studio','video-split') or kind not in ('script','promise','network','response','media'):
             raise ValueError('화면 오류 기록 형식을 확인하세요')
         message = data.get('message', '')
         if not isinstance(message,str) or len(message)>2000: raise ValueError('화면 오류 내용이 너무 깁니다')

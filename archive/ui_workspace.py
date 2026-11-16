@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 from pathlib import Path
+from functools import lru_cache
 
 from . import download_scope, automation_plan
 from .storage import library, load_project, read_json
@@ -16,7 +17,18 @@ def _state(path, name):
     value = read_json(file) if file.exists() else {}
     if not isinstance(value, dict):
         raise ValueError('작업 상태가 올바르지 않습니다')
-    return {key: value[key] for key in ('state', 'message', 'progress', 'timing', 'run', 'runs', 'updated_at') if key in value}
+    summary = {key: value[key] for key in ('state', 'message', 'progress', 'timing', 'run', 'runs', 'updated_at') if key in value}
+    if name == 'speech':
+        from .speech_media import local
+        summary.update(action=value.get('action'), audio_ready=bool(value.get('raw_audio') or value.get('audio')), transcript_state='idle')
+        run = value.get('run')
+        if isinstance(run, str) and re.fullmatch(r'[a-f0-9]{32}', run) and run not in value.get('deleted_runs', []):
+            try:
+                manifest = read_json(local(path, f'runs/{run}/manifest.json'))
+                summary['transcript_state'] = 'complete' if manifest.get('complete') else 'paused' if manifest.get('segment_count', 0) else 'idle'
+            except (OSError, ValueError, TypeError, AttributeError):
+                pass
+    return summary
 
 
 def _external_results(path, context):
@@ -45,6 +57,55 @@ def _external_results(path, context):
         except (OSError, ValueError, TypeError, AttributeError):
             continue
     return list(exports.values())
+
+
+@lru_cache(maxsize=128)
+def _result_flags(file, signature):
+    # 폴링에서는 본문을 보관하지 않고 파일이 바뀔 때만 결과 유무를 다시 계산한다.
+    value = read_json(file)
+    items = list(value.get('items', []))
+    for reply in value.get('replies', {}).values():
+        items.extend(reply.get('topics', reply.get('clips', [])))
+    usable = any(isinstance(item, dict) and not item.get('failed') and not item.get('gap') and (item.get('title') or item.get('summary')) for item in items)
+    issues = any(isinstance(item, dict) and (item.get('failed') or item.get('chat_state') == 'failed') for item in items)
+    issues = issues or any(chunk.get('error') for chunk in value.get('chunks', []) if isinstance(chunk, dict))
+    return {'usable': usable or bool(value.get('summary')), 'issues': bool(issues), 'complete': value.get('complete') is True}
+
+
+def _context_availability(path, context):
+    from .context_job import local
+    runs = context.get('runs', [])
+    if not isinstance(runs, list):
+        return {}
+    current = context.get('run')
+    entries = [r for r in runs if isinstance(r, dict)]
+    entries = [r for r in entries if r.get('id') == current] + [r for r in reversed(entries) if r.get('id') != current]
+    summary = {'usable': False, 'previous': False, 'issues': False}
+    for entry in entries:
+        run = entry.get('id')
+        if not isinstance(run, str) or not re.fullmatch(r'[a-f0-9]{32}', run):
+            continue
+        try:
+            metadata = local(path, f'runs/{run}/result.json')
+            flags = _result_flags(metadata, (metadata.stat().st_mtime_ns, metadata.stat().st_size))
+            if entry.get('scope') in ('timestamps', 'external', 'clips-local'):
+                files = ['work.json']
+            elif entry.get('scope') == 'full':
+                files = ['dialogue-state.json', 'timeline.json']
+            else:
+                files = []
+            for name in files:
+                file = local(path, f'runs/{run}/{name}')
+                if file.exists():
+                    body = _result_flags(file, (file.stat().st_mtime_ns, file.stat().st_size))
+                    flags = flags | {'usable': flags['usable'] or body['usable'], 'issues': flags['issues'] or body['issues']}
+            if run == current or not current:
+                summary.update(flags)
+            if flags['usable']:
+                return summary | {'usable': True, 'previous': bool(current and run != current), 'origin': 'external' if entry.get('scope') == 'external' else 'local'}
+        except (OSError, ValueError, TypeError, AttributeError):
+            continue
+    return summary
 
 
 def catalog(root):
@@ -78,6 +139,7 @@ def catalog(root):
                     except (OSError, ValueError, TypeError):
                         row['summaries'][name] = {'state': 'error', 'message': '상태 파일 확인 필요 · 기존 자료 보존'}
                 row['external_results'] = _external_results(path, row['summaries']['context'])
+                row['summaries']['context']['results'] = _context_availability(path, row['summaries']['context'])
                 result['projects'].append(row)
             except (OSError, ValueError, TypeError, KeyError, AttributeError):
                 result['warnings'].append(path.name + ': 등록 정보를 읽지 못했습니다. 파일은 유지됩니다.')

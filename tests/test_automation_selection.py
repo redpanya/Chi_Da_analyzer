@@ -40,9 +40,10 @@ class SelectionTests(unittest.TestCase):
         calls=[]
         with patch('archive.automation.steps.execute',side_effect=lambda q,e,s:calls.append((e['vod'],s)) or 'reused'):
             self.manager.automation.start(self.root); result=self.finish()
-        self.assertEqual(calls, [('1',s) for s in ['reactions','timestamps','clips']]+[('2','audio')]+[('3',s) for s in ['download','audio','transcribe','diarize','reactions','summary']])
-        self.assertTrue(all(i['state']=='complete' for i in result['items']))
-        self.assertNotIn('steps', result['items'][2]['options'])
+        self.assertEqual(sorted(calls, key=lambda call: call[0]), [('1',s) for s in ['reactions','timestamps','clips']]+[('2','audio')]+[('3',s) for s in ['download','audio','transcribe','diarize','reactions','summary']])
+        self.assertEqual(result['items'], [])
+        self.assertEqual(len(result['results']), 3)
+        self.assertNotIn('steps', next(i for i in result['results'] if i['vod']=='3')['options'])
 
     def test_apply_selection_then_retry_keeps_plan_and_sources(self):
         item=self.add('1',{'background':'일반 방송'})

@@ -76,7 +76,33 @@ def copy_transcript(parent,path,vod,selection,a,b,audio):
 def remote_media(work,target):
     from .remote_media import receive
     request=work.value['request']
-    return receive(work.vod,request['start_ms'],request['end_ms'],target,work.stop,work.lock,work.update,height=request['settings']['height'])
+    from .storage import ResourceBusy
+    while True:
+        check_cancel(work.stop)
+        try:
+            lane = ProjectLock(work.path, read=[], lanes=('download',))
+            break
+        except ResourceBusy:
+            work.stop.wait(.25)
+    def progress(**v):
+        text = v.get('message','')
+        if v.get('speed') is not None:
+            text += f" / 수신 속도 {v['speed']/1e6:.2f} MB/초"
+        elif v.get('processing_rate') is not None:
+            text += f" / 처리 속도 {v['processing_rate']:.2f}배속"
+        work.update(progress=v['progress'],message=text)
+    with lane:
+        return receive(work.vod,request['start_ms'],request['end_ms'],target,work.stop,work.lock,progress,
+                       height=request['settings']['height'], concurrent_fragments=request['settings'].get('concurrent_fragments', 1))
+
+
+def read_source(work, resources):
+    while not work.stop.is_set():
+        try:
+            return ProjectLock(work.path, read=resources)
+        except ResourceBusy:
+            work.stop.wait(.25)
+    raise InterruptedError('작업을 중단했습니다')
 
 
 def execute(work):
@@ -95,7 +121,9 @@ def execute(work):
         if not (path/'context/background.json').exists():context_background.save(path,settings.get('background',''))
         if data['tasks']['video']['state']!='complete':
             work.update(message='부분 영상 준비',progress=0);folder=path/'media';folder.mkdir(exist_ok=True);target=folder/'range-working.mp4'
-            if work.value['kind']=='remote':remote_media(work,target)
+            if work.value['kind']=='remote':
+                target = folder/f'range-{uuid.uuid4().hex}.part.mp4'
+                remote_media(work,target)
             else:
                 src=clip_contract.media(work.path,work.vod)
                 if src['identity']!=work.value['source']:raise ValueError('원본 영상이 바뀌었습니다. 새 범위 작업으로 시작하세요')
@@ -110,7 +138,8 @@ def execute(work):
             target.replace(folder/'range.mp4')
             duration=float(clip_render.probe(folder/'range.mp4')['format']['duration'])
             data['tasks']['video'].update(state='complete',message='독립 범위 영상 준비 완료',verification={'duration':duration},assets={'playback':'media/range.mp4','original':'media/range.mp4'})
-            data['tasks']['chat']=filtered_chat(work.path,path,parent,a,b,work.stop)
+            with read_source(work, ['chat']):
+                data['tasks']['chat']=filtered_chat(work.path,path,parent,a,b,work.stop)
             save_json(path/'project.json',data)
         if req['selection'] and not speech_store.manifest(path):
             work.update(message='선택 전사와 수동 교정 복사',progress=0)
@@ -118,7 +147,8 @@ def execute(work):
             if not tracks:raise ValueError('원음이 없는 영상입니다')
             audio=speech_media.extract(path,data,tracks[0]['index'],work.stop,child_lock,lambda **v:None)
             # 원본 전사 복사는 요청한 원본 시각을 기준으로 한다.
-            copy_transcript(work.path,path,work.vod,req['selection'],a,b,audio)
+            with read_source(work, ['speech', 'voices']):
+                copy_transcript(work.path,path,work.vod,req['selection'],a,b,audio)
         work.update(project={'root':str(root),'vod_id':work.vod,'path':str(path)})
     manager=Manager(root);queue=SimpleNamespace(manager=manager,root=str(root),stop=work.stop)
     try:
@@ -134,6 +164,14 @@ def execute(work):
             check_cancel(work.stop)
             if stage in work.value['completed_stages']:continue
             work.update(message={'audio':'범위 원음 추출','transcribe':'범위 전사','diarize':'범위 화자 구분','reactions':'범위 채팅 반응','summary':'범위 상세 문맥','timestamps':'범위 타임스탬프','clips':'범위 클립 후보'}[stage],progress=0)
-            outcome=automation_steps.execute(queue,entry,stage)
+            from .storage import ResourceBusy
+            while True:
+                check_cancel(work.stop)
+                try:
+                    outcome=automation_steps.execute(queue,entry,stage)
+                    break
+                except ResourceBusy as error:
+                    work.update(message=str(error))
+                    work.stop.wait(.25)
             work.value['completed_stages'].append(stage);work.update(stage_result=outcome)
     finally:manager.close()

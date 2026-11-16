@@ -29,7 +29,7 @@ export function createContextInputs(onChange, prefix="context") {
     selection(){return {transcript_run:transcript,speaker_run:speaker||null};},
     setProject(project){
       const changed=path!==project?.path;
-      path=project?.path;catalog=project?.context?.inputs||{};locked=!project||project.locked;
+      path=project?.path;catalog=project?.context?.inputs||{};locked=!project;
       if(changed){
         transcript=(catalog.transcripts||[]).find(r=>r.id===catalog.transcript_run&&r.complete)?.id
           ||(catalog.transcripts||[]).find(r=>r.complete)?.id||'';

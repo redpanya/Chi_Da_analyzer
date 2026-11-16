@@ -19,13 +19,14 @@ def main():
     if sys.platform=='darwin':
         package=next((ROOT/'dist/release').glob('*.app'))
         binary=package/'Contents/Resources/backend/archive-backend'
-    else:binary=ROOT/'dist/release/ChiDaanalyzer/ChiDaanalyzer.exe'
+    else:binary=ROOT/'dist/release/ChiDaanalyzer/resources/backend/archive-backend.exe'
     env=dict(os.environ)
     env.pop('PYTHONPATH',None);env.pop('PYTHONHOME',None)
     # CI의 UTF-8 강제 설정으로 일반 Windows 사용자의 문자셋 오류를 가리지 않는다.
     env['PYTHONUTF8']='0';env.pop('PYTHONIOENCODING',None)
     with tempfile.TemporaryDirectory(prefix='치 다 패키지 ') as temp:
-        work=Path(temp)
+        work=Path(temp).resolve()
+        env.update(HOME=str(work), USERPROFILE=str(work), LOCALAPPDATA=str(work))
         result=subprocess.run([str(binary),'--diagnose'],cwd=work,env=env,capture_output=True,timeout=90)
         if result.returncode:raise RuntimeError(result.stderr.decode('utf-8','replace'))
         report=json.loads(result.stdout)
@@ -64,7 +65,7 @@ def main():
                 url=json.loads(ready.read_text(encoding='utf-8'))['url']
                 http=build_opener(ProxyHandler({}))
                 for relative in ('','app.js','design-system.js','design-system.css','step-workspace.js',
-                                 'desktop-panels.js','scene-usage.js','job-detail.js','queue-options.js',
+                                 'desktop-panels.js','desktop-settings.js','scene-usage.js','job-detail.js','queue-options.js',
                                  'vendor/webawesome/styles/themes/default.css','voice-model-help.js','voice-tool-status.js','voice-tabs.js',
                                  'compute.js','queue.js','queue-saved.js','reports.js',
                                  'context-background.js','context-inputs.js','context-fallback.js','timeline.js',

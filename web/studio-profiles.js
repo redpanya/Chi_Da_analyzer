@@ -4,89 +4,96 @@ export const clipKeys=['ratio','fit','x','y','layout','split','game','face','vol
 const clone=value=>structuredClone(value);
 export const clipOptions=value=>Object.fromEntries(clipKeys.filter(k=>k in value).map(k=>[k,clone(value[k])]));
 export const presetOptions=clipOptions;
-export function profileState(initial){
-  let base=clone(initial),current=null,scope='clip',shown='';
-  const effective=row=>({...clone(base),...clone(row?.options||{})});
+export function profileState(initial,newOptions={},savedRows=[]){
+  const base=clipOptions(initial);
+  let current=null,shown={};
+  const saved=new WeakSet(savedRows);
+  const newDefaults=Object.keys(newOptions).length?newOptions:null;
+  function rowOptions(row){
+    if(!row||saved.has(row)||!newDefaults)return row?.options;
+    return {...newDefaults,...row.options};
+  }
+  const effective=row=>({...clone(base),...clone(rowOptions(row)||{})});
   return {
-    effective,scope:()=>scope,current:()=>current,
-    common:global=>({...clone(global),...clipOptions(base)}),
-    shown:value=>{shown=JSON.stringify(clipOptions(value));},
+    effective,rowOptions,current:()=>current,
+    outputOptions:global=>({...global,...clone(base)}),
+    shown:value=>{shown=clipOptions(value);},
     capture(value){
-      const next=clipOptions(value),key=JSON.stringify(next);if(key===shown)return false;
-      if(scope==='common')base={...base,...next};else if(current)current.options=next;else return false;
-      shown=key;return true;
+      if(!current)return false;
+      const next=clipOptions(value);
+      const changes=Object.entries(next).filter(([key,v])=>JSON.stringify(v)!==JSON.stringify(shown[key]));
+      if(!changes.length)return false;
+      current.options={...current.options,...Object.fromEntries(changes)};
+      shown=next;return true;
     },
-    // 구간을 확인할 때는 출력과 같은 개별 적용값으로 돌아온다.
-    select(row){current=row;scope='clip';return effective(row);},
-    setScope(value){scope=value;return scope==='common'?clone(base):effective(current);},
+    select(row){current=row;return effective(row);},
     apply(rows,preset){for(const row of rows)row.options={...clipOptions(effective(row)),...clone(preset)};},
-    reset(rows){for(const row of rows)delete row.options;},
   };
 }
 
 const $=id=>document.getElementById(id);
-export function studioProfiles({api,identity=()=>({}),read,write,selection,onChange,valid,canSwitch,onUndoPoint=()=>{}}){
+export function studioProfiles({api,identity=()=>({}),mix=false,read,write,selection,onChange,valid,canSwitch,onUndoPoint=()=>{}}){
   let model=null,restoring=false,presets=[],busy=false;const checked=new Set();
   let pendingSave=null;
   const dialog=$('studio-presets'),status=$('profile-status');
+  const membersFor=row=>mix?mix.presetRows(row):selection();
+  function targets(members=membersFor(model?.current())){
+    const mode=$('profile-target').value;
+    if(mode==='all')return members;
+    if(mode==='checked')return members.filter(row=>checked.has(row.id));
+    return members.filter(row=>row.id===model?.current()?.id);
+  }
   function capture(){if(!model||restoring)return;model.capture(read());labels();}
   function labels(row=model?.current()){
-    const members=selection(),scope=model?.scope()||'clip';
+    const members=membersFor(row);
     for(const id of checked)if(!members.some(r=>r.id===id))checked.delete(id);
-    $('profile-active').textContent=scope==='common'?'공통 기본값 · 개별 설정 없는 구간에 적용':row?`${row.title} · ${row.options?'개별 설정':'공통 기본값 사용'}`:'구간을 먼저 선택하세요';
+    $('profile-active').textContent=row?row.title:'구간을 먼저 선택하세요';
     $('profile-active').title=$('profile-active').textContent;
-    if($('profile-selection-summary'))$('profile-selection-summary').textContent=`담은 구간 ${members.length}개 · 프리셋 적용 대상으로 체크 ${checked.size}개`;
-    if($('profile-scope-badge'))$('profile-scope-badge').textContent=scope==='common'?'공통 기본값':row?'현재 구간':'선택 없음';
+    $('profile-scope-badge').textContent=row?(mix?'현재 믹스 구간':'현재 구간'):'선택 없음';
     if(!model)return;
-    $('profile-preview-label').textContent=model.scope()==='common'?'공통 기본값 미리보기':'현재 구간 미리보기';
-    $('profile-preview-note').hidden=model.scope()!=='common';
-    $('profile-target').options[1].textContent=`체크한 구간 ${checked.size}개`;
-    $('profile-target').options[2].textContent=`담은 전체 ${members.length}개`;
-    $('preset-apply').disabled=busy||!presets.some(p=>p.id===$('studio-preset-list').value);
+    const rows=targets(members),indices=new Map(members.map((clip,i)=>[clip.id,i+1]));
+    const names=rows.map(clip=>`${indices.get(clip.id)}. ${clip.title}`).join('\n');
+    const count=`적용할 구간 ${rows.length}개`;
+    if($('preset-target-count').textContent!==count)$('preset-target-count').textContent=count;
+    if($('preset-target-names').textContent!==names)$('preset-target-names').textContent=names;
+    const unavailable=rows.find(clip=>clip.problem);
+    const emptyNote=$('profile-target').value==='checked'
+      ?(mix?'미리보기 아래 믹스 구간에서 적용할 구간을 체크하세요.':'미리보기 아래 담은 구간에서 적용할 구간을 체크하세요.')
+      :'적용할 구간을 먼저 담아 주세요.';
+    $('preset-target-note').textContent=unavailable?`${unavailable.title} / ${unavailable.problem}`:rows.length?'':emptyNote;
+    $('preset-apply').textContent=`${rows.length}개 구간에 적용`;
+    $('preset-apply').disabled=busy||!rows.length||!!unavailable||!presets.some(p=>p.id===$('studio-preset-list').value);
     $('preset-delete').disabled=busy||!$('studio-preset-list').value;
-    $('preset-save').disabled=busy||!model.current()&&model.scope()!=='common';
-    for(const badge of document.querySelectorAll('[data-profile-badge]')){
-      const clip=members.find(r=>r.id===badge.dataset.profileBadge);badge.textContent=clip?.options?'개별 설정':'공통 기본값';
-    }
+    $('preset-save').disabled=busy||!row;
   }
-  function show(value){restoring=true;try{write({...read(),...clipOptions(value)});model.shown(read());$('profile-scope').value=model.scope();}finally{restoring=false;}labels();}
-  function previewCurrent(){
-    if(!model||model.scope()==='clip')return true;
-    if(!canSwitch())return false;
-    capture();show(model.select(model.current()));onChange();return true;
-  }
-  function targets(){
-    const all=selection(),mode=$('profile-target').value;
-    const rows=mode==='all'?all:mode==='checked'?all.filter(r=>checked.has(r.id)):all.filter(r=>r.id===model.current()?.id);
-    if(!rows.length)throw Error(mode==='current'?'현재 구간을 먼저 담아 주세요.':'적용할 구간을 체크해 주세요.');return rows;
-  }
+  function show(value){restoring=true;try{write({...read(),...clipOptions(value)});model.shown(read());}finally{restoring=false;}labels();}
   function undoPoint(label,rows){
     const restore=captureProfileOptions(rows);
-    return ()=>{onUndoPoint(label,()=>{restore();show(model.scope()==='common'?model.setScope('common'):model.select(model.current()));onChange();status.textContent=label+'을 되돌렸습니다.';});};
+    return ()=>{onUndoPoint(label,()=>{restore();show(model.select(model.current()));onChange();status.textContent=label+'을 되돌렸습니다.';});};
   }
   function setList(items,id=$('studio-preset-list').value){
     presets=items;$('studio-preset-list').replaceChildren(new Option('저장한 프리셋 선택',''),...items.map(p=>new Option(p.name,p.id)));
     if(items.some(p=>p.id===id))$('studio-preset-list').value=id;labels();
   }
   async function load(){try{setList((await api('studio-preset-list',{})).presets);}catch(e){status.textContent=e.message;}}
-  function preparePresets(){if(!model||!canSwitch())return false;capture();status.textContent='';void load();return true;}
+  function preparePresets(){if(!model||!canSwitch())return false;capture();labels();status.textContent='';void load();return true;}
   async function action(fn){if(busy)return;busy=true;labels();try{await fn();}catch(e){status.textContent=e.message;}finally{busy=false;labels();}}
-  $('profile-scope').onchange=()=>{if(!model)return;if(!canSwitch()){$('profile-scope').value=model.scope();return;}const scope=$('profile-scope').value;capture();show(model.setScope(scope));onChange();};
-  $('profile-preview-current').onclick=previewCurrent;
-  $('open-studio-presets').onclick=()=>{if(dialog.dataset?.inline==='true')document.dispatchEvent(new CustomEvent('studio-open-presets'));else if(preparePresets())dialog.showModal();};
+  $('profile-target').onchange=()=>labels();
   $('studio-presets-close').onclick=()=>{if(dialog.dataset?.inline==='true')document.dispatchEvent(new CustomEvent('studio-close-presets'));else dialog.close();};
   $('studio-preset-list').onchange=()=>{const preset=presets.find(p=>p.id===$('studio-preset-list').value);$('studio-preset-name').value=preset?.name||'';labels();};
   async function save(payload){
     const value=await api('studio-preset-save',payload);
     setList(value.presets,value.id);$('studio-preset-name').value=payload.name;
-    status.textContent='화면·자막·PNG 설정을 프리셋으로 저장했습니다.';
+    status.textContent='화면, 자막, PNG 설정을 프리셋으로 저장했습니다.';
   }
   $('preset-save').onclick=()=>action(async()=>{
     if(!canSwitch())return;
-    capture();if(!valid())throw Error('화면·자막 입력값을 확인한 뒤 프리셋을 저장하세요.');
+    capture();
+    if(!model.current())throw Error('저장할 구간을 선택하세요.');
+    if(!valid())throw Error('화면과 자막 입력값을 확인한 뒤 프리셋을 저장하세요.');
     const name=$('studio-preset-name').value.normalize('NFC').trim();
     if(!name)throw Error('프리셋 이름을 입력하세요.');
-    const payload={...identity(),name,options:presetOptions(read())},selected=presets.find(p=>p.id===$('studio-preset-list').value);
+    const payload={...identity(),name,options:presetOptions(model.effective(model.current()))},selected=presets.find(p=>p.id===$('studio-preset-list').value);
     if(selected?.name===name){
       pendingSave={...payload,id:selected.id,revision:selected.revision||1};
       $('preset-overwrite-name').textContent=name;$('preset-overwrite-error').textContent='';$('studio-preset-overwrite').showModal();
@@ -105,22 +112,23 @@ export function studioProfiles({api,identity=()=>({}),read,write,selection,onCha
     if(!canSwitch())return;
     capture();const preset=presets.find(p=>p.id===$('studio-preset-list').value);if(!preset)return;
     const rows=targets(),before=JSON.stringify([read(),rows]),current=model.current();
+    if(!rows.length||rows.some(row=>row.problem))return;
     const value=await api('studio-preset-apply',{...identity(),id:preset.id,revision:preset.revision||1});
-    if(current!==model.current()||before!==JSON.stringify([read(),rows])||rows.some(row=>!selection().includes(row)))throw Error('프리셋 준비 중 편집 내용이 변경됐습니다. 적용 대상을 확인하고 다시 적용하세요.');
+    const now=targets();
+    if(current!==model.current()||before!==JSON.stringify([read(),now])||rows.some((row,i)=>row!==now[i])||$('studio-preset-list').value!==preset.id)throw Error('프리셋 준비 중 편집 내용이 변경됐습니다. 적용 대상을 확인하고 다시 적용하세요.');
     const remember=undoPoint('프리셋 적용',rows);model.apply(rows,value.options);show(model.select(model.current()));onChange();remember();
     $('studio-preset-name').value=preset.name;
-    status.textContent=`${rows.length}개 구간에 ‘${preset.name}’ 적용${'image' in value.options?' · PNG 설정 포함':''}`;
+    status.textContent=`${rows.length}개 구간에 ‘${preset.name}’ 적용${'image' in value.options?' (PNG 설정 포함)':''}`;
   });
-  $('profile-reset').onclick=()=>{try{if(!canSwitch())return;capture();const rows=targets(),remember=undoPoint('공통 기본값 복귀',rows);model.reset(rows);show(model.select(model.current()));onChange();remember();status.textContent=`${rows.length}개 구간을 공통 기본값으로 되돌렸습니다.`;}catch(e){status.textContent=e.message;}};
   $('preset-delete').onclick=()=>{$('preset-delete-name').textContent=$('studio-preset-list').selectedOptions[0].textContent;$('studio-preset-delete').showModal();};
   $('preset-delete-cancel').onclick=()=>$('studio-preset-delete').close();
   $('preset-delete-confirm').onclick=()=>action(async()=>{
     const value=await api('studio-preset-delete',{id:$('studio-preset-list').value});setList(value.presets);
     $('studio-preset-delete').close();status.textContent='프리셋을 제거했습니다. 구간에 적용한 설정은 그대로 유지됩니다.';
   });
-  return {capture,labels,preparePresets,previewCurrent,restoring:()=>restoring,common:value=>model?model.common(value):value,
+  return {capture,labels,preparePresets,rowOptions:row=>model?model.rowOptions(row):row.options,restoring:()=>restoring,outputOptions:value=>model?model.outputOptions(value):value,
     checked:id=>checked.has(id),check(id,value){value?checked.add(id):checked.delete(id);labels();},
     select(row){if(!model)return;show(model.select(row));onChange();},
-    init(value,row){model=profileState(value);show(model.select(row));},
+    init(value,row,newOptions){model=profileState(value,newOptions,selection());show(model.select(row));},
   };
 }

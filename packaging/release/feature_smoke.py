@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import time
 from urllib.request import Request
+from media_smoke import complete_work
 
 
 def check(http, url, work, ffmpeg, ffprobe, fixture):
@@ -54,10 +55,10 @@ def check(http, url, work, ffmpeg, ffprobe, fixture):
     split_counts = []
     for mode, indices in [('all', [0, 1, 2, 3]), ('selected', [0, 2, 3])]:
         plan = post('split-plan', source_id=source_id, points=[1.4], audio_selection={'mode': mode, 'tracks': [2, 3]})
-        state = wait('split-status', {'id': plan['id']}, ('planning',))
+        state = wait('split-status', {'id': complete_work(http, url, plan)['run']}, ('planning',))
         assert state['state'] == 'ready', state
         destination = work/('출력 '+mode); destination.mkdir()
-        post('split-start', id=state['id'], folder=str(destination))
+        complete_work(http, url, post('split-start', id=state['id'], folder=str(destination)))
         state = wait('split-status', {'id': state['id']}, ('running',))
         assert state['state'] == 'complete', state
         combined = {i: [] for i in range(len(indices))}
@@ -90,9 +91,10 @@ def check(http, url, work, ffmpeg, ffprobe, fixture):
     image = {k: asset[k] for k in ('asset', 'name')} | {'x': 50, 'y': 50, 'width': 100, 'opacity': 100}
     job = post('studio-start', **fixture, request={'clips': [{'title': '자막 PNG 검사', 'start_ms': 0, 'end_ms': 1000}],
                                                   'options': {'image': image}})
+    run = complete_work(http, url, job)['run']
     deadline = time.monotonic()+90
     while time.monotonic() < deadline:
-        state = next(r for r in post('studio-status', **fixture)['runs'] if r['id'] == job['id'])
+        state = next(r for r in post('studio-status', **fixture)['runs'] if r['id'] == run)
         if state['state'] != 'running':
             break
         time.sleep(.1)

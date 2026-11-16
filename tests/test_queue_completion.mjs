@@ -5,7 +5,7 @@ const items=['complete','partial','error','paused','queued','running'].map((stat
 const data={items,state:'running',message:'순차 작업 진행 중'};
 const before=JSON.stringify(data);
 assert.deepEqual(registrationItems(data).map(item=>item.state),['partial','error','paused','queued','running']);
-assert.equal(registrationSummary(data),'전체 5개 / 5번째 처리 중 / 순차 작업 진행 중');
+assert.equal(registrationSummary(data),'전체 5개 / 1개 처리 중 / 순차 작업 진행 중');
 assert.equal(JSON.stringify(data),before,'진행 상태와 리포트에 사용하는 원본 목록은 보존');
 
 const loaded=JSON.parse(before);
@@ -18,5 +18,6 @@ const finished={state:'complete',items:[items[0]],message:'목록 처리 종료 
 assert.deepEqual(registrationItems(finished),[]);
 assert.match(registrationSummary(finished),/등록된 VOD가 없습니다/);
 assert.match(registrationSummary(finished),/완료 자료는 보관함에 유지/);
+assert.match(registrationSummary({state:'complete',items:[],results:finished.items}),/완료 자료는 보관함에 유지/);
 assert.match(registrationSummary({items:[],state:'idle'}),/자료를 등록/);
 console.log('완료 자동 제외, 미완료 보존, 표시 순서, 새로고침과 기록 보존 검사 통과');

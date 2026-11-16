@@ -65,9 +65,13 @@ def main():
         threading.Thread(target=watch_stop, daemon=True).start()
     if args.parent_pid:
         def watch_parent():
+            if sys.platform == 'win32':
+                from archive.windows_runtime import watch_parent as watch_windows_parent
+                watch_windows_parent(args.parent_pid, stopping, server.shutdown)
+                return
             while not stopping.wait(.5):
                 if os.getppid() != args.parent_pid:
-                    os.kill(os.getpid(),signal.SIGTERM);return
+                    server.shutdown();return
         threading.Thread(target=watch_parent,daemon=True).start()
     if args.ready_file:
         from archive.storage import save_json

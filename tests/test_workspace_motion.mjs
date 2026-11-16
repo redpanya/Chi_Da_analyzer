@@ -19,7 +19,7 @@ function setup({ reduce = false, supportsPreference = true } = {}) {
     },
   };
   const context = vm.createContext({URL,...(supportsPreference ? { matchMedia: () => media } : {})});
-  vm.runInContext(source.replace(/^export /gm, '') + '\nglobalThis.motionAPI = { animateUI, cancelMotion, enterView, bindDocumentMotion, navigateDocument };', context);
+  vm.runInContext(source.replace(/^export /gm, '') + '\nglobalThis.motionAPI = { animateUI, cancelMotion, enterView, bindDocumentMotion };', context);
   return { ...context.motionAPI, media, listeners };
 }
 
@@ -40,58 +40,42 @@ function element() {
   };
 }
 
-function documentFixture({reduce=false,studio=false}={}){
- const motion=setup({reduce}),node=element(),events={},windowEvents={},destinations=[];
- const root={querySelector:selector=>(selector==='.studio-grid'?studio:selector==='main')?node:null,addEventListener:(name,fn)=>events[name]=fn};
- const win={location:{href:'http://localhost:8000/session/video-split.html#work',assign:href=>destinations.push(href)},addEventListener:(name,fn)=>windowEvents[name]=fn};
- motion.bindDocumentMotion(root,win);return {motion,node,root,win,events,windowEvents,destinations};
+function documentFixture({native=true,studio=false,reduce=false}={}){
+ const motion=setup({reduce}),events={},windowEvents={},classes=new Set(),main=element(),grid=element();
+ const root={documentElement:{classList:classes},body:{classList:{contains:name=>studio&&name==='studio-workspace'}},
+  querySelector:selector=>({'main':main,'.studio-grid':grid})[selector],addEventListener:(name,fn)=>events[name]=fn};
+ const win={location:{href:'http://localhost:8000/session/video-split.html#work'},addEventListener:(name,fn)=>windowEvents[name]=fn};
+ if(native)win.CSSViewTransitionRule=class {};
+ motion.bindDocumentMotion(root,win);return {root,win,events,windowEvents,classes,main,grid};
 }
 
-test('앱 문서 사이 이동은 퇴장 완료 뒤 실제 탐색을 실행한다',()=>{
- const f=documentFixture();let prevented=false;
- const href='http://localhost:8000/session/clip-studio.html?vod_id=1';
- const link={href,target:'',hasAttribute:()=>false};
- f.windowEvents.click({button:0,target:{closest:()=>link},preventDefault(){prevented=true;}});
- assert.equal(prevented,true);assert.deepEqual(f.destinations,[]);
- assert.equal(f.node.animations[0].options.duration,160);
- f.node.animations[0].finish();assert.deepEqual(f.destinations,[href]);
-});
-
-test('저장 확인이 가로챈 링크와 외부 링크는 공통 탐색이 가로채지 않는다',()=>{
+test('문서 탐색은 브라우저가 처리하고 편집 준비나 뒤로 가기 시 화면을 다시 숨기지 않는다',()=>{
  const f=documentFixture();
- const click=(href,extra={},attrs={})=>{
-  const link={href:new URL(href,f.win.location.href).href,target:attrs.target||'',hasAttribute:()=>!!attrs.download};
-  f.windowEvents.click({button:0,target:{closest:()=>link},preventDefault(){assert.fail('기존 링크 동작 유지');},...extra});
- };
- for(const href of ['#other','video-split.html?new=1','https://example.com/','report.json'])click(href);
- for(const extra of [{defaultPrevented:true},{button:1},{metaKey:true},{ctrlKey:true},{shiftKey:true},{altKey:true}])click('clip-studio.html',extra);
- click('clip-studio.html',{}, {target:'_blank'});click('clip-studio.html',{}, {download:true});
- assert.equal(f.node.animations.length,0);assert.deepEqual(f.destinations,[]);
+ for(const page of ['./#library','mix-studio.html?mix=test','clip-studio.html?vod_id=1']){
+  const link={href:new URL(page,f.win.location.href).href,hasAttribute:()=>false};
+  f.events.click({button:0,target:{closest:()=>link},preventDefault(){assert.fail('문서 탐색을 가로챘습니다');}});
+ }
+ assert.deepEqual(Object.keys(f.events),['click']);
+ assert.equal(f.windowEvents.pageswap,undefined);
+ assert.equal(f.classes.has('document-motion-fallback'),false);
+ assert.equal(documentFixture({native:false}).classes.has('document-motion-fallback'),true);
 });
 
-test('빠르게 다른 문서를 선택하면 마지막 목적지만 열고 동작 줄이기는 즉시 이동한다',()=>{
- const f=documentFixture();
- f.motion.navigateDocument('./#library',f.root,f.win);
- f.motion.navigateDocument('clip-studio.html',f.root,f.win);
- f.node.animations[0].lateFinish();assert.deepEqual(f.destinations,[]);
- f.node.animations[1].finish();assert.deepEqual(f.destinations,['http://localhost:8000/session/clip-studio.html']);
- const reduced=documentFixture({reduce:true});
- reduced.motion.navigateDocument('./#library',reduced.root,reduced.win);
- assert.equal(reduced.node.animations.length,0);
- assert.deepEqual(reduced.destinations,['http://localhost:8000/session/#library']);
-});
-
-test('컨테이너나 애니메이션 지원이 없어도 문서 이동은 유지한다',()=>{
- const f=documentFixture();
- f.motion.navigateDocument('./', {querySelector:()=>null},f.win);
- f.node.animate=undefined;
- f.motion.navigateDocument('./#library',f.root,f.win);
- assert.deepEqual(f.destinations,['http://localhost:8000/session/','http://localhost:8000/session/#library']);
-});
-
-test('별도 HTML은 공통 등장 효과를 쓰고 동작 줄이기 설정을 따른다',()=>{
- for(const studio of [false,true]){const f=documentFixture({studio});f.windowEvents.pageshow();assert.equal(f.node.animations.length,1);}
- const f=documentFixture({reduce:true});f.windowEvents.pageshow();assert.equal(f.node.animations.length,0);
+test('편집기 왕복에서는 도착한 화면만 투명도 변화 없이 움직인다',()=>{
+ const transition={viewTransition:{}};
+ for(const studio of [false,true]){
+  const view=documentFixture({studio}),panel=studio?view.grid:view.main;
+  view.windowEvents.pagereveal({viewTransition:null});
+  assert.equal(panel.animations.length,0);
+  view.windowEvents.pagereveal(transition);
+  assert.equal((studio?view.main:view.grid).animations.length,0);
+  const [arrival]=panel.animations;
+  assert.deepEqual(Array.from(arrival.frames,frame=>frame.translate),['0 4px','0 0']);
+  assert.ok(arrival.frames.every(frame=>!('opacity' in frame)));
+  const reduced=documentFixture({studio,reduce:true});
+  reduced.windowEvents.pagereveal(transition);
+  assert.equal((studio?reduced.grid:reduced.main).animations.length,0);
+ }
 });
 
 test('현재 문서 메뉴만 새로고침을 막고 실제 이동과 수정키 동작은 보존한다',()=>{
@@ -195,3 +179,4 @@ test('옵션 재정의와 화면 이동 방향은 공통 감속 곡선을 유지
   assert.equal(page.frames[0].transform, 'translateY(8px)');
   assert.equal(page.frames.at(-1).transform, 'translate(0)');
 });
+

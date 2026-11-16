@@ -1,3 +1,14 @@
+export function rangeProgressText(p){
+ const detail = [`구간 처리 ${p.percent}%`];
+ if(p.phase === 'receive'){
+   if(Number.isFinite(p.speed)) detail.push(`수신 속도 ${(p.speed / 1e6).toFixed(2)} MB/초`);
+   if(Number.isFinite(p.connections)) detail.push(`연결 ${p.connections}/${p.limit}개`);
+ } else if(Number.isFinite(p.processing_rate)){
+   detail.push(`처리 속도 ${p.processing_rate.toFixed(2)}배속`);
+ }
+ return detail.join(' / ');
+}
+
 export function transferMessage(task){
  const legacy=' · 직전 영상 기준 자막은';
  if(task.state==='complete' && task.verification?.replacement_timeline && task.message?.includes(legacy)){
@@ -8,7 +19,7 @@ export function transferMessage(task){
 
 export function setupVideoQuality({api,getProject,onChanged}) {
  const $=id=>document.getElementById('video-quality-'+id);
- const dialog=$('dialog'),select=$('select'),apply=$('apply'),note=$('note');
+ const dialog=$('dialog'),select=$('select'),fragments=$('fragments'),apply=$('apply'),note=$('note');
  let source=null,historyKey='';
  const complete=p=>p?.tasks.video.state==='complete';
  const eligible=p=>p && (!p.input || p.download_range) && (complete(p)?!p.locked:
@@ -37,6 +48,8 @@ export function setupVideoQuality({api,getProject,onChanged}) {
  $('open').onclick=async()=>{
    const p=getProject();if(!eligible(p))return;
    source=p;select.replaceChildren();select.disabled=apply.disabled=true;
+   fragments.value=p.video_replacement?.task?.concurrent_fragments??p.tasks.video.concurrent_fragments??1;
+   $('fragments-note').textContent='1~32개까지 선택할 수 있습니다. 서버가 분할 수신을 지원하지 않으면 1개로 받습니다.';
    $('existing').hidden=!complete(p);$('partial').hidden=complete(p);
    $('keep').checked=true;
    apply.textContent=complete(p)?'영상만 다시 받기':'화질 적용';
@@ -52,9 +65,11 @@ export function setupVideoQuality({api,getProject,onChanged}) {
  };
  $('close').onclick=()=>dialog.close();
  apply.onclick=async()=>{
+   if(!fragments.reportValidity())return;
    const p=source;apply.disabled=select.disabled=true;note.textContent='선택한 화질을 확인하고 있습니다.';
    try{
      const updated=await api('video-quality',{root:p.root,vod_id:p.vod_id,expected:p.format_id,format_id:select.value,
+       concurrent_fragments:fragments.valueAsNumber,
        ...(complete(p)?{existing:$('delete').checked?'delete':'keep'}:{})});
      dialog.close();if(getProject()?.path===p.path)await onChanged(updated);
    }catch(error){if(dialog.open && source===p){note.textContent=error.message;apply.disabled=select.disabled=false;}}

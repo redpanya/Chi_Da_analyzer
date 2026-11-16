@@ -47,6 +47,13 @@ def _number(value):
 
 def _progress(value):
     value = value if isinstance(value, dict) else {}
+    if value.get('phase') and _number(value.get('percent')):
+        label = f"{value['percent']:g}%"
+        if value['phase'] == 'receive' and _number(value.get('speed')):
+            label += f" / 수신 속도 {value['speed']/1e6:.2f} MB/초"
+        elif _number(value.get('processing_rate')):
+            label += f" / 처리 속도 {value['processing_rate']:.2f}배속"
+        return {'fraction': min(1,value['percent']/100), 'label':label}
     for done, total, unit in [('downloaded_bytes', 'total_bytes', '바이트'),
                               ('processed_ms', 'duration_ms', '시간'), ('done', 'total', '처리')]:
         a, b = value.get(done), value.get(total)
@@ -64,12 +71,7 @@ def _progress(value):
 
 
 def _worker(manager, kind, path):
-    attr = {'video': 'job', 'chat': 'job', 'speech': 'speech_job', 'voices': 'voice_job', 'context': 'context_job'}[kind]
-    job = getattr(manager, attr, None)
-    if not job:
-        return None
-    actual = getattr(getattr(job, 'project', None), 'path', None) if kind in ('video', 'chat') else getattr(job, 'path', None)
-    return job if actual == path and not getattr(job, 'closed', True) else None
+    return manager.tasks.find({'video': 'download', 'chat': 'download'}.get(kind, kind), path)
 
 
 def _status(out, value, owned):
@@ -127,14 +129,14 @@ def _queue(manager, request, out):
     automation = manager.automation
     with automation.guard:
         data = automation.read(str(base))
-        entry = next((i for i in data['items'] if i.get('id') == _id(request.get('id'))), None)
+        entry = next((i for i in [*data['items'], *data.get('results', [])] if i.get('id') == _id(request.get('id'))), None)
         if not entry or (request.get('vod_id') and entry.get('vod') != request['vod_id']):
             raise Conflict('선택한 보관함의 순차 작업이 아닙니다')
         entry = deepcopy(entry)
         root = library(download_scope.entry_root(base, entry))
         if requested_root != base and requested_root != root:
             raise Conflict('선택한 구간의 순차 작업이 아닙니다')
-        owned = bool(automation.running and automation.root == str(base) and automation.current_path == project_path(root, entry['vod']))
+        owned = bool(automation.running and automation.root == str(base) and entry['id'] in automation.active)
     _status(out, entry, owned or entry.get('state') == 'queued')
     out['owned'] = owned
     out['title'] = entry.get('title') or out['title']
@@ -157,7 +159,7 @@ def _queue(manager, request, out):
     if (project_path(root, entry['vod']) / 'project.json').is_file():
         out['result'] = dict(out['workspace'])
     if owned and entry.get('state') in ACTIVE:
-        out['actions'].append({'label': '순차 작업 일시정지', 'action': 'queue-pause', 'data': {'root': str(base)}})
+        out['actions'].append({'label': '이 항목 중단', 'action': 'queue-pause-item', 'data': {'root': str(base), 'id': entry['id']}})
     return out
 
 
@@ -180,6 +182,13 @@ def _heavy(manager, request, out):
     _field(out, '등록 시각', entry.get('created_at'))
     if entry.get('message'):
         out['records'] = [{'at': None, 'state': entry.get('state'), 'message': entry['message']}]
+    kind = {'speech-start': 'speech', 'voices-start': 'voices', 'context-start': 'context'}.get(entry.get('action'))
+    if kind and entry.get('state') == 'running' and out['workspace']:
+        path = project_path(entry['root'], entry['vod_id'])
+        if _worker(manager, kind, path):
+            live = _detail(manager, {'kind': kind, 'root': entry['root'], 'vod_id': entry['vod_id']})
+            for key in ('state', 'message', 'progress', 'timing', 'records', 'record_note', 'run', 'mode', 'result', 'owned', 'actions'):
+                out[key] = live.get(key)
     if entry.get('state') == 'queued':
         out['actions'].append({'label': '대기 취소', 'action': 'work-cancel', 'data': {'id': entry['id']}})
     return out
@@ -250,7 +259,7 @@ def _detail(manager, request):
         _field(out, '결과 생성 시각', saved.get('created_at'))
         if kind == 'speech':
             _field(out, '발언 수', saved.get('segment_count'))
-            if saved:
+            if saved and not (out['owned'] and selected == current_run and out['progress']):
                 out['progress'] = _progress(saved)
         elif kind == 'voices' and saved:
             _field(out, '감지한 화자 수', len(saved.get('speakers') or {}))
@@ -307,27 +316,6 @@ def _detail(manager, request):
 RESUMABLE = {'paused', 'error', 'partial', 'review', 'cancelled'}
 
 
-def _available(manager, path):
-    """조회에는 잠금 생성 없이 소유 중인 작업과 예약만 확인한다. 실행 잠금은 기존 경로가 잡는다."""
-    if any(i.get('state') in ('queued', 'starting', 'running') and str(path) in i.get('paths', [])
-           for i in manager.tasks.items):
-        raise Conflict('이 VOD의 실행 또는 대기 작업이 이미 있습니다')
-    for kind in ('video', 'speech', 'voices', 'context'):
-        if _worker(manager, kind, path):
-            raise Conflict('이 VOD의 작업이 아직 실행 중입니다. 중단 처리가 끝난 뒤 다시 시도하세요')
-    if manager.automation.running and manager.automation.current_path == path:
-        raise Conflict('이 VOD의 순차 작업이 실행 중입니다')
-    if getattr(manager, 'analysis_path', None) == path:
-        raise Conflict('이 VOD의 채팅 분석이 실행 중입니다')
-    job = getattr(manager, 'import_job', None)
-    if job and not getattr(job, 'closed', True) and getattr(job, 'path', None) == path:
-        raise Conflict('이 VOD의 영상 가져오기가 실행 중입니다')
-    for owner in (getattr(manager, 'studio', None), getattr(manager, 'splitter', None)):
-        job = getattr(owner, 'job', None)
-        if job and not getattr(job, 'closed', True) and getattr(job, 'path', None) == path:
-            raise Conflict('이 VOD의 영상 작업이 실행 중입니다')
-
-
 def _snapshot(manager, path, kind, value):
     saved = value.get('resume_request')
     if isinstance(saved, dict) and saved.get('action') == value.get('action'):
@@ -349,7 +337,6 @@ def _resume_plan(manager, request, out):
         if manager.automation.running or any(i.get('state') in ('queued', 'starting', 'running') and
                 i.get('action') == 'queue-start' and library(i['data']['root']) == base for i in manager.tasks.items):
             raise Conflict('이 목록의 순차 작업이 이미 실행 또는 대기 중입니다')
-        _available(manager, project_path(out['workspace']['root'], out['workspace']['vod_id']))
         return 'queue-start', {'root': str(base)}
     if kind == 'heavy':
         entry = next(i for i in manager.tasks.items if i.get('id') == request['id'])
@@ -365,7 +352,6 @@ def _resume_plan(manager, request, out):
             raise Conflict('이 작업은 기존 작업 화면에서 현재 자료를 확인한 뒤 진행하세요')
         if 'vod_id' in data:
             path = project_path(data['root'], data['vod_id'])
-            _available(manager, path)
             if entry.get('identity') is not None and manager.tasks.identity(path) != entry['identity']:
                 raise Conflict('작업 이후 영상 또는 프로젝트가 변경됐습니다. 현재 자료를 확인하세요')
         if action in ('speech-start', 'voices-start', 'context-start'):
@@ -376,7 +362,6 @@ def _resume_plan(manager, request, out):
             return _resume_plan(manager, subrequest, _detail(manager, subrequest))
         return action, data
     path = project_path(request['root'], request['vod_id'])
-    _available(manager, path)
     data = {'root': str(path.parent), 'vod_id': request['vod_id']}
     if kind in ('video', 'chat'):
         project = load_project(path, request['vod_id'])

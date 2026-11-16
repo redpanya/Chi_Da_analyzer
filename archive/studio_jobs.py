@@ -1,7 +1,6 @@
 """편집 초안·출력 이력·범위 작업. 원본 결과와 별도의 저장소와 프로젝트 잠금."""
-from . import error_log, studio_profiles
+from . import error_log, processes, studio_profiles
 from contextlib import ExitStack
-import copy
 import re
 import threading
 import time
@@ -49,8 +48,9 @@ class Studio:
         for file in local(path,'runs').glob('*/manifest.json'):
             try:
                 item=read_json(run_file(path,file.parent.name))
-                if self.job and not self.job.closed and self.job.file==file:item=item|{'elapsed_seconds':round(self.job.elapsed+time.monotonic()-self.job.started,1)}
-                if item['state']=='running' and not (self.job and not self.job.closed and self.job.file==file):item=item|{'state':'paused','message':'이전 실행이 종료됐습니다. 이어하기를 누르세요'}
+                worker=self.manager.tasks.find('studio', path, file)
+                if worker:item=item|{'elapsed_seconds':round(worker.elapsed+time.monotonic()-worker.started,1)}
+                if item['state']=='running' and not worker:item=item|{'state':'paused','message':'이전 실행이 종료됐습니다. 이어하기를 누르세요'}
                 view={k:v for k,v in item.items() if k not in ('request','captions')}
                 view['folder']=str(file.parent)
                 view['output_bytes']=sum(o.get('verification',{}).get('bytes',0) for o in item.get('outputs',{}).values())
@@ -65,12 +65,22 @@ class Studio:
         if action in ('preset-list','preset-delete'):
             return studio_profiles.dispatch(action.removeprefix('preset-'),data)
         path=project_path(data['root'],data['vod_id']);load_project(path,data['vod_id'])
+        if action=='open-folder':
+            manifest=run_file(path,data.get('run'))
+            if not read_json(manifest).get('outputs'):
+                raise ValueError('저장된 클립이 없습니다')
+            return processes.open_folder(manifest.parent)
         if action in ('preset-save','preset-apply'):
-            with self.manager.guard, ProjectLock(path):
+            with self.manager.guard, ProjectLock(path, read=[]):
                 return studio_profiles.dispatch(action.removeprefix('preset-'),data,path)
         if action=='info':
-            draft=local(path,'draft.json')
-            return {'inputs':analysis_inputs.catalog(path),'draft':read_json(draft) if draft.exists() else None,'runs':self.list(path),
+            target=local(path,'draft.json')
+            draft=read_json(target) if target.exists() else None
+            if draft:
+                request=draft['request']
+                request['options']=clip_contract.default_options() | request.get('options', {})
+            return {'inputs':analysis_inputs.catalog(path),'draft':draft,'runs':self.list(path),
+                    'new_clip_options':studio_profiles.new_clip_options(draft['request']['options']) if draft else {},
                     'caption_designs':caption_design.catalog(caption_styles.PRESETS)}
         if action=='status':return {'runs':self.list(path)}
         if action=='fonts':return studio_decorations.catalog(data.get('refresh') is True)
@@ -84,7 +94,10 @@ class Studio:
             return studio_space.preflight(path,src,request,count)
         if action=='captions':return clip_captions.preview(path,data['vod_id'],data.get('selection'))
         if action=='stop':
-            if self.job and not self.job.closed and self.job.path==path:self.job.stop.set()
+            with self.manager.guard:
+                worker = self.manager.tasks.find('studio', path, run_file(path, data.get('run')))
+                if worker:
+                    worker.stop.set()
             return {'runs':self.list(path)}
         with self.manager.guard:
             if action in ('draft', 'image-add', 'transcript-add'):
@@ -92,25 +105,24 @@ class Studio:
                 pass
             elif action in ('clean-preview', 'clean'):
                 self.manager.project_idle(path)
-            else:
-                self.manager.speech_idle()
             if action=='transcript-add':
                 from . import studio_transcript
-                with ProjectLock(path):
+                with ProjectLock(path, read=['speech', 'media'], write=['studio-draft']):
                     request=studio_transcript.clip(path,data['vod_id'],data.get('run'),data.get('segment'))
                     item=request['clips'][0]
                     target=local(path,'draft.json');old=read_json(target) if target.exists() else {'revision':0}
                     if 'request' in old:
-                        request=copy.deepcopy(old['request'])
+                        request=old['request']
                         if any(c.get('id')==item['id'] for c in request['clips']):
                             return {'added':False,'count':len(request['clips']),'revision':old['revision']}
                         if len(request['clips'])>=100:raise ValueError('담은 구간은 최대 100개입니다. 클립 만들기에서 목록을 정리하세요')
-                        request['clips'].append(item)
-                        request['clips'].sort(key=lambda c:(c['start_ms'],c['end_ms']))
+                        fresh=studio_profiles.new_clip_options(request.get('options', {}))
+                        if fresh:item['options']=fresh
+                        request=request | {'clips':[*request['clips'],item]}
                     value=save_draft(path,old,request)
                     return {'added':True,'count':len(request['clips']),'revision':value['revision']}
             if action=='image-add':
-                with ProjectLock(path):return studio_images.add(path,data.get('png'),data.get('name'))
+                with ProjectLock(path, write=['studio-images']):return studio_images.add(path,data.get('png'),data.get('name'))
             if action in ('clean-preview','clean'):
                 with ExitStack() as locks:
                     locks.enter_context(ProjectLock(path))
@@ -122,13 +134,13 @@ class Studio:
                     if child_lock is not None and data['mode']=='delete':locks.enter_context(child_lock.moving())
                     return studio_maintenance.clean(path,file,data['mode'],data.get('token'))
             if action=='draft':
-                with ProjectLock(path):
+                with ProjectLock(path, read=['media'], write=['studio-draft']):
                     target=local(path,'draft.json');old=read_json(target) if target.exists() else {'revision':0}
                     if data.get('revision',0)!=old['revision']:raise Conflict('다른 창에서 초안이 변경됐습니다. 다시 불러온 뒤 저장하세요')
                     request=clip_contract.validate(data['request'],clip_contract.media(path,data['vod_id']),draft=True)
                     return save_draft(path,old,request)
             if action not in ('start','scope','resume','remote'):raise ValueError('알 수 없는 편집 작업입니다')
-            lock=ProjectLock(path)
+            lock=ProjectLock(path, read=['media'], write=['studio-run-'+data['run']] if action=='resume' else [])
             try:
                 if action=='resume':
                     file=run_file(path,data['run']);saved=read_json(file)
@@ -139,7 +151,12 @@ class Studio:
                     if action=='start':
                         request=clip_contract.validate(request,src)
                         studio_profiles.prepare(path,request)
-                        rows=clip_captions.snapshot(path,data['vod_id'],request['selection'],request['caption_edits'])
+                        selection = request['selection']
+                        rows = []
+                        if selection is not None:
+                            sources = ['speech', 'voices'] if selection['speaker_run'] else ['speech']
+                            with ProjectLock(path, read=sources):
+                                rows = clip_captions.snapshot(path, data['vod_id'], selection, request['caption_edits'])
                         if any(o['caption'] for o in studio_profiles.profiles(request)) and not rows:raise ValueError('영상에 입힐 완료된 전사를 선택하세요')
                         count=sum(any(r['start_ms']<c['end_ms'] and r['end_ms']>c['start_ms'] for c in request['clips']) for r in rows)
                         space=studio_space.preflight(path,src,request,count);studio_space.available(path,space['required_min'])
@@ -149,6 +166,7 @@ class Studio:
                         request=validate(request,src,load_project(path,data['vod_id']),remote=action=='remote');rows=[]
                         request['settings'].setdefault('background',background(path))
                     id=uuid.uuid4().hex;file=run_file(path,id)
+                    lock.children.append(ProjectLock(path, write=['studio-run-'+id]))
                     saved={'id':id,'kind':action,'created_at':stamp(),'state':'paused','request':request,'source':src['identity'] if src else None,'outputs':{},'completed_stages':[], 'elapsed_seconds':0}
                     if action=='start':
                         saved['space_estimate']=space
@@ -156,6 +174,7 @@ class Studio:
                     save_json(file,saved)
                 self.job=Work(path,data['vod_id'],file,saved,lock)
                 self.job.update(state='running',message='작업 준비',progress=0)
+                self.manager.tasks.track('studio', self.job)
                 self.job.thread.start()
             except Exception:lock.close();raise
             return {k:v for k,v in self.job.value.items() if k!='request'}

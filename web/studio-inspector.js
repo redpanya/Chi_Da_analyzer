@@ -1,7 +1,8 @@
 // 편집값과 별개인 오른쪽 상세 패널 상태. 영상 영역의 너비는 바꾸지 않는다.
 import {enterView} from './workspace-motion.js';
+import {studioSteps} from './studio-workspace.js';
 const $=id=>document.getElementById(id);
-const sections={sources:['range','구간 고르기'],'range-edit':['range','시작·끝 다듬기'],layout:['frame','비율·화면 구성'],image:['frame','PNG 이미지'],effects:['frame','색감·효과'],volume:['frame','음량'],'caption-content':['caption','자막 내용'],'caption-appearance':['caption','글꼴·색상'],transcript:['caption','사용할 전사'],captions:['caption','자막 내용 수정'],font:['caption','자막 스타일·글꼴'],'caption-position':['caption','크기·위치']};
+const sections={sources:['range','구간 추가'],layout:['frame','비율·화면 구성'],image:['frame','PNG 이미지'],effects:['frame','색감·효과'],volume:['frame','음량'],'caption-content':['caption','자막 내용'],'caption-appearance':['caption','글꼴·색상'],transcript:['caption','사용할 전사'],captions:['caption','자막 내용 수정'],font:['caption','자막 스타일·글꼴'],'caption-position':['caption','크기·위치']};
 const parents={transcript:'caption-content',captions:'caption-content',font:'caption-appearance',effects:'layout',volume:'layout'};
 // 미리보기와 같은 내용/디자인 진입점에서 실제 기능을 바로 표시한다.
 const embedded={'caption-content':['transcript','captions'],'caption-appearance':['font']};
@@ -29,6 +30,7 @@ export function createStudioInspector(){
   }
   function render(direction=1){
     $('inspector-heading').hidden=!active;
+    if(active)text('inspector-back',active==='sources'?'← 구간 다듬기':'← 설정 목록');
     for(const name of ['range','frame','caption'])$('overview-'+name).hidden=Boolean(active)&&sections[active][0]===name;
     const visible=new Set([active,...embedded[active]||[]]);
     for(const panel of document.querySelectorAll('[data-inspector]'))panel.hidden=!visible.has(panel.dataset.inspector);
@@ -37,7 +39,8 @@ export function createStudioInspector(){
     const sample=$('caption-sample-dock');
     if(['font','caption-position','caption-appearance'].includes(active))$('inspector-'+active).prepend(sample);
     else $('overview-caption').insertBefore(sample,$('overview-caption').querySelector('.inspector-cards'));
-    body.scrollTop=0;document.dispatchEvent(new CustomEvent('studio-inspector-change',{detail:{tab,panel:active}}));update();enterView(body,direction);
+    body.scrollTop=0;document.dispatchEvent(new CustomEvent('studio-inspector-change',{detail:{tab,panel:active}}));update();
+    if(direction)enterView(body,direction);
   }
   function open(key){
     if(!sections[key])return;
@@ -56,5 +59,8 @@ export function createStudioInspector(){
   for(const id of ['caption-count','caption-load-state','caption-font-note','caption-size-error','caption-design-error','caption-design-state','font-selected','image-name','image-status','decoration-state','image-preview-state'])observer.observe($(id),{childList:true,characterData:true,subtree:true});
   document.addEventListener('studio-profile-change',update);
   update();
-  return {open,setTab(name){tab=name;active='';stack=[];render();}};
+  return {open,setTab(name,animate=true){
+    const direction=name===tab?(active?-1:0):Math.sign(studioSteps.indexOf(name)-studioSteps.indexOf(tab));
+    tab=name;active='';stack=[];render(animate?direction:0);
+  }};
 }

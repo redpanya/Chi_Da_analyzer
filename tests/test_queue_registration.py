@@ -54,7 +54,7 @@ class QueueRegistrationTests(unittest.TestCase):
 
     def test_fragment_count_validation_and_resume(self):
         self.assertEqual(options({})['concurrent_fragments'], 1)
-        for count in (0, 17, 1.5, True, '4', None):
+        for count in (0, 33, 1.5, True, '4', None):
             with self.subTest(count=count), self.assertRaises(ValueError):
                 options({'concurrent_fragments': count})
         path=self.project(complete=False)
@@ -125,17 +125,42 @@ class QueueRegistrationTests(unittest.TestCase):
         entry=self.register()
         completed=[dict(entry,id=f'completed-{i}',state='complete',report=f'report-{i}') for i in range(100)]
         self.queue.change(self.root,lambda data:data.update(items=completed))
-        before=self.queue.read(self.root)['items']
+        self.assertEqual(self.queue.read(self.root)['results'], [completed[-1]])
         added=self.register(settings={'mode':'analysis'})
         self.assertEqual(added['state'],'queued')
-        self.assertEqual(self.queue.read(self.root)['items'][:100],before)
+        self.assertEqual(self.queue.read(self.root)['items'], [added])
 
         pending=[dict(entry,id=f'pending-{i}',vod=str(i+2),state=['queued','paused','partial','error'][i%4]) for i in range(100)]
+        for entry in pending:
+            self.project(entry['vod'],complete=False)
         self.queue.change(self.root,lambda data:data.update(items=completed+pending))
         result=self.queue.add_saved(self.root,['1'],{})
         self.assertEqual(result['added'],[])
         self.assertIn('최대 100개',result['errors'][0]['message'])
-        self.assertEqual(self.queue.read(self.root)['items'],completed+pending)
+        self.assertEqual(self.queue.read(self.root)['items'],pending)
+
+    def test_status_prunes_missing_projects_and_preserves_other_ranges_and_reports(self):
+        path = self.project()
+        entry = self.register()
+        scoped = self.queue.add_saved(self.root, ['1'], {'download_range': {'start_ms': 0, 'end_ms': 2000}, 'height':720})['items'][-1]
+        file = self.queue.directory(self.root) / 'queue.json'
+        report = path / 'diagnostics/reports/old.json'
+        save_json(report, {'note': '기존 실행 기록'})
+        original = path / 'media/original.mp4'
+        before = [f.read_bytes() for f in (original, report)]
+        finished = dict(entry, state='complete')
+        deleted = dict(finished, vod='9', id='deleted')
+        save_json(file, {'version':1, 'state':'complete', 'items':[dict(finished,id='old'), finished, scoped, deleted, dict(deleted,id='pending',state='queued')]})
+        view = self.queue.status(self.root)
+        self.assertEqual(view['items'], [scoped])
+        self.assertEqual(view['results'], [finished])
+        self.assertEqual(self.queue.read(self.root)['results'], [finished])
+        with patch('archive.automation.save_json', side_effect=AssertionError('같은 목록을 다시 저장함')):
+            self.queue.status(self.root)
+        self.assertEqual([f.read_bytes() for f in (original, report)], before)
+        path.rename(Path(self.root) / '이동한 자료')
+        self.assertEqual(self.queue.status(self.root)['results'], [])
+        self.assertEqual(self.queue.read(self.root)['items'], [scoped])
 
     def test_quality_uses_available_lower_format_and_rejects_only_higher(self):
         with patch.object(self.manager,'inspect',return_value=meta('1')):
@@ -165,7 +190,7 @@ class QueueRegistrationTests(unittest.TestCase):
         manual=path/'speech/manual.json';manual.parent.mkdir();manual.write_text('보존할 수동 교정')
         self.register()
         with patch.object(self.manager,'start',side_effect=AssertionError('다운로드 재실행 금지')):
-            first=self.run_queue()['items'][0]
+            first=self.run_queue()['results'][0]
             old_report=path/'diagnostics/reports'/(first['report']+'.json');original_report=old_report.read_bytes()
             followup=self.register(settings={'mode':'analysis'})
             self.assertEqual(self.queue.status(self.root)['state'], 'idle')
@@ -174,7 +199,7 @@ class QueueRegistrationTests(unittest.TestCase):
             def run(queue,entry,stage):
                 return real_execute(queue,entry,stage) if stage=='download' else 'reused'
             with patch('archive.automation.steps.execute',side_effect=run):
-                last=self.run_queue()['items'][-1]
+                last=self.run_queue()['results'][-1]
         self.assertNotEqual(first['report'],last['report'])
         self.assertEqual(last['stages']['download'],'reused')
         self.assertEqual(old_report.read_bytes(),original_report)
@@ -191,7 +216,7 @@ class QueueRegistrationTests(unittest.TestCase):
             self.assertEqual(page.read_text(),'저장 응답 유지')
             project.update('chat',state='complete')
         with patch('archive.jobs.video.download',side_effect=AssertionError('영상 재수신 금지')),patch('archive.jobs.chat.collect',collect),patch.object(self.manager,'start',wraps=self.manager.start) as start:
-            self.assertEqual(self.run_queue()['items'][0]['state'],'complete')
+            self.assertEqual(self.run_queue()['results'][0]['state'],'complete')
         self.assertEqual(start.call_args.args[-1],'chat')
         self.assertNotIn('concurrent_fragments',load_project(path,'1')['tasks']['video'])
         self.assertEqual((path/'media/original.mp4').read_bytes(),b'original-video-1')
@@ -204,7 +229,7 @@ class QueueRegistrationTests(unittest.TestCase):
             self.assertEqual(project.snapshot()['tasks']['video']['concurrent_fragments'],4)
             project.update('video',state='complete',verification={'duration':5})
         with patch('archive.jobs.video.download',verify),patch('archive.jobs.chat.collect',side_effect=AssertionError('채팅 재수신 금지')),patch.object(self.manager,'start',wraps=self.manager.start) as start:
-            self.assertEqual(self.run_queue()['items'][0]['state'],'complete')
+            self.assertEqual(self.run_queue()['results'][0]['state'],'complete')
         self.assertEqual(start.call_args.args[-1],'video')
         self.assertEqual(start.call_args.kwargs['concurrent_fragments'],4)
 

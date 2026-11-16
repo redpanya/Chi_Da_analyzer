@@ -4,7 +4,7 @@ import threading
 import time
 import uuid
 
-from . import report_hardware, report_schema, speech_store, voice_store, context_job, analysis_store, compute
+from . import __version__, report_hardware, report_schema, speech_store, voice_store, context_job, analysis_store, compute
 from .storage import project_path, load_project, read_json, save_json, stamp, Conflict
 
 
@@ -76,7 +76,7 @@ class Reports:
 
     def new(self, root, vod, settings=None):
         path = project_path(root, vod)
-        report = dict(schema=2, policy=report_schema.POLICY, report_id=uuid.uuid4().hex, vod_id=vod, app_version='1.1.0',
+        report = dict(schema=2, policy=report_schema.POLICY, report_id=uuid.uuid4().hex, vod_id=vod, app_version=__version__,
                       hardware=report_hardware.collect(), options=options(settings), stages=[], counts={})
         local = dict(payload=report, created_at=stamp(), updated_at=stamp(), events=[], details=[], revision=0)
         with self.guard:
@@ -168,7 +168,8 @@ class Reports:
             previous = None
             try:
                 while True:
-                    current = state(path, stage)
+                    current = getattr(job, 'value', None) if job.closed else None
+                    current = current or state(path, stage)
                     phase = (current.get('state'), current.get('message'))
                     if phase != previous:
                         def event(value):

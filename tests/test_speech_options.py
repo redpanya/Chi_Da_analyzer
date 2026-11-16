@@ -85,7 +85,8 @@ class SpeechOptionsTests(unittest.TestCase):
         self.audio();m=Manager(self.root)
         def start(kind, profile):
             # 실제 Job은 생성하되 엔진 실행만 생략해 상태·시간 키를 직접 검사한다.
-            with patch('threading.Thread.start'), patch.object(m,'view',return_value={}):
+            with patch('threading.Thread.start'), patch.object(m,'view',return_value={}), \
+                    patch.object(model.model_paths, 'root', return_value=self.root/'models'):
                 m.speech_start(str(self.root),'1','transcribe',asr_options={'vad':kind,'prompt':profile})
             m.speech_job.lock.close();m.speech_job.closed=True;m.speech_job=None
             return store.state(self.path)

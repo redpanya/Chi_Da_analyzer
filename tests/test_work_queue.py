@@ -1,4 +1,4 @@
-"""대기 요청 격리, FIFO, 취소·오류 복구, 다른 VOD 편집과 기존 파일 잠금."""
+"""독립 작업 병행, 충돌 대기, 취소와 오류 복구, 원본 보존."""
 import copy
 import hashlib
 from pathlib import Path
@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 from archive.jobs import Manager
-from archive.storage import Conflict, ProjectLock, create_or_load, load_project, save_json
+from archive.storage import Conflict, ResourceBusy, ProjectLock, create_or_load, load_project, save_json
 from archive import work_queue
 
 
@@ -32,64 +32,63 @@ class QueueTests(unittest.TestCase):
         self.manager = Manager(self.root)
         self.queue = self.manager.tasks
         self.args = {'root':str(self.root), 'vod_id':'1', 'action':'whole', 'options':{'thinking':True}}
-        self.manager.analysis_path = self.root/'vod-2'
 
     def tearDown(self):
-        self.manager.analysis_path = None
         self.manager.close()
         self.temp.cleanup()
 
-    def test_fifo_snapshot_duplicate_cancel_and_error_continuation(self):
+    def test_independent_jobs_snapshot_duplicate_cancel_and_error_continuation(self):
         calls = []
         release = threading.Event()
         def execute(manager, action, data):
             calls.append(copy.deepcopy(data))
-            if len(calls) == 1:
+            if data['options']['thinking']:
                 release.wait(5)
                 raise ValueError('독립 실패')
             return {}
-        with patch.object(work_queue, 'execute', side_effect=execute), patch.object(work_queue.error_log, 'record'):
-            first = self.queue.submit('context-start', self.args)['queued']
-            self.assertEqual(first['id'], self.queue.submit('context-start', self.args)['queued']['id'])
-            self.args['options']['thinking'] = False
-            cancelled = self.queue.submit('context-start', self.args)['queued']
-            self.queue.cancel(cancelled['id'])
-            last = self.queue.submit('context-start', self.args)['queued']
-            with self.assertRaises(Conflict): self.manager.deletion_preview(str(self.root), '1')
-            with self.assertRaises(Conflict): self.manager.compute_settings({'mode':'cpu'})
-            self.manager.analysis_path = None
-            until(lambda: len(calls) == 1)
-            time.sleep(.25)
-            self.assertEqual(len(calls), 1)
-            self.assertTrue(calls[0]['options']['thinking'])
+        try:
+            with patch.object(work_queue, 'execute', side_effect=execute), patch.object(work_queue.error_log, 'record'):
+                with self.manager.guard:
+                    first = self.queue.submit('context-start', self.args)['queued']
+                    self.assertEqual(first['id'], self.queue.submit('context-start', self.args)['queued']['id'])
+                    self.args['options']['thinking'] = False
+                    cancelled = self.queue.submit('context-start', self.args)['queued']
+                    self.queue.cancel(cancelled['id'])
+                    last = self.queue.submit('context-start', self.args)['queued']
+                until(lambda: self.queue.items[-1]['state'] == 'complete')
+                until(lambda: len(calls) == 2)
+                self.assertCountEqual([call['options']['thinking'] for call in calls], [True, False])
+                with self.assertRaises(Conflict): self.manager.deletion_preview(str(self.root), '1')
+                with self.assertRaises(Conflict): self.manager.compute_settings({'mode':'cpu'})
+                release.set()
+                until(lambda: self.queue.items[0]['state'] == 'error')
+                states = {i['id']:i['state'] for i in self.queue.status()['items']}
+                self.assertEqual(states[first['id']], 'error')
+                self.assertEqual(states[cancelled['id']], 'cancelled')
+                self.assertEqual(states[last['id']], 'complete')
+        finally:
             release.set()
-            until(lambda: self.queue.items[-1]['state'] == 'complete')
-            states = {i['id']:i['state'] for i in self.queue.status()['items']}
-            self.assertEqual(states[first['id']], 'error')
-            self.assertEqual(states[cancelled['id']], 'cancelled')
-            self.assertEqual(states[last['id']], 'complete')
-            self.assertEqual(len(calls), 2)
 
     def test_changed_project_rejected_without_mutation(self):
         with patch.object(work_queue, 'execute') as execute, patch.object(work_queue.error_log, 'record'):
-            self.queue.submit('context-start', self.args)
-            data = load_project(self.path, '1'); data['video_generation'] = 'changed'
-            save_json(self.path/'project.json', data)
-            before = (self.path/'project.json').read_bytes()
-            self.manager.analysis_path = None
+            with self.manager.guard:
+                self.queue.submit('context-start', self.args)
+                data = load_project(self.path, '1'); data['video_generation'] = 'changed'
+                save_json(self.path/'project.json', data)
+                before = (self.path/'project.json').read_bytes()
             until(lambda: self.queue.items[0]['state'] == 'error')
             execute.assert_not_called()
             self.assertEqual((self.path/'project.json').read_bytes(), before)
 
-    def test_queued_project_cannot_change_quality(self):
-        from archive.video_quality import change
-        with patch.object(work_queue, 'execute', return_value={}):
-            self.queue.submit('context-start', self.args)
-            with patch('archive.video_quality.source.inspect') as inspect:
-                with self.assertRaises(Conflict):
-                    change(self.manager, str(self.root), '1', 'test', 'other', 'delete')
-                inspect.assert_not_called()
-            self.queue.cancel(self.queue.items[0]['id'])
+    def test_conflicting_job_waits_then_resumes(self):
+        def execute(manager, action, data):
+            with ProjectLock(self.path, write=['speech']): return {}
+        with ProjectLock(self.path, read=['speech']) as held, patch.object(work_queue, 'execute', side_effect=execute):
+            self.queue.submit('speech-start', self.args)
+            until(lambda: '끝나면' in self.queue.items[0]['message'])
+            self.assertEqual(self.queue.items[0]['state'], 'queued')
+            held.close()
+            until(lambda: self.queue.items[0]['state'] == 'complete')
 
     def test_split_queue_retains_session_source_and_current_job(self):
         from archive import split_contract
@@ -103,8 +102,6 @@ class QueueTests(unittest.TestCase):
             queued = self.queue.submit('split-plan', {'source_id':source_id, 'points':[2]})['queued']
             self.assertEqual(queued['state'], 'queued')
             self.assertEqual(queued['source_id'], source_id)
-            self.assertEqual(split.dispatch('current', {}), {'run':None})
-            self.manager.analysis_path = None
             until(lambda: self.queue.items[0]['state'] in ('complete','error'))
         row = self.queue.items[0]
         self.assertEqual(row['state'], 'complete', row['message'])
@@ -113,11 +110,11 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(current['state'], 'ready')
         self.assertEqual(current['source']['path'], str(file))
         self.assertEqual(file.read_bytes(), b'original')
-        self.manager.analysis_path = self.root/'vod-2'
-        queued = self.queue.submit('split-start', {'id':current['id'], 'folder':str(self.root)})['queued']
-        self.assertEqual(queued['source_id'], source_id)
-        self.assertNotIn('run', queued)
-        self.queue.cancel(queued['id'])
+        with self.manager.guard:
+            queued = self.queue.submit('split-start', {'id':current['id'], 'folder':str(self.root)})['queued']
+            self.assertEqual(queued['source_id'], source_id)
+            self.assertNotIn('run', queued)
+            self.queue.cancel(queued['id'])
 
     def test_queued_automation_keeps_owner_and_order(self):
         from archive.automation import options
@@ -126,12 +123,10 @@ class QueueTests(unittest.TestCase):
         queue.change(str(self.root), lambda data: data['items'].append(entry))
         seen = []
         def step(owner, item, stage):
-            with owner.manager.guard: owner.manager.speech_idle()
             seen.append(stage)
             return 'reused'
         with patch('archive.automation.steps.execute', side_effect=step), patch('archive.report_hardware.collect', return_value={}):
             self.queue.submit('queue-start', {'root':str(self.root)})
-            self.manager.analysis_path = None
             until(lambda: self.queue.items[0]['state'] in ('complete','error'))
             self.assertEqual(self.queue.items[0]['state'], 'complete', self.queue.items[0]['message'])
             self.assertEqual(seen, ['audio','transcribe'])
@@ -151,6 +146,8 @@ class QueueTests(unittest.TestCase):
             client.request('POST', parsed.path+'api/'+action, json.dumps(data), headers)
             response = client.getresponse()
             return response.status, json.loads(response.read())
+        hold = patch.object(work_queue, 'execute', side_effect=ResourceBusy('대기 중'))
+        hold.start()
         try:
             status, response = call('context-start', self.args)
             self.assertEqual(status, 200)
@@ -160,19 +157,17 @@ class QueueTests(unittest.TestCase):
             self.assertEqual(call('work-queue', {})[1]['items'][0]['state'], 'queued')
             self.assertEqual(call('work-cancel', {'id':response['queued']['id']})[1]['items'][0]['state'], 'cancelled')
         finally:
-            client.close(); server.shutdown(); server.server_close(); thread.join()
+            client.close(); server.shutdown(); server.server_close(); thread.join(); hold.stop()
 
     def test_new_request_after_queue_drains_and_shutdown_cancels(self):
         with patch.object(work_queue, 'execute', return_value={}):
             self.queue.submit('context-start', self.args)
-            self.manager.analysis_path = None
             until(lambda: self.queue.items[0]['state'] == 'complete')
-            self.manager.analysis_path = self.root/'vod-2'
             self.queue.submit('context-start', self.args)
-            self.manager.analysis_path = None
             until(lambda: self.queue.items[-1]['state'] == 'complete')
-            self.manager.analysis_path = self.root/'vod-2'
-            self.queue.submit('context-start', self.args)
+            with self.manager.guard:
+                self.queue.submit('context-start', self.args)
+                self.queue.stopping.set()
             self.queue.close()
             self.assertEqual(self.queue.items[-1]['state'], 'cancelled')
             with self.assertRaises(Conflict): self.queue.submit('context-start', self.args)
@@ -189,7 +184,6 @@ class ConcurrentEditingTests(unittest.TestCase):
         self.other_args = {'root':str(self.root), 'vod_id':'2'}
 
     def tearDown(self):
-        self.manager.analysis_path = None
         self.manager.close()
         self.temp.cleanup()
 
@@ -197,7 +191,6 @@ class ConcurrentEditingTests(unittest.TestCase):
         from archive import clip_contract
         before = hashlib.sha256(self.file.read_bytes()).hexdigest()
         request = {'clips':[{'title':'보존 검사','start_ms':0,'end_ms':1000}]}
-        self.manager.analysis_path = self.path
         with ProjectLock(self.path):
             saved = self.manager.studio.dispatch('draft', self.other_args|{'request':request,'revision':0})
             self.assertEqual(saved['revision'], 1)
@@ -208,8 +201,7 @@ class ConcurrentEditingTests(unittest.TestCase):
             item = self.manager.tasks.submit('studio-start', self.other_args|{'request':request})['queued']
             self.assertEqual(item['state'], 'queued')
             self.manager.studio.dispatch('draft', self.other_args|{'request':{'clips':[{'title':'나중 편집','start_ms':1000,'end_ms':2000}]},'revision':1})
-            with self.assertRaises(Conflict): self.manager.deletion_preview(str(self.root), '2')
-        self.manager.analysis_path = None
+            until(lambda: self.manager.tasks.items[0]['state'] in ('running','complete','error'))
         until(lambda: self.manager.tasks.items[0]['state'] in ('complete','error'), 45)
         row = self.manager.tasks.items[0]
         self.assertEqual(row['state'], 'complete', row['message'])

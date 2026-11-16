@@ -125,11 +125,14 @@ jobs:
         run: python packaging/release/check_https.py --output build/https-native.json
       - name: Python 실행기 패키징
         run: python -m PyInstaller --noconfirm --clean --distpath build/frozen --workpath build/pyinstaller packaging/release/backend.spec
+      - name: Windows 포터블 교체 도구 빌드
+        if: runner.os == 'Windows'
+        run: python -m PyInstaller --onefile --noconsole --name chida-update --distpath build/desktop-helper --workpath build/desktop-helper-work --specpath build desktop/replace_windows.py
       - name: 앱 구성
-        run: python packaging/release/assemble.py --version 1.1.0
+        run: python packaging/release/assemble.py
       - name: 패키지 독립 실행 검사
         run: python packaging/release/smoke.py
-      - name: ZIP·대응 소스·체크섬 생성
+      - name: 배포 이미지 실행 검사와 대응 소스 생성
         run: python packaging/release/archive_release.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

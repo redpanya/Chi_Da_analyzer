@@ -73,7 +73,7 @@ class ModelPathTests(unittest.TestCase):
                 self.assertTrue(self.manager.folders()['busy'])
                 with self.assertRaises(Conflict): self.manager.model_folder(str(self.base/'변경'))
                 setattr(self.manager, name, None)
-        self.manager.analysis_path = self.base/'분석'
+        self.manager.analysis_paths.add(self.base/'분석')
         with self.assertRaises(Conflict): self.manager.model_folder(str(self.base/'변경'))
         self.assertEqual(model_paths.root(), self.old)
         self.assertFalse((self.base/'변경').exists())

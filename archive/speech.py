@@ -110,7 +110,8 @@ class SpeechJob:
         self.thread = threading.Thread(target=self.run, name='음성-작업', daemon=True)
 
     def update(self, **values):
-        return store.update(self.path, **values)
+        self.value = store.update(self.path, **values)
+        return self.value
 
     def cancel(self):
         self.stop.set()

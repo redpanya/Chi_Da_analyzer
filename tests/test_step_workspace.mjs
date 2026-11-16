@@ -62,7 +62,7 @@ const $=id=>{const node=document.getElementById(id);assert(node,'없는 폼 ID: 
 const add=(tag,id,parent=body,cls='')=>{const node=new Element(tag);node.id=id;node.className=cls;parent.append(node);return node;};
 const flushClose=()=>{while(lateEvents.length)lateEvents.shift()();};
 const rail=add('aside','primary'),navigation=add('div','navigation',rail,'workspace-navigation'),main=add('main','main');add('header','header',main);
-for(const id of ['new','nav-library','nav-jobs','open-video-split','workspace-search-open'])add('button',id,navigation);
+for(const id of ['new','nav-library','nav-jobs','open-video-split','open-mix','workspace-search-open'])add('button',id,navigation);
 add('button','step9',add('footer','rail-footer',rail));
 for(const id of ['library-page','import-panel','jobs-page','download-panel','context-panel','speech-panel','analysis-results-nav'])add('section',id,main);
 add('div','jobs-intro',$('jobs-page'),'library-intro');
@@ -97,22 +97,34 @@ function analysisSettings(prefix){
 }
 const layout={
   queueSettings:createSettingsPanel('queue-options','처리 선택',[queueWork]),
+  audioSettings:createSettingsPanel('audio-settings','원음 추출',[$('speech-step-0')]),
   speechSettings:createSettingsPanel('speech-settings','전사',[speechSteps],[transcribe]),
   voiceSettings:createSettingsPanel('voice-settings','화자',[add('section','voices-setup')]),
   contextSettings:analysisSettings('context'),clipSettings:analysisSettings('context-clips'),versions:[],
 };
 const speechMaterials=add('section','speech-materials',layout.speechSettings.body);
+const audioJobSlot=add('div','audio-job-slot',layout.audioSettings.body);
 const coverage=add('p','speech-coverage',speechMaterials);coverage.textContent='완료된 전사 범위';
-const audioLink=add('a','speech-audio-save',speechMaterials);audioLink.href='/saved-source.wav';
-layout.panels=[layout.queueSettings,layout.speechSettings,layout.voiceSettings,layout.contextSettings,layout.clipSettings];
+const audioLink=add('a','speech-audio-save',layout.audioSettings.body);audioLink.href='/saved-source.wav';
+layout.panels=[layout.queueSettings,layout.audioSettings,layout.speechSettings,layout.voiceSettings,layout.contextSettings,layout.clipSettings];
 for(const id of ['speech-model','voices-model','speech-readiness','voices-readiness','context-readiness','clips-readiness','context-resume','context-clips-resume','context-job','clips-job','speech-job','voices-job','download-details','project-assets','step2','lock-note','workspace-subtitle','context-version','context-clips-version','global-jobs','global-job-rows'])if(!document.getElementById(id))add('div',id,main);
 const queueGlobal=add('div','global-state-wrap',main);add('p','global-queue-state',queueGlobal);add('button','global-queue-link',queueGlobal);
 for(const id of ['context-job-history','clips-job-history']){const details=add('details',id,main);add('summary',id+'-summary',details);}
 const originals=['queue-inputs','queue-url','queue-height','queue-add','speech-prompt','context-transcript','context-background','context-thinking','context-clips-transcript','context-clips-background','transcribe','context-generate','context-clips-generate'].map(id=>[id,$(id)]);
 let project={path:'/가상/vod-1',metadata:{title:'검사 VOD',duration:60},tasks:{video:{state:'complete'},chat:{state:'complete'}},context:{state:'idle'},speech:{state:'idle'},voices:{state:'idle'}},mode='clips',view,currentStep=0;
 const selections=[],context={mode:()=>mode,selectMode(value,options){mode=value;selections.push([value,options]);}};
+const stopSpeech=add('button','speech-stop',$('speech-job'));
 const status=createWorkspaceStatus(layout);status.update(project);
-const navigate=step=>{currentStep=step;status.navigate(step);view?.navigate(step);};
+for(const [action,host,label] of [['audio',audioJobSlot,'원음 추출 중단'],['transcribe',speechMaterials,'음성 전사 중단']]){
+  const panel=action==='audio'?layout.audioSettings:layout.speechSettings;
+  panel.open();
+  status.update({...project,speech:{action,state:'running',owned:true}});
+  assert.ok(panel.dialog.open);
+  assert.equal($('speech-job').parentElement,host);
+  assert.ok(host.contains(stopSpeech));assert.equal(stopSpeech.textContent,label);
+  panel.close();status.update(project);
+}
+const navigate=(step,options)=>{currentStep=step;status.navigate(step);view?.navigate(step,options);};
 view=createStepWorkspace({layout,getProject:()=>project,navigate,enterAnalysis:()=>navigate(6),context});
 
 assert.equal($('prepare-download-details').contains(originalCards),true);assert.equal($('prepare-download-details').contains(originalActions),true);
@@ -122,15 +134,61 @@ assert.equal($('prepare-download-details').closest('dialog').id,'download-settin
 project.tasks.video.state='downloading';view.update();assert.equal($('task-main').hidden,true,'폴링으로 작업 설정을 강제로 열지 않음');
 project.tasks.video.state='error';view.update();assert.equal($('task-main').hidden,true);
 project.tasks.video.state='complete';view.update();
-assert.deepEqual(routeSteps,{register:1,library:0,jobs:10,split:11,settings:9,prepare:2,speech:3,voices:4,explore:5,context:6,report:7,external:8});
-add('section','video-split-page',main);
+const prepRows=$('download-panel').querySelectorAll('.prepare-row');
+assert.equal(prepRows.length,5);
+project.speech={action:'audio',state:'complete',raw_audio:{file:'source.wav'}};view.update();
+assert.equal(prepRows[1].querySelector('.prepare-status').dataset.state,'complete');
+assert.equal(prepRows[2].querySelector('.prepare-status').dataset.state,'idle','원음 추출 완료는 전사 완료가 아님');
+project.speech={action:'transcribe',state:'running',raw_audio:{file:'source.wav'}};view.update();
+assert.equal(prepRows[1].querySelector('.prepare-status').dataset.state,'complete');
+assert.equal(prepRows[2].querySelector('.prepare-status').dataset.state,'running');
+project.speech={action:'model',state:'complete',raw_audio:{file:'source.wav'},transcript:{complete:true}};view.update();
+assert.equal(prepRows[2].querySelector('.prepare-status').dataset.state,'complete');
+project.speech={state:'idle'};view.update();
+
+assert.deepEqual(routeSteps,{register:1,library:0,jobs:10,split:11,mix:12,settings:9,prepare:2,speech:3,voices:4,explore:5,context:6,report:7,external:8});
+add('section','video-split-page',main);add('section','mix-page',main);
+const loadedProject=project;project=null;
+view.previewUse('147');
+view.update();
+assert.equal($('use-page').children.length,3);
+assert.equal($('use-page').hidden,false);assert.equal($('purpose-tabs').hidden,false);
+assert.equal($('use-page').inert,true);assert.equal($('purpose-tabs').inert,true);
+assert.equal($('purpose-tabs').children[2].getAttribute('aria-current'),'step');
+assert.equal($('selected-vod-rail').hidden,false);assert.equal(body.dataset.railDepth,'2');
+project=loadedProject;
+const menuEntrances=[];
+for(const id of ['video-split-page','mix-page']){
+  $(id).animate=()=>{menuEntrances.push(id);return {cancel(){}};};
+}
 navigate(11);view.update();
+assert.equal($('use-page').inert,false);assert.equal($('purpose-tabs').inert,false);
+assert.equal($('use-page').hidden,true);assert.equal(body.dataset.openingWorkspace,undefined);
+assert.deepEqual(menuEntrances,[],'편집기에서 돌아와 처음 표시하는 메뉴는 바로 보인다');
 assert.equal(document.body.dataset.railDepth,'1');
 assert.equal($('open-video-split').getAttribute('aria-current'),'page');
 assert.equal($('nav-library').getAttribute('aria-current'),'false');
 assert.equal($('purpose-tabs').hidden,true);
 assert.equal($('selected-vod-rail').hidden,true);
+navigate(12);view.update();
+assert.equal($('open-mix').getAttribute('aria-current'),'page');
+assert.equal($('open-video-split').getAttribute('aria-current'),'false');
+assert.equal($('purpose-tabs').hidden,true);
+assert.equal(document.body.dataset.railDepth,'1');
+navigate(11);navigate(11);
+assert.deepEqual(menuEntrances,['mix-page','video-split-page'],'문서 안에서 메뉴를 바꿀 때만 한 번 등장한다');
 navigate(0);
+add('h1','heading',main);
+for(const id of ['voices-panel','explore-panel','report-panel','external-panel'])add('section',id,main);
+const entered=[];
+for(const id of ['prepare-overview','speech-panel','voices-panel','explore-panel','context-panel','report-panel','external-panel','use-page']){
+  $(id).animate=()=>{entered.push(id);return {cancel(){}};};
+}
+for(const step of [2,3,4,5,6,7,8])navigate(step);
+view.showUse();view.showUse();
+assert.deepEqual(entered,['prepare-overview','speech-panel','voices-panel','explore-panel','context-panel','report-panel','external-panel','use-page']);
+assert.equal($('context-panel').hidden,true);assert.equal($('analysis-results-nav').hidden,true);assert.equal($('use-page').hidden,false);
+navigate(6);assert.equal(entered.at(-1),'context-panel');assert.equal($('use-page').hidden,true);
 for(const [input,expected] of [[{},1],[{project:true},2],[{register:true},2],[{task:true},2],[{project:true,task:true},3]])assert.equal(workspaceDepth(input),expected);
 navigate(1);assert.equal($('register-address').hidden,false);assert.equal($('register-confirm').hidden,true);
 $('registration-next').click();assert.equal(layout.queueSettings.dialog.open,true);assert.equal(body.dataset.taskFlow,'queue-options');assert.equal($('task-main').hidden,false);
@@ -150,17 +208,23 @@ navigate(2);$('prepare-processing').click();
 assert.equal(body.dataset.taskFlow,'download-settings');
 assert.equal($('selected-vod-rail').hidden,false);assert.equal(body.dataset.railDepth,'3');
 assert.equal($('prepare-download-details').contains(originalCards),true);
-$('task-rail').children.find(node=>node.title==='원음·전사').click();
+assert.deepEqual($('task-rail').children.filter(node=>node.title&&node.title!=='← 돌아가기').map(node=>node.title),['영상/채팅','원음 추출','음성 전사','화자 구분','AI 문맥']);
+$('task-rail').children.find(node=>node.title==='원음 추출').click();
+assert.equal(layout.audioSettings.dialog.open,true);
+assert.equal(layout.audioSettings.body.contains($('speech-step-0')),true);
+assert.equal(layout.audioSettings.body.contains(audioLink),true);
+assert.equal(layout.audioSettings.body.children.indexOf($('speech-step-0'))<layout.audioSettings.body.children.indexOf(audioLink),true);
+$('task-rail').children.find(node=>node.title==='음성 전사').click();
 assert.equal(layout.speechSettings.dialog.open,true);assert.equal(speechMaterials.hidden,false);
-assert.equal($('speech-step-0').hidden,true);assert.equal($('transcribe').hidden,true);
+assert.equal(layout.speechSettings.dialog.contains($('speech-step-0')),false);assert.equal($('transcribe').hidden,false);
 assert.equal($('header').hidden,true);assert.equal($('speech-panel').contains(speechMaterials),false);
 assert.equal($('speech-coverage'),coverage);assert.equal($('speech-audio-save'),audioLink);
 assert.equal(audioLink.href,'/saved-source.wav');
-layout.speechSettings.footer.querySelector('.task-next').click();
-assert.equal(speechMaterials.hidden,true);assert.equal($('speech-step-0').hidden,false);
+assert.equal(layout.speechSettings.footer.querySelector('.task-next').hidden,true);
+assert.equal(speechMaterials.hidden,false);assert.equal($('speech-step-1').hidden,false);
 layout.speechSettings.close();flushClose();layout.speechSettings.open();
-assert.equal(speechMaterials.hidden,true,'새 전사는 자료 확인을 거치지 않고 원음 설정부터 시작');
-assert.equal($('speech-step-0').hidden,false);assert.equal(starts,0);
+assert.equal(speechMaterials.hidden,false,'자료 확인과 전사 모델 설정을 같은 페이지에 표시');
+assert.equal($('speech-step-1').hidden,false);assert.equal(starts,0);
 layout.speechSettings.close();flushClose();$('prepare-processing').click();
 $('task-rail').children.find(node=>node.title==='AI 문맥').click();
 assert.equal(layout.contextSettings.dialog.open,true);

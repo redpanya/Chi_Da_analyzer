@@ -54,13 +54,13 @@ export function createSpeech({api, player, showVoices, showPreview, onProject, s
     const ratio = p.total_bytes ? p.bytes / p.total_bytes : p.duration_ms ? p.processed_ms / p.duration_ms : null;
     if (running && ratio === null) progress.removeAttribute('value'); else progress.value = ratio === null ? 0 : ratio * 100;
     $('speech-progress-text').textContent = p.duration_ms ? `보존된 범위 ${timecode(p.processed_ms || 0)} / ${timecode(p.duration_ms)}${p.current_end_ms ? ' · 현재 조각 끝 '+timecode(p.current_end_ms) : ''}` : p.total_bytes ? `모델 ${Math.floor(100 * p.bytes / p.total_bytes)}%` : '';
-    $('extract-audio').disabled = requesting || project.locked || !details?.tracks.length;
-    $('prepare-model').disabled = requesting || project.locked || !details;
+    $('extract-audio').disabled = requesting  || !details?.tracks.length;
+    $('prepare-model').disabled = requesting  || !details;
     $('transcribe').textContent = '원음으로 전체 전사·이어받기';
-    $('transcribe').disabled = requesting || project.locked || !(s.raw_audio || s.audio) || !details?.model.ready || !details?.model.engine;
-    $('speech-vad').disabled = $('speech-prompt').disabled = requesting || project.locked;
-    $('speech-version').disabled = requesting || project.locked;
-    $('speech-delete').disabled = requesting || project.locked || !s.run;
+    $('transcribe').disabled = requesting  || !(s.raw_audio || s.audio) || !details?.model.ready || !details?.model.engine;
+    $('speech-vad').disabled = $('speech-prompt').disabled = requesting ;
+    $('speech-version').disabled = requesting ;
+    $('speech-delete').disabled = requesting  || !s.run;
     const versions = s.versions || [];
     const versionKey = JSON.stringify(versions);
     if ($('speech-version').dataset.key !== versionKey) {
@@ -75,9 +75,8 @@ export function createSpeech({api, player, showVoices, showPreview, onProject, s
     $('sam-audio-label').textContent = '이전에 저장한 분리본';
     $('sam-review').textContent = s.separation_review_chunks?.length ? `음량이 크게 줄어든 ${s.separation_review_chunks.length}개 조각이 있습니다. 음악·무음일 수도 있으므로 누락 여부를 들어 확인하세요.` : '';
     $('speech-stop').disabled = requesting || !s.owned || s.state === 'stopping';
-    $('speech-export').disabled = requesting || project.locked || !s.run;
-    $('speech-track').disabled = $('speech-language').disabled = requesting || project.locked;
-    for (const control of document.querySelectorAll('.speech-edit-control')) control.disabled = project.locked || requesting;
+    $('speech-track').disabled = $('speech-language').disabled = requesting ;
+    for (const control of document.querySelectorAll('.speech-edit-control')) control.disabled = requesting;
     $('speech-audio-box').hidden = !s.audio;
     if (s.audio) {
       const audio = $('speech-audio'), relative = s.audio.file;
@@ -91,10 +90,7 @@ export function createSpeech({api, player, showVoices, showPreview, onProject, s
     for (const chunk of t?.chunks || []) if (chunk.status !== 'recognized') {
       const p = document.createElement('p'); p.className = 'hint'; p.textContent = `${timecode(chunk.start_ms)}~${timecode(chunk.end_ms)} · ${chunk.status === 'silence' ? '디지털 무음' : chunk.status === 'no_speech' ? '발화 검출 없음 · 작은 목소리 누락 여부 확인' : '소리는 있으나 텍스트 인식 실패 · 원음 확인 필요'}`; $('speech-gaps').append(p);
     }
-    $('speech-exports').replaceChildren();
-    for (const key of Object.keys(s.exports || {})) {
-      const a = document.createElement('a'); a.href = fileURL(key); a.textContent = key.toUpperCase()+' 저장'; a.className = 'text-link'; $('speech-exports').append(a);
-    }
+
   }
   async function loadRows(reset = false) {
     if (!project) return;
@@ -143,14 +139,14 @@ export function createSpeech({api, player, showVoices, showPreview, onProject, s
         const edit = document.createElement('details'), summary = document.createElement('summary'); summary.textContent = '원음 확인·텍스트 교정';
         edit.className='scene-details';const inspect=document.createElement('div');inspect.className='play-actions';inspect.append(listen,voices,mini);
         const original = document.createElement('p'); original.className='hint'; original.textContent = '원문: '+row.original_text;
-        const input = document.createElement('textarea'); input.value = editDrafts.get(clipKey)??row.text; input.maxLength=5000; input.className='speech-edit-control'; input.disabled=project.locked; input.setAttribute('aria-label',timecode(row.start_ms)+' 전사 교정');
+        const input = document.createElement('textarea'); input.value = editDrafts.get(clipKey)??row.text; input.maxLength=5000; input.className='speech-edit-control'; input.disabled=requesting; input.setAttribute('aria-label',timecode(row.start_ms)+' 전사 교정');
         input.dataset.draftKey=clipKey;
         const draftNote=document.createElement('p');draftNote.className='speech-review-notice';draftNote.textContent=editDrafts.has(clipKey)?'저장하지 않은 교정 내용 · 이 창에 임시 보관 중':'';
         input.oninput=()=>{if(input.value===row.text)editDrafts.delete(clipKey);else editDrafts.set(clipKey,input.value);draftNote.textContent=editDrafts.has(clipKey)?'저장하지 않은 교정 내용 · 교정 저장을 눌러주세요':'';};
         edit.open=openEdits.has(clipKey);edit.ontoggle=()=>{if(edit.open)openEdits.add(clipKey);else openEdits.delete(clipKey);};
         const save = value => request('speech-edit', {action:'correct', run:result.run, segment:row.id, text:value}, () => {editDrafts.delete(clipKey);return loadRows();});
         const saveButton=button('교정 저장',()=>save(input.value),'secondary speech-edit-control'), restoreButton=button('원문으로 복원',()=>save(null),'subtle speech-edit-control');
-        saveButton.disabled=restoreButton.disabled=project.locked;
+        saveButton.disabled=restoreButton.disabled=requesting;
         edit.append(summary,inspect,original,input,saveButton,restoreButton,draftNote,hint);
         card.append(checkbox,scene);
         if(row.boundary_review||row.timing_adjusted||row.repeat_review||row.quality_review||row.encoding_review){const warning=document.createElement('p');warning.className='result-source-review';warning.textContent=row.quality_review&&!row.corrected?'원음 확인 필요 · 요약 제외':'원음·시각 확인 필요';warning.title=hint.textContent;edit.append(warning);}else if(row.corrected){const corrected=document.createElement('span');corrected.className='speech-corrected';corrected.textContent='사용자 교정';edit.append(corrected);}
@@ -174,7 +170,7 @@ export function createSpeech({api, player, showVoices, showPreview, onProject, s
   $('speech-version').onchange = () => request('speech-edit', {action:'select',run:$('speech-version').value});
   $('speech-delete').onclick = () => {
     const run=$('speech-version').value;
-    if(!run||project?.locked||!confirm('선택한 전사와 그 전사의 수동 교정을 휴지통으로 이동할까요?\n영상·오디오·채팅·다른 전사·내보낸 파일·기존 요약은 유지됩니다.\n이 전사를 사용하는 화자 분석이 있다면 먼저 삭제해야 합니다.'))return;
+    if(!run||!confirm('선택한 전사와 그 전사의 수동 교정을 휴지통으로 이동할까요?\n영상·오디오·채팅·다른 전사·내보낸 파일·기존 요약은 유지됩니다.\n이 전사를 사용하는 화자 분석이 있다면 먼저 삭제해야 합니다.'))return;
     return request('speech-edit',{action:'delete',run});
   };
   $('sam-audio').onplay = () => {player.reset(); $('speech-audio').pause();};
@@ -182,7 +178,6 @@ export function createSpeech({api, player, showVoices, showPreview, onProject, s
     input_kind:'original', asr_options:{vad:$('speech-vad').value,prompt:$('speech-prompt').value}});
   $('speech-vad').onchange = render;
   $('speech-stop').onclick = () => request('speech-stop', {});
-  $('speech-export').onclick = () => request('speech-edit', {action:'export'});
   $('speech-search').onsubmit = event => {event.preventDefault(); loadRows(true);};
   $('speech-next').onclick = () => {if(next !== null){cursor=next;loadRows();}};
   $('speech-prev').onclick = () => {cursor=Math.max(0,cursor-100);loadRows();};

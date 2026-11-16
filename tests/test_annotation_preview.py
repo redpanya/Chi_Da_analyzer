@@ -58,7 +58,7 @@ class AnnotationPreviewTests(unittest.TestCase):
             client = HTTPConnection(parsed.hostname, parsed.port, timeout=5)
             expected = STRICT + ("; style-src 'self' 'unsafe-inline'" if preview else '')
             try:
-                for route in ['', 'app.js', 'style.css', 'api/config', 'clip-studio.html', 'clip-studio.css', 'clip-studio.js', 'clip-studio-model.js', 'analysis-scope-preview.js']:
+                for route in ['', 'app.js', 'style.css', 'api/config', 'clip-studio.html', 'mix-studio.html', 'clip-studio.css', 'clip-studio.js', 'clip-studio-model.js', 'analysis-scope-preview.js']:
                     client.request('GET', parsed.path + route)
                     response = client.getresponse()
                     self.assertEqual(response.status, 200)

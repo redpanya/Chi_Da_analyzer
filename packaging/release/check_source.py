@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def main():
     modules = (
-        'test_design_system_assets', 'test_video', 'test_automation_selection',
+        'test_desktop_replace', 'test_design_system_assets', 'test_video', 'test_automation_selection',
         'test_automation_external', 'test_candidate_review', 'test_clip_fingerprint',
         'test_context_exchange_repair', 'test_job_detail', 'test_job_detail_external',
         'test_job_resume', 'test_path_picker', 'test_ui_workspace',
@@ -23,7 +23,7 @@ def main():
     subprocess.run([sys.executable, str(ROOT/'tests/run_isolated.py'), *modules, '-v'],
                    cwd=ROOT, env=env, check=True)
     for name in (
-        'queue_options', 'candidate_review_ui', 'desktop_editor', 'error_log_ui',
+        'desktop_settings', 'queue_options', 'candidate_review_ui', 'desktop_editor', 'error_log_ui',
         'job_detail', 'jobs_preview', 'library_deletion', 'panel_dismiss',
         'product_library', 'queue_completion', 'result_flow', 'result_quality',
         'results_layout', 'scene_usage', 'scene_usage_connection', 'step_workspace',
@@ -36,7 +36,7 @@ def main():
     ):
         subprocess.run(['node', str(ROOT/'tests'/f'test_{name}.mjs')],
                        cwd=ROOT, check=True)
-    for name in ('pattern_background', 'brand_mark'):
+    for name in ('pattern_background', 'brand_mark', 'desktop_updates'):
         subprocess.run(['node', str(ROOT/'tests'/f'test_{name}.cjs')],
                        cwd=ROOT, check=True)
 

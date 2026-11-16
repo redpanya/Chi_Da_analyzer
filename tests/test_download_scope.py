@@ -95,8 +95,10 @@ class DownloadScopeTests(unittest.TestCase):
 
     def test_cancelled_video_is_kept_and_retry_uses_new_temporary_file(self):
         project=self.project();stop=threading.Event();attempts=[]
+        project.update('video', concurrent_fragments=32)
         def receive(vod,a,b,target,event,lock,update,**kwargs):
             self.assertEqual((vod,a,b,kwargs['format_id']),('1',10000,12000,'480p'))
+            self.assertEqual(kwargs['concurrent_fragments'],32)
             attempts.append(target);target.write_bytes(b'partial' if len(attempts)==1 else b'complete')
             if len(attempts)==1:raise Cancelled()
             return {'duration':2}

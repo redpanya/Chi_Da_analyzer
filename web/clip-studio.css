@@ -54,12 +54,10 @@ input[type=checkbox],input[type=radio]{accent-color:var(--accent);width:15px;hei
 
 .preview-panel{min-width:0;padding:16px clamp(16px,2vw,30px);overflow:auto;display:flex;flex-direction:column}
 .preview-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-#profile-preview-note{display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:10px;background:var(--tint);border:1px solid #e8c3ad;border-radius:7px}
-#profile-preview-note p{margin:0;flex:1}#profile-preview-note button{font-size:11px}
 .preview-stage{height:clamp(190px,calc(100dvh - 470px),460px);flex-shrink:0;border-radius:10px;background:#1c1c1d;position:relative;display:grid;place-items:center;overflow:hidden;border:1px solid #282829}
 .preview-frame{position:relative;width:100%;height:100%;overflow:hidden;background:#080808;container-type:inline-size}
 #studio-video{width:100%;height:100%;display:block;object-fit:contain;object-position:50% 50%}
-#media-empty{position:absolute;margin:0;padding:25px;color:#aaa;text-align:center;max-width:90%;pointer-events:none}
+#media-empty{position:absolute;inset:0;display:grid;place-items:center;margin:0;padding:24px;background:var(--ds-surface-soft);color:var(--ds-muted);text-align:center;pointer-events:none;z-index:7}
 .transport{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
 .transport>div{display:flex;gap:5px}
 .transport button{font-size:11px;padding:7px 9px}
@@ -198,7 +196,6 @@ input[type=hidden]{display:none!important}
 
 /* 구간 편집 대상은 상세 패널을 열어도 보인다. */
 .profile-scope-bar{padding:8px 14px 0;flex-shrink:0;background:var(--paper)}
-.profile-scope-bar select{min-width:0;flex:1;font-size:11px;padding:6px}.profile-scope-bar button{font-size:11px;padding:6px 10px}
 #profile-active{margin:4px 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;color:var(--accent)}
 .profile-dialog{width:min(520px,90vw);border:1px solid var(--line);border-radius:12px;padding:22px}.profile-dialog::backdrop{background:#0006}
 .profile-dialog select{width:100%}.profile-dialog .button-row{margin:10px 0}.profile-dialog input{min-width:0;flex:1}.profile-dialog p{line-height:1.6}

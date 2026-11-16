@@ -11,6 +11,13 @@ from archive.job_detail import detail
 from archive.storage import Conflict
 
 
+def find_worker(manager, kind, path):
+    worker = getattr(manager, {'download': 'job', 'speech': 'speech_job',
+                     'voices': 'voice_job', 'context': 'context_job'}[kind])
+    owner = getattr(worker, 'path', getattr(getattr(worker, 'project', None), 'path', None))
+    return worker if worker and not worker.closed and owner == path else None
+
+
 class JobDetailTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -21,8 +28,8 @@ class JobDetailTests(unittest.TestCase):
         self.save('project.json', self.project)
         self.manager = SimpleNamespace(guard=threading.RLock(), job=None, speech_job=None, voice_job=None,
             context_job=None, reports=SimpleNamespace(read=Mock(), list=Mock()),
-            tasks=SimpleNamespace(items=[]), automation=SimpleNamespace(guard=threading.RLock(), running=False,
-                current_path=None, root=None, read=Mock(return_value={'items': []}), status=Mock()))
+            tasks=SimpleNamespace(items=[], find=lambda kind, path: find_worker(self.manager, kind, path)), automation=SimpleNamespace(guard=threading.RLock(), running=False,
+                is_processing=Mock(return_value=False), root=None, read=Mock(return_value={'items': []}), status=Mock()))
 
     def tearDown(self):
         self.temp.cleanup()
@@ -83,6 +90,40 @@ class JobDetailTests(unittest.TestCase):
         self.assertEqual(previous['records'], [])
         self.assertEqual(previous['actions'], [])
         self.assertFalse(previous['owned'])
+
+    def test_live_transcript_progress_takes_priority_over_completed_chunks(self):
+        run = 'a' * 32
+        self.save('speech/state.json', {'state': 'running', 'run': run,
+            'progress': {'processed_ms': 4000, 'duration_ms': 20000}})
+        self.save(f'speech/runs/{run}/manifest.json', {'id': run, 'complete': False,
+            'processed_ms': 1000, 'duration_ms': 20000})
+        self.manager.speech_job = SimpleNamespace(path=self.path, closed=False)
+        self.assertEqual(self.query('speech')['progress']['fraction'], .2)
+        self.manager.speech_job.closed = True
+        self.assertEqual(self.query('speech')['progress']['fraction'], .05)
+
+    def test_running_heavy_detail_reads_live_worker_on_each_request(self):
+        item_id = 'e' * 32
+        entry = {'id': item_id, 'action': 'speech-start', 'state': 'running',
+            'root': str(self.root), 'vod_id': '1', 'message': '작업 시작'}
+        self.manager.tasks.items = [entry]
+        self.manager.speech_job = SimpleNamespace(path=self.path, closed=False)
+        for done, message in [(4000, '첫 조각 처리 중'), (8000, '다음 조각 처리 중')]:
+            self.save('speech/state.json', {'state': 'running', 'message': message,
+                'updated_at': '2026-11-14T00:00:00Z',
+                'progress': {'processed_ms': done, 'duration_ms': 20000}})
+            before = self.snapshot()
+            result = self.query('heavy', id=item_id)
+            self.assertEqual(result['message'], message)
+            self.assertEqual(result['progress']['fraction'], done / 20000)
+            self.assertEqual(result['records'][0]['message'], message)
+            self.assertEqual(before, self.snapshot())
+        self.manager.speech_job.path = self.root / 'vod-2'
+        self.assertEqual(self.query('heavy', id=item_id)['message'], '작업 시작')
+        self.manager.speech_job.path = self.path
+        entry['state'] = 'complete'
+        entry['message'] = '이전 작업 완료'
+        self.assertEqual(self.query('heavy', id=item_id)['message'], '이전 작업 완료')
 
     def test_owned_voice_job_only_links_already_selected_result(self):
         old, pending, historical = 'a' * 32, 'b' * 32, 'c' * 32

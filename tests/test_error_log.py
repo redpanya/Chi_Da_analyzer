@@ -32,7 +32,10 @@ class ErrorLog(unittest.TestCase):
         local=error_log.snapshot()['events'][0]
         self.assertEqual(local['count'],3)
         for private in ('hf_abc123','token=secret','user@example.com','https://','C:'):self.assertNotIn(private,local['message'])
-        exported=json.dumps(error_log.snapshot(export=True),ensure_ascii=False)
+        snapshot = error_log.snapshot(export=True)
+        package = Path(__file__).resolve().parents[1] / 'desktop' / 'package.json'
+        self.assertEqual(snapshot['app_version'], json.loads(package.read_text(encoding='utf-8'))['version'])
+        exported=json.dumps(snapshot,ensure_ascii=False)
         for private in ('privatebody','원문검사','secret','사용자','message'):self.assertNotIn(private,exported)
     def test_concurrent_limit_and_bounded_bytes(self):
         with patch.object(error_log,'LIMIT',12),patch.object(error_log,'MAX_BYTES',16000):

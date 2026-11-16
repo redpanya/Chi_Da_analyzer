@@ -17,6 +17,22 @@ from archive import video
 from archive.storage import Project, ProjectLock, create_or_load, save_json
 
 
+def complete_work(http, url, submitted):
+    """현재 작업 대기열에서 이 요청의 완료와 결과 ID를 확인한다."""
+    job_id = submitted['queued']['id']
+    request = Request(url+'api/work-queue', data=b'{}', headers={'Content-Type':'application/json'})
+    deadline = time.monotonic()+90
+    while time.monotonic() < deadline:
+        with http.open(request, timeout=15) as response:
+            item = next(i for i in json.load(response)['items'] if i['id'] == job_id)
+        if item['state'] == 'complete':
+            return item
+        if item['state'] not in ('queued', 'starting', 'running'):
+            raise RuntimeError(f"검사 작업 실패 ({item['action']}): {item['message']}")
+        time.sleep(.1)
+    raise RuntimeError('패키지 작업 대기 시간 초과: '+job_id)
+
+
 def prepare(work, movie, ffmpeg):
     root = work/'보관함'; path = root/'vod-1'
     meta = {'id': '1', 'title': '한글 제목 🤩', 'channel': '검사 자료', 'duration': 1,
@@ -57,7 +73,7 @@ def check(http, url, fixture):
             return json.load(response)
     details = post('speech-info')
     assert details['duration_ms'] == 1000 and details['tracks'][0]['codec'] == 'aac'
-    post('speech-start', action='audio', track=details['tracks'][0]['index'])
+    complete_work(http, url, post('speech-start', action='audio', track=details['tracks'][0]['index']))
     deadline = time.monotonic()+30
     while True:
         state = post('state')['speech']
@@ -120,7 +136,7 @@ def check_recovery(http, url, fixture):
         request = Request(url+'api/'+endpoint, data=json.dumps(payload | values).encode(),
                           headers={'Content-Type': 'application/json', 'Origin': url.rstrip('/').rsplit('/', 1)[0]})
         with http.open(request, timeout=30) as response: return json.load(response)
-    post('start', kind='all', format_id='test')
+    complete_work(http, url, post('start', kind='all', format_id='test'))
     deadline = time.monotonic()+60
     while True:
         state = post('state')

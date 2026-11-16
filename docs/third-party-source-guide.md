@@ -21,7 +21,7 @@ v1 정식 전환으로 이전 앱 릴리즈를 정리했다. 이전 버전의 �
 1. 소스 ZIP의 해당 libsndfile·코덱·빌드 자료를 사용해 같은 OS·CPU 아키텍처의 공유 라이브러리를 빌드한다. 기존 SoundFile과 호환되는 libsndfile API·파일 형식 지원을 유지한다.
 2. 기존 라이브러리를 백업한 뒤 다음 파일을 교체한다.
    - macOS 기본 앱: `ChiDaanalyzer.app/Contents/Resources/backend/_internal/_soundfile_data/libsndfile_arm64.dylib`
-   - Windows 기본 앱: `ChiDaanalyzer/_internal/_soundfile_data/libsndfile_x64.dll`
+   - Windows 기본 앱: `ChiDaanalyzer/resources/backend/_internal/_soundfile_data/libsndfile_x64.dll`
    - 별도 sherpa·pyannote 도구: 해당 도구의 `_internal/_soundfile_data/` 아래 파일
 3. macOS 앱은 파일 교체로 기존 서명이 달라진다. 로컬 복사본에 `codesign --force --deep --sign - "ChiDaanalyzer.app"`으로 임시 서명을 다시 적용할 수 있다. 이것은 Apple 공증이나 인터넷 배포 허용을 뜻하지 않는다.
 4. 원본 대신 짧은 사본 WAV로 로드·읽기·재생을 확인한다. 호환되지 않으면 백업한 라이브러리 또는 기존 앱으로 되돌린다.
@@ -33,3 +33,14 @@ v1 정식 전환으로 이전 앱 릴리즈를 정리했다. 이전 버전의 �
 바이너리와 그 버전에 대응하는 고지·소스를 함께 제공한다. 릴리스에서 고지 ZIP만 받는 방식은 원본 ZIP 안의 고지를 제거해도 된다는 뜻이 아니다. 기존 배포본을 재배포할 때에는 라이선스 보충 자료를 같은 다운로드 위치에 두고 받는 사람이 함께 확인할 수 있게 한다.
 
 libsndfile을 다른 버전·코덱 구성으로 바꾸거나 정적 링크 방식으로 바꾸면 대응 소스·객체 파일 또는 재링크 방식 등 해당 조건을 다시 확인한다. 앱의 처리 기능을 바꾸지 않는 고지 추가와 실제 라이브러리 변경은 별도 검증 대상이다.
+
+## Electron의 재생 라이브러리
+
+버전 1.2.0은 Electron 45.3.3, Chromium 156.0.8078.100, Node.js 24.22.3을 사용한다. 앱 설정에서 라이선스 폴더를 열면 Electron MIT 원문, Chromium 전체 고지 HTML, Node.js 배포판의 구성요소별 원문을 읽을 수 있다. 같은 버전의 `electron-media-sources.zip`에 Chromium FFmpeg 원본과 Electron의 패치, 빌드 스크립트를 담았다. FFmpeg 리비전은 `9db86ce5b5b454dfc96c435f9f0723012980c37f`이다. Gitiles 압축 파일의 생성 시각이 달라져도 각 경로, 파일 내용, 권한 및 링크 대상은 검증한다.
+
+Chromium 미디어 라이브러리는 별도 파일이다. 앱을 종료한 뒤 복사본에서 같은 ABI로 빌드한 파일로 아래 위치를 교체하고 재생을 확인한다. macOS 복사본은 위의 로컬 서명 절차를 적용할 수 있다.
+
+- macOS `ChiDaanalyzer.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries/libffmpeg.dylib`
+- Windows `ChiDaanalyzer/ffmpeg.dll`
+
+기존 영상 처리 명령행 FFmpeg와 x264 대응 소스는 `native-corresponding-sources.zip`에 있다. 앱을 재배포할 때 각 바이너리에 대응하는 소스 묶음과 고지를 함께 제공한다. [Chromium 소스](https://chromium.googlesource.com/chromium/src/+/refs/tags/156.0.8078.100), [Electron 소스와 빌드 자료](https://github.com/electron/electron/tree/v45.3.3)

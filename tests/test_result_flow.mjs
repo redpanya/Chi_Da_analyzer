@@ -53,6 +53,8 @@ const context={selectMode(mode){contextMode=mode;selected.push(mode);},mountUsag
 navigation=createResultNavigation({root,getProject:()=>project,context,navigate:value=>{step=value;navigation.navigate(value);}});
 const button=mode=>root.getElementById('result-tab-'+mode);
 const nav=root.getElementById('analysis-results-nav');
+const resultAnimations=[];
+for(const id of ['speech-panel','context-view-panel','context-clips-panel'])root.getElementById(id).animate=()=>{resultAnimations.push(id);return {cancel(){}};};
 assert.deepEqual(nav.children[0].children.map(n=>n.textContent),['전사 자막','상세 문맥','타임스탬프','클립 후보']);
 assert.equal(legacy.hidden,true);
 navigation.enter();assert.equal(step,6);assert.equal(navigation.mode(),'clips');assert.equal(contextMode,'clips');
@@ -71,11 +73,15 @@ root.getElementById('clips-stop').click();assert.equal(launches.at(-1),'clips-st
 assert.equal(toolbars.get('detail').history.parentElement.id,'result-options-detail');
 assert.equal(toolbars.get('detail').history.hidden,true);
 button('detail').onclick();assert.equal(navigation.mode(),'detail');assert.equal(step,6);
+button('detail').onclick();assert.deepEqual(resultAnimations,['context-view-panel']);
 assert.equal(root.getElementById('result-options-clips').hidden,true);assert.equal(settings.getAttribute('aria-expanded'),'false');settings.onclick();assert.equal(root.getElementById('result-options-detail').hidden,false);
 toolbars.get('detail').start.disabled=true;navigation.update();assert.equal(launch().disabled,true);const launchCount=launches.length;launch().click();assert.equal(launches.length,launchCount);toolbars.get('detail').start.disabled=false;
 project=structuredClone(all);project.context.runs.push({id:'new-clips',mode:'clips'});navigation.update();
 assert.equal(navigation.mode(),'detail'); // 폴링은 새 클립 결과가 생겨도 사용 중인 결과를 바꾸지 않는다.
 button('transcript').onclick();assert.equal(step,3);assert.deepEqual(mounts.at(-1),['speech-results-preview']);
+assert.deepEqual(resultAnimations,['context-view-panel']);
+navigation.navigate(6,{use:true});assert.equal(navigation.mode(),'transcript');
+navigation.navigate(3);
 assert.equal(launch().textContent,'＋ 새 분석');launch().click();assert.equal(launches.at(-1),'detail');toolbars.get('transcript').start.click();assert.equal(launches.at(-1),'transcript');
 button('detail').onclick();assert.deepEqual(mounts.at(-1),['context-preview']);
 project=transcriptOnly;navigation.update();navigation.enter();assert.equal(step,3);

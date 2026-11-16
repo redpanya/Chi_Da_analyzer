@@ -123,7 +123,8 @@ class VoiceTests(unittest.TestCase):
                 self.assertTrue(entered.wait(10))
                 with self.assertRaises(Conflict):manager.speech_start(str(self.root),'1','model')
                 with self.assertRaises(Conflict):manager.start(str(self.root),'1','360p','video')
-                with self.assertRaises(Conflict):manager.analyze(str(self.root),'1',{})
+                with patch('archive.analysis_store.run',return_value={'complete':True}):
+                    self.assertEqual(manager.analyze(str(self.root),'1',{}),{'complete':True})
                 with self.assertRaises(Conflict):ProjectLock(self.path)
                 manager.voices_stop(str(self.root),'1')
             finally:

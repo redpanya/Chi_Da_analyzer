@@ -30,7 +30,8 @@ def wait(queue, job):
     observer = getattr(job, 'report_thread', None)
     if observer:
         observer.join()
-    if queue.stop.is_set():
+    events = job.stops.values() if hasattr(job, 'stops') else (getattr(job, 'stop', None),)
+    if queue.stop.is_set() or any(event is not None and event.is_set() for event in events):
         raise Paused()
 
 
@@ -69,6 +70,7 @@ def check_inputs(path, data, settings, stage):
 
 
 def execute(queue, entry, stage):
+    queue.manager.tasks.local.worker = None
     manager, root, vod, settings = queue.manager, download_scope.entry_root(queue.root,entry), entry['vod'], entry['options']
     path = project_path(root, vod)
     if shutil.disk_usage(path).free < 256 * 1024**2:
@@ -82,7 +84,7 @@ def execute(queue, entry, stage):
         if needed:
             manager.start(root, vod, entry['format'], 'all' if len(needed) == 2 else needed[0],
                           concurrent_fragments=settings.get('concurrent_fragments', 1))
-            wait(queue, manager.job if manager.job and manager.job.project.path == path else None)
+            wait(queue, manager.tasks.local.worker)
         else:
             manager.reports.skipped(path, stage)
         data = load_project(path, vod)
@@ -108,7 +110,7 @@ def execute(queue, entry, stage):
         if len(info['tracks']) != 1:
             raise ValueError('오디오 트랙이 여러 개입니다. 음성 전사 메뉴에서 사용할 트랙을 추출한 뒤 재시도하세요')
         manager.speech_start(root, vod, 'audio', track=info['tracks'][0]['index'])
-        wait(queue, manager.speech_job)
+        wait(queue, manager.tasks.local.worker)
         status = speech_store.state(path)
     elif stage == 'transcribe':
         current = speech_store.view(path, data)
@@ -119,7 +121,7 @@ def execute(queue, entry, stage):
             return 'reused'
         ready(speech_model)
         manager.speech_start(root, vod, 'transcribe', language=settings['language'], asr_options=settings['asr_options'])
-        wait(queue, manager.speech_job)
+        wait(queue, manager.tasks.local.worker)
         status = speech_store.state(path)
     elif stage == 'diarize':
         result = voice_store.result(path)
@@ -131,7 +133,7 @@ def execute(queue, entry, stage):
         if not status['supported'] or not status['ready'] or not status['engine']:
             raise Prerequisite('선택한 화자 모델·도구를 먼저 준비하세요. 이용 동의는 자동으로 진행하지 않습니다')
         manager.voices_start(root, vod, 'diarize', {'backend': settings['backend'], 'speakers': -1})
-        wait(queue, manager.voice_job)
+        wait(queue, manager.tasks.local.worker)
         status = voice_store.state(path)
     elif stage == 'reactions':
         if not data['tasks']['chat'].get('assets', {}).get('jsonl'):
@@ -141,7 +143,7 @@ def execute(queue, entry, stage):
         if old and not old['stale']:
             manager.reports.skipped(path, stage)
             return 'reused'
-        manager.analyze(root, vod, {}, settings['allow_partial_chat'])
+        manager.analyze(root, vod, {}, settings['allow_partial_chat'], stop=queue.stop)
         return 'complete'
     elif stage in automation_summary.STAGES.values():
         action, values = automation_summary.request(path, vod, stage, settings)
@@ -151,7 +153,7 @@ def execute(queue, entry, stage):
             return 'reused'
         ready(context_model)
         manager.context_start(root, vod, action, values)
-        wait(queue, manager.context_job)
+        wait(queue, manager.tasks.local.worker)
         status = context_job.state(path)
     else:
         raise ValueError('지원하지 않는 자동화 단계입니다')

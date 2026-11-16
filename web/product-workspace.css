@@ -43,11 +43,11 @@ body[data-workspace-page="0"] #global-jobs,body[data-workspace-page="10"] #globa
 #library-cards{display:block;border-top:1px solid var(--ds-line)}
 #library-cards>.library-card{display:flex;align-items:center;gap:12px;padding:0 12px 0 0;border:0;border-bottom:1px solid var(--ds-line);border-left:2px solid transparent;border-radius:0;background:transparent;box-shadow:none;min-width:0}
 #library-cards>.library-card:hover,#library-cards>.library-card:focus-within{border-left-color:var(--ds-accent);background:var(--ds-card)}
-:root[data-theme] #library-cards .library-open{display:grid;grid-template-columns:minmax(160px,1fr) minmax(150px,220px) 80px 20px;gap:18px;align-items:center;flex:1;min-width:0;text-align:left;padding:18px 12px;border:0;border-radius:0;background:transparent;box-shadow:none;white-space:normal;color:var(--ds-text);font-weight:400}
+:root[data-theme] #library-cards .library-open{display:grid;grid-template-columns:minmax(160px,1fr) minmax(150px,220px) 80px;gap:18px;align-items:center;flex:1;min-width:0;text-align:left;padding:18px 12px;border:0;border-radius:0;background:transparent;box-shadow:none;white-space:normal;color:var(--ds-text);font-weight:400}
 :root[data-theme] #library-cards .library-open:hover{color:var(--ds-accent);background:transparent}
 .library-card-heading{display:block;min-width:0;margin:0}.library-card-heading strong{display:block;font-size:14px;line-height:1.5;font-weight:650;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.library-card-heading small{display:block;margin-top:5px;font-size:12px;color:var(--ds-muted);line-height:1.5}
 #library-cards .library-statuses{display:grid;gap:6px;justify-items:start;min-height:0}.library-statuses>small{font-size:11px;color:var(--ds-muted);line-height:1.5;overflow-wrap:anywhere}
-.library-card time{font:12px ui-monospace,SFMono-Regular,Consolas,monospace;white-space:nowrap;text-align:right;color:var(--ds-muted)}.library-row-arrow{color:var(--ds-weak);text-align:right}
+.library-card time{font:12px ui-monospace,SFMono-Regular,Consolas,monospace;white-space:nowrap;text-align:right;color:var(--ds-muted)}
 #library-cards .library-delete{flex:none;padding:8px 10px;white-space:nowrap;font-size:12px}
 /* VOD 이름은 한 번만 표시하고 작업별 상태와 조작은 오른쪽 열에 모은다. */
 .workspace-job-group{display:grid;grid-template-columns:minmax(160px,0.8fr) minmax(360px,2fr);gap:24px;padding:18px 0;border-bottom:1px solid var(--ds-line);align-items:start}

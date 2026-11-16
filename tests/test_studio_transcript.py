@@ -32,14 +32,18 @@ class TranscriptClips(unittest.TestCase):
             'options':{'font_size':30,'caption_y':3.5},'caption_edits':{'first':'편집 전용 교정'},
             'range_drafts':{'manual-1':{'title':'입력 중','start':'00:00:03','end':'00:00:04'}}}
         old = self.manager.studio.dispatch('draft', self.args|{'request':request,'revision':0})
-        files={str(p):p.read_bytes() for p in self.path.rglob('*') if p.is_file() and 'studio' not in p.parts}
+        def source_files():
+            return {str(p):p.read_bytes() for p in self.path.rglob('*')
+                    if p.is_file() and 'studio' not in p.parts and not p.match('.resource-*.lock')}
+        files=source_files()
         result=self.add(run);saved=read_json(self.path/'studio/draft.json')
         self.assertTrue(result['added']);self.assertEqual(result['count'],2)
         for key in old['request'].keys()-{'clips'}:self.assertEqual(saved['request'][key],old['request'][key])
-        self.assertEqual(saved['request']['clips'][0]['title'],'저장된 교정 제목')
-        self.assertEqual(saved['request']['clips'][1],old['request']['clips'][0])
+        self.assertEqual(saved['request']['clips'][0],old['request']['clips'][0])
+        self.assertEqual(saved['request']['clips'][1]['title'],'저장된 교정 제목')
+        self.assertEqual(saved['request']['clips'][1]['options'],{'font_size':22,'caption_y':0})
         self.assertEqual(read_json(next((self.path/'studio/drafts').glob('*.json'))),old)
-        self.assertEqual(files,{str(p):p.read_bytes() for p in self.path.rglob('*') if p.is_file() and 'studio' not in p.parts})
+        self.assertEqual(files,source_files())
         before=(self.path/'studio/draft.json').read_bytes()
         self.assertFalse(self.add(run)['added']);self.assertEqual(before,(self.path/'studio/draft.json').read_bytes())
         with self.assertRaises(Conflict):self.manager.studio.dispatch('draft',self.args|{'request':request,'revision':old['revision']})

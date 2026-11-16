@@ -19,6 +19,8 @@ k.CreateSemaphoreW.argtypes = [w.LPVOID, w.LONG, w.LONG, w.LPCWSTR]
 k.CreateSemaphoreW.restype = w.HANDLE
 k.WaitForSingleObject.argtypes = [w.HANDLE, w.DWORD]
 k.WaitForSingleObject.restype = w.DWORD
+k.OpenProcess.argtypes = [w.DWORD, w.BOOL, w.DWORD]
+k.OpenProcess.restype = w.HANDLE
 k.ReleaseSemaphore.argtypes = [w.HANDLE, w.LONG, w.LPVOID]
 
 
@@ -58,6 +60,21 @@ class ExtendedLimits(ctypes.Structure):
 _job = None
 
 
+def watch_parent(pid, stopping, shutdown):
+    """Windows에서는 부모가 종료된 뒤에도 getppid()가 이전 PID를 반환한다."""
+    handle = k.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+    if not handle:
+        shutdown()
+        return
+    try:
+        while not stopping.is_set():
+            if k.WaitForSingleObject(handle, 500) != 258:  # WAIT_TIMEOUT
+                shutdown()
+                return
+    finally:
+        k.CloseHandle(handle)
+
+
 def protect_process_tree():
     """현재 앱과 이후 자식을 묶는다. 핸들은 자식에게 상속하지 않는다."""
     global _job
@@ -75,10 +92,10 @@ def protect_process_tree():
     _job = handle
 
 
-def exclusive_file(path):
+def exclusive_file(path, shared=False):
     if path.exists() and path.lstat().st_file_attributes & 0x400:
         raise ValueError('연결된 잠금 파일은 사용할 수 없습니다')
-    handle = k.CreateFileW(str(path), 0xC0000000, 4, None, 4, 0x80, None)
+    handle = k.CreateFileW(str(path), 0xC0000000, 7 if shared else 4, None, 4, 0x80, None)
     if handle == w.HANDLE(-1).value:
         error = ctypes.get_last_error()
         if error in (32, 33):

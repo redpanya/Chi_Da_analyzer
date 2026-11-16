@@ -9,10 +9,10 @@ export function createClipControls({api,onProject}){
   const inputs=createContextInputs(controls,'context-clips');
   const background=createBackground({api,message:text=>$('notice').textContent=text,onChange:controls,prefix:'context-clips',mode:()=> 'clips'});
   function controls(){
-    $('generate').disabled=!project||project.locked||!inputs.ready()||!background.ready();
-    $('resume').disabled=!project||project.locked||!result||result.origin!=='local'||result.complete||result.stale;
-    $('prepare').disabled=!project||project.locked;
-    for(const id of ['thinking','chat','offset'])$(id).disabled=!project||project.locked;
+    $('generate').disabled=!project||!inputs.ready()||!background.ready();
+    $('resume').disabled=!project||!result||result.origin!=='local'||result.complete||result.stale;
+    $('prepare').disabled=!project;
+    for(const id of ['thinking','chat','offset'])$(id).disabled=!project;
     $('stop').disabled=!project?.context?.owned||project.context.state==='stopping';
   }
   async function start(action,options){

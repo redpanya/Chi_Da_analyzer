@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import patch
 from urllib.parse import urlsplit
@@ -142,11 +143,11 @@ class AnalysisTests(unittest.TestCase):
         with self.assertRaises(Conflict):
             analysis_store.load(self.path, self.data)
 
-    def test_analysis_locks_both_processes_and_downloads(self):
+    def test_analysis_locks_its_chat_but_allows_another_vod_download(self):
         self.source([row(1000)])
         manager, other = Manager(self.root), Manager(self.root)
         entered, release = threading.Event(), threading.Event()
-        def run(*args):
+        def run(*args, **kwargs):
             entered.set()
             release.wait(3)
         with patch('archive.jobs.analysis_store.run', side_effect=run):
@@ -155,18 +156,24 @@ class AnalysisTests(unittest.TestCase):
             try:
                 self.assertTrue(entered.wait(1))
                 self.assertTrue(manager.view(str(self.root), '1')['analysis_running'])
-                with self.assertRaises(Conflict):
-                    manager.start(str(self.root), '2', '360p', 'all')
+                manager.metadata['2'] = metadata('2')
+                with patch('archive.jobs.video.download', side_effect=lambda project, stop: project.update('video', state='complete')):
+                    manager.start(str(self.root), '2', '360p', 'video')
+                    manager.job.thread.join(2)
+                    self.assertEqual(manager.view(str(self.root), '2')['tasks']['video']['state'], 'complete')
                 with self.assertRaises(Conflict):
                     other.analyze(str(self.root), '1', {})
             finally:
                 release.set()
                 thread.join()
-        self.assertIsNone(manager.analysis_path)
+        self.assertFalse(manager.analysis_paths)
+        manager.close()
+        other.close()
 
     def test_http_analysis_and_chat_routes(self):
         self.source([row(41000), row(42000), row(43000)])
-        server, url = make_server(Manager(self.root))
+        manager = Manager(self.root)
+        server, url = make_server(manager)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         parsed = urlsplit(url)
@@ -178,9 +185,21 @@ class AnalysisTests(unittest.TestCase):
                 response = connection.getresponse()
                 value = json.loads(response.read())
                 self.assertEqual(response.status, 200, value)
+                if action == 'analyze':
+                    job_id = value['queued']['id']
+                    deadline = time.monotonic() + 5
+                    while True:
+                        job = next(i for i in manager.tasks.status()['items'] if i['id'] == job_id)
+                        if job['state'] == 'complete':
+                            break
+                        self.assertIn(job['state'], ('queued','starting','running'), job)
+                        self.assertLess(time.monotonic(), deadline)
+                        time.sleep(.02)
+                    continue
                 self.assertEqual(len(value['items']) if action == 'chats' else value['messages'], 3)
         finally:
             connection.close()
             server.shutdown()
             server.server_close()
             thread.join()
+            manager.close()

@@ -24,14 +24,31 @@ def command(args, folder, name, stop, lock, update, duration):
     check_cancel(stop)
     available(folder)
     progress=folder/(name+'.progress');log=folder/(name+'.log')
+    last = None
+    previous_log = progress.stat().st_mtime_ns if progress.is_file() else None
     def poll():
+        nonlocal last
         available(folder)
         try:
-            lines=progress.read_text(errors='replace').splitlines()
-            times=[int(line.split('=',1)[1]) for line in lines if line.startswith('out_time_us=') and line.split('=',1)[1].lstrip('-').isdigit()]
-            if times:update(progress=min(.99,max(0,times[-1]/1000000/max(.1,duration))))
-        except OSError:pass
+            with progress.open('rb') as stream:
+                stat = os.fstat(stream.fileno())
+                if stat.st_mtime_ns == previous_log:
+                    return
+                stream.seek(max(0,stat.st_size-4096))
+                lines = stream.read().splitlines()
+        except OSError:
+            return
+        for line in reversed(lines):
+            if line.startswith(b'out_time_us='):
+                raw = line.partition(b'=')[2]
+                if raw.lstrip(b'-').isdigit():
+                    current = int(raw)
+                    if current != last:
+                        update(progress=min(.99,max(0,current/1000000/max(.1,duration))))
+                        last = current
+                    break
     process(['ffmpeg','-hide_banner','-nostdin','-y','-filter_complex_threads','1','-progress',str(progress),*args],log,stop,lock,poll)
+
 
 
 def fit(label,out,w,h,mode='cover',x=50,y=50):
@@ -39,7 +56,7 @@ def fit(label,out,w,h,mode='cover',x=50,y=50):
     return f'[{label}]scale={w}:{h}:force_original_aspect_ratio=increase:force_divisible_by=2,crop={w}:{h}:(iw-ow)*{x/100}:(ih-oh)*{y/100},setsar=1[{out}]'
 
 
-def encode(src,clip,options,target,stop,lock,update):
+def encode(src,clip,options,target,stop,lock,update,*,lossless_audio=False):
     start=(clip['start_ms']-src['origin'])/1000;length=(clip['end_ms']-clip['start_ms'])/1000
     args=['-ss',str(start),'-i',str(src['file'])]
     if options['speed']=='fast':
@@ -61,7 +78,8 @@ def encode(src,clip,options,target,stop,lock,update):
         if not src['audio']:args+=['-f','lavfi','-i','anullsrc=r=48000:cl=stereo']
         a='0:a:0' if src['audio'] else '1:a:0'
         parts.append(f'[{a}]aresample=48000,aformat=channel_layouts=stereo,asetpts=PTS-STARTPTS,volume={options["volume"]/100},apad[a]')
-        args+=['-filter_complex',';'.join(parts),'-map','[v]','-map','[a]','-t',str(length),'-c:v','libx264','-preset','veryfast','-crf','20','-c:a','aac','-b:a','160k','-movflags','+faststart',str(target)]
+        audio = ['-c:a','pcm_f32le'] if lossless_audio else ['-c:a','aac','-b:a','160k']
+        args+=['-filter_complex',';'.join(parts),'-map','[v]','-map','[a]','-t',str(length),'-c:v','libx264','-preset','veryfast','-crf','20',*audio,'-movflags','+faststart',str(target)]
     command(args,target.parent,target.stem,stop,lock,update,length)
     return verify(target,length,stop,lock,update,fast=options['speed']=='fast')
 
@@ -74,7 +92,7 @@ def verify(file,duration,stop,lock,update,fast=False):
     return {'duration':actual,'bytes':file.stat().st_size,'approximate':fast,'expected_duration':duration}
 
 
-def join(files,clips,options,target,stop,lock,update):
+def join(files,clips,options,target,stop,lock,update,*,lossless_audio=False):
     starts,overlaps,total=contract.offsets(clips,options['transition'])
     if options['transition']=='cut':
         listing=target.parent/'join.ffconcat';listing.write_text('ffconcat version 1.0\n'+'\n'.join(f"file '{p.name}'\nduration {(c['end_ms']-c['start_ms'])/1000:.3f}" for p,c in zip(files,clips))+'\n')
@@ -83,11 +101,16 @@ def join(files,clips,options,target,stop,lock,update):
         # 두 영상씩 합성해 긴 목록에서도 파일/디코더를 한꺼번에 열지 않는다.
         current=files[0]
         for i in range(1,len(files)):
-            check_cancel(stop);out=target if i==len(files)-1 else target.parent/f'join-{i:03}.mp4'
+            check_cancel(stop)
+            final = i == len(files)-1
+            out = target if final else target.parent / f'join-{i:03}{current.suffix}'
             d=overlaps[i-1];at=starts[i]
             graph=f'[0:v]settb=AVTB,setpts=PTS-STARTPTS[v0];[1:v]settb=AVTB,setpts=PTS-STARTPTS[v1];[v0][v1]xfade=transition=fade:duration={d}:offset={at}[v];[0:a][1:a]acrossfade=d={d}[a]'
             length=at+(clips[i]['end_ms']-clips[i]['start_ms'])/1000
-            command(['-i',str(current),'-i',str(files[i]),'-filter_complex',graph,'-map','[v]','-map','[a]','-t',str(length),'-c:v','libx264','-preset','veryfast','-crf','20','-c:a','aac','-movflags','+faststart',str(out)],out.parent,out.stem,stop,lock,update,length)
+            audio = ['-c:a','aac']
+            if lossless_audio:
+                audio = ['-c:a','aac','-b:a','192k'] if final else ['-c:a','pcm_f32le']
+            command(['-i',str(current),'-i',str(files[i]),'-filter_complex',graph,'-map','[v]','-map','[a]','-t',str(length),'-c:v','libx264','-preset','veryfast','-crf','20',*audio,'-movflags','+faststart',str(out)],out.parent,out.stem,stop,lock,update,length)
             if current.name.startswith('join-'):current.unlink()
             current=out
         if len(files)==1:copy_media(files[0],target,stop)

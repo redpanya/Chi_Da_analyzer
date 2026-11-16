@@ -137,15 +137,18 @@ export function createResultNavigation({getProject,navigate,context,root=documen
   }
   function choose(mode,{remember=true,changePage=true}={}){
     const project=syncProject();if(!availableResultModes(project).includes(mode))return false;
-    const previous=active;if(previous!==mode)closeResultDrawer(null,root);active=mode;if(remember&&path)remembered.set(path,mode);
+    const target=mode==='transcript'?3:6,withinPage=step===target&&!host.hidden;
+    const previous=active;
+    if(changePage&&withinPage&&previous===mode)return true;
+    if(previous!==mode)closeResultDrawer(null,root);active=mode;if(remember&&path)remembered.set(path,mode);
     transitioning=true;
     try{
       if(mode!=='transcript')context.selectMode(mode);
-      if(changePage)navigate(mode==='transcript'?3:6);
+      if(changePage)navigate(target);
       context.mountUsage?.(mode==='transcript'?'speech-results-preview':mode==='clips'?'context-clips-preview':'context-preview');
     }finally{transitioning=false;}
     paint();
-    if(previous!==mode){const panel=root.getElementById(mode==='transcript'?'speech-panel':mode==='clips'?'context-clips-panel':'context-view-panel');enterView(panel,resultModes.indexOf(mode)<resultModes.indexOf(previous)?-1:1);}
+    if(changePage&&withinPage&&previous!==mode){const panel=root.getElementById(mode==='clips'?'context-clips-panel':'context-view-panel');enterView(panel,resultModes.indexOf(mode)<resultModes.indexOf(previous)?-1:1);}
     return true;
   }
   for(const mode of resultModes){
@@ -168,11 +171,11 @@ export function createResultNavigation({getProject,navigate,context,root=documen
   return {
     update:paint,
     enter(mode){const project=syncProject(),chosen=preferredResultMode(project,mode||active);if(chosen)return choose(chosen);navigate(6);return false;},
-    navigate(value){
+    navigate(value,{use=false}={}){
       if(step!==value)closeResultDrawer(null,root);
       step=value;const project=syncProject();
       if(step===3){active='transcript';if(availableResultModes(project).includes(active)&&path)remembered.set(path,active);context.mountUsage?.('speech-results-preview');}
-      else if(step===6&&!transitioning){
+      else if(step===6&&!use&&!transitioning){
         const chosen=preferredResultMode(project,active);
         if(chosen==='transcript'){choose(chosen,{remember:false});return;}
         if(chosen)choose(chosen,{remember:false,changePage:false});

@@ -11,7 +11,8 @@ def video_ready(project, stop):
     if task['state'] != 'complete':
         return False
     proof = task.get('verification') or {}
-    if not proof.get('duration') or not (proof.get('decode_exit_code') == 0 or proof.get('source') == 'local'):
+    if not proof.get('duration') or not (proof.get('decode_exit_code') == 0 or proof.get('source') == 'local'
+                                          or proof.get('decode_mode') == 'sampled' and proof.get('original_sha256')):
         return False
     try:
         files = {key: asset_path(path, task['assets'][key]) for key in ('original', 'playback')}
@@ -63,7 +64,7 @@ def chat_ready(path, task, allow_partial):
 
 
 def prepare(path, vod, allow_partial, stop):
-    with ProjectLock(path) as lock:
+    with ProjectLock(path, write=['media', 'chat', 'metadata']) as lock:
         data = recover(path, load_project(path, vod))
         project = Project(path, data, lock)
         ready = {'video': video_ready(project, stop), 'chat': chat_ready(path, data['tasks']['chat'], allow_partial)}

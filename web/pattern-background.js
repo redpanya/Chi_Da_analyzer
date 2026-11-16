@@ -1,4 +1,4 @@
-// 실행 첫 화면은 치지직 마크, 사용자 메뉴 이동은 개별 소품으로 표시한다.
+// 실행 첫 화면은 녹색 돋보기, 사용자 메뉴 이동은 개별 소품으로 표시한다.
 (() => {
   // 기존 512px 이미지에서 소품 하나씩 표시할 영역 [x, y, 너비, 높이]. 원본은 변경하지 않는다.
   const motifs = [
@@ -45,8 +45,7 @@
     function paint() {
       for (const content of contents) {
         if (current < 0) {
-          content.replaceChildren(svgNode('path', {class: 'brand-chzzk',
-            d: 'M14 7H22L18.5 11H25L15.5 23H22V27H9L17.5 15H9Z'}));
+          content.replaceChildren(svgNode('circle', {class: 'brand-start-fill', cx: 17, cy: 17, r: 11.1}));
           continue;
         }
         const {sheet, frame} = choices[current];
@@ -69,7 +68,7 @@
     paint();
     const tabs = '.result-mode-tabs > button[role="tab"], .studio-steps > button[role="tab"]';
     const menus = [
-      '.step-primary :is(#new,#nav-library,#nav-jobs,#open-video-split,#step9)', '.step-primary > .brand',
+      '.step-primary :is(#new,#nav-library,#nav-jobs,#open-video-split,#open-mix,#step9)', '.step-primary > .brand',
       '#selected-vod-rail > .rail-back', '#purpose-tabs > button', '#task-rail > button.rail-action', tabs,
       '#library-cards .library-open', '#projects .project-item', '#use-page > button.flow-card',
       '#prepare-overview button', '#queue-options-open', '#registration-next',

@@ -2,6 +2,7 @@
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import re
 import secrets
@@ -85,7 +86,7 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     self.close_connection = True
                     self.reply(410, {'error': '새 로컬 영상 가져오기는 제거되었습니다. 기존 완료 자료는 계속 사용할 수 있습니다'})
                     return
-                limit=16*1024**2 if self.path.endswith('/api/studio-image-add') else 22*1024**2 if self.path.endswith(('/api/context-exchange-preview','/api/context-exchange-receive','/api/context-exchange-check-files','/api/context-exchange-import-files','/api/context-exchange-repair-files')) else 4*1048576 if '/api/studio-' in self.path else 1048576 if self.path.endswith('/api/context-comment-save') else 65536
+                limit=16*1024**2 if self.path.endswith('/api/studio-image-add') else 22*1024**2 if self.path.endswith(('/api/context-exchange-preview','/api/context-exchange-receive','/api/context-exchange-check-files','/api/context-exchange-import-files','/api/context-exchange-repair-files')) else 4*1048576 if '/api/studio-' in self.path or self.path.endswith('/api/mix-edit') else 1048576 if self.path.endswith('/api/context-comment-save') else 65536
                 if length <= 0 or length > limit or self.headers.get('Content-Type') != 'application/json':
                     raise ValueError('요청 형식이 올바르지 않습니다')
                 data = json.loads(self.rfile.read(length))
@@ -106,6 +107,8 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     result = resume(manager, data)
                 elif action.startswith('/api/error-log-'):
                     result = error_log.dispatch(action.removeprefix('/api/error-log-'), data)
+                elif action.startswith('/api/mix-'):
+                    result = manager.mix.dispatch(action.removeprefix('/api/mix-'), data)
                 elif action.startswith('/api/split-'):
                     result = manager.splitter.dispatch(action.removeprefix('/api/split-'), data)
                 elif action.startswith('/api/studio-'):
@@ -250,6 +253,19 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     error_log.record(path, error)
                     self.reply(404, {'error': safe_error(error)})
                 return
+            if path == '/mix-file':
+                from . import mix_clips
+                try:
+                    query = parse_qs(urlsplit(self.path).query)
+                    folder = mix_clips.workspace(query['root'][0])
+                    if 'key' in query:
+                        target = mix_clips.preview_file(folder, query['key'][0])
+                    else:
+                        target = mix_clips.output(folder, query['version'][0])
+                    self.send_file(target, body, download='download' in query)
+                except (ValueError, KeyError, OSError) as error:
+                    self.reply(404, {'error': safe_error(error)})
+                return
             if path == '/split-file':
                 try:
                     query = parse_qs(urlsplit(self.path).query)
@@ -259,6 +275,14 @@ def make_server(manager, port=0, *, annotation_preview=False):
                 except (ValueError, KeyError, OSError) as error:
                     error_log.record(path, error)
                     self.reply(404, {'error': safe_error(error)})
+                return
+            if path == '/api/desktop-activity':
+                from .work_queue import LIVE
+                with manager.guard, manager.mix.guard:
+                    busy = (manager.tasks.busy() or any(i['state'] in LIVE for i in manager.tasks.items)
+                            or any(job['thread'].is_alive() for job in manager.mix.jobs.values()))
+                    result = {'busy': bool(busy), 'library': manager.default_root, 'models': str(runtime.MODEL_ROOT)}
+                self.reply(200, result)
                 return
             if path == '/api/config':
                 self.reply(200, {'root': manager.default_root,
@@ -285,9 +309,10 @@ def make_server(manager, port=0, *, annotation_preview=False):
                           for ext, mime in [('html', 'text/html; charset=utf-8'),
                                             ('css', 'text/css; charset=utf-8'),
                                             ('js', 'text/javascript; charset=utf-8')]})
+            files['/mix-studio.html'] = files['/clip-studio.html']
             files['/video-split-model.js'] = ('video-split-model.js', 'text/javascript; charset=utf-8')
             files['/video-split-audio.js'] = ('video-split-audio.js', 'text/javascript; charset=utf-8')
-            for name in ('video-split-page', 'video-split-entry'):
+            for name in ('video-split-page', 'video-split-entry', 'mix-clips', 'mix-studio', 'clip-order'):
                 files[f'/{name}.js'] = (f'{name}.js', 'text/javascript; charset=utf-8')
             files['/work-queue.js'] = ('work-queue.js', 'text/javascript; charset=utf-8')
             files['/job-detail.js'] = ('job-detail.js', 'text/javascript; charset=utf-8')
@@ -312,7 +337,7 @@ def make_server(manager, port=0, *, annotation_preview=False):
                 if mime:
                     files['/vendor/webawesome/'+name] = ('vendor/webawesome/'+name, mime)
             files.update({f'/{name}.js': (f'{name}.js', 'text/javascript; charset=utf-8')
-                          for name in ('video-quality', 'preview-toast', 'mini-player', 'workspace-layout', 'workspace-status', 'settings-panel', 'version-picker', 'context-clip-controls', 'queue', 'queue-saved', 'queue-options', 'vod-label', 'reports', 'voice-model-help', 'voice-tool-status', 'voice-tabs', 'context-background', 'context-inputs', 'context-external', 'context-fallback', 'reactions', 'player', 'speech', 'voices', 'voice-review', 'voice-suggestions', 'explore', 'timeline', 'context', 'project-delete', 'folders', 'compute', 'task-timing', 'audio-preview', 'context-reactions', 'context-copy', 'context-comment-model', 'context-comment-time', 'player-sequence', 'context-tree', 'context-interpretations')})
+                          for name in ('video-quality', 'preview-toast', 'mini-player', 'workspace-layout', 'workspace-status', 'settings-panel', 'desktop-settings', 'version-picker', 'context-clip-controls', 'queue', 'queue-saved', 'queue-options', 'vod-label', 'reports', 'voice-model-help', 'voice-tool-status', 'voice-tabs', 'context-background', 'context-inputs', 'context-external', 'context-fallback', 'reactions', 'player', 'speech', 'voices', 'voice-review', 'voice-suggestions', 'explore', 'timeline', 'context', 'project-delete', 'folders', 'compute', 'task-timing', 'audio-preview', 'context-reactions', 'context-copy', 'context-comment-model', 'context-comment-time', 'player-sequence', 'context-tree', 'context-interpretations')})
             if path in files:
                 filename, mime = files[path]
                 content = (WEB / filename).read_bytes()
@@ -361,8 +386,8 @@ def make_server(manager, port=0, *, annotation_preview=False):
                 self.reply(404, {'error': safe_error(error)})
 
         def send_file(self, path, body, download):
-            with path.open('rb') as file:
-                size = path.stat().st_size
+            with manager.media_readers.open(path, self.connection) as file:
+                size = os.fstat(file.fileno()).st_size
                 requested = self.headers.get('Range')
                 try:
                     start, end = byte_range(requested, size)

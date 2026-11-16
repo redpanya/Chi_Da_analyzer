@@ -87,20 +87,34 @@ class DeleteTests(unittest.TestCase):
         with self.assertRaises(Conflict):self.manager.delete_project(str(self.root),'1',preview['token'],'1')
         with ProjectLock(self.path):
             with self.assertRaises(Conflict):self.manager.deletion_preview(str(self.root),'1')
-        self.manager.analysis_path=self.path
+        self.manager.analysis_paths.add(self.path.resolve())
         with self.assertRaises(Conflict):self.manager.deletion_preview(str(self.root),'1')
         self.assertTrue((self.root/'vod-2/project.json').exists())
     def test_move_complete_folder_and_failure_no_delete(self):
+        queue = self.manager.automation
+        for vod in ('1', '2'):
+            queue.add_saved(str(self.root), [vod], {})
+        def finish(data):
+            for item in data['items']:
+                item['state'] = 'complete'
+        queue.change(str(self.root), finish)
+        self.manager.tasks.items = [
+            dict(id=vod, action='speech-start', state='complete', paths=[str((self.root / ('vod-'+vod)).resolve())])
+            for vod in ('1','2')
+        ]
         preview=self.manager.deletion_preview(str(self.root),'1')
         with patch('archive.deletion.subprocess.run',return_value=type('Result',(),{'returncode':1})()):
             with self.assertRaises(OSError):self.manager.delete_project(str(self.root),'1',preview['token'],'1')
         self.assertTrue((self.path/'media/original.mp4').exists())
+        self.assertEqual(len(queue.read(str(self.root))['results']), 2)
         destination=self.root/'휴지통'
         def move(args,**kw):
             Path(args[1]).rename(destination)
             return type('Result',(),{'returncode':0,'stdout':json.dumps({'trashed_to':str(destination)})})()
         with patch('archive.deletion.subprocess.run',side_effect=move):self.manager.delete_project(str(self.root),'1',preview['token'],'1')
         self.assertFalse(self.path.exists());self.assertEqual((destination/'media/original.mp4').read_bytes(),b'original');self.assertTrue((self.root/'vod-2/project.json').exists())
+        self.assertEqual([item['vod'] for item in queue.read(str(self.root))['results']], ['2'])
+        self.assertEqual([item['id'] for item in self.manager.tasks.items], ['2'])
     def test_symlink_and_wrong_project_rejected(self):
         (self.root/'vod-3').symlink_to(self.path)
         with self.assertRaises(Conflict):self.manager.deletion_preview(str(self.root),'3')

@@ -90,16 +90,20 @@ export function createWorkspaceLayout() {
 
   const speech = $('speech-panel');
   const speechToolbar = group([$('speech-version').parentElement], 'result-toolbar'); speech.prepend(speechToolbar);
+  const audioSettings = createSettingsPanel('audio-settings', '원음 추출', [speech.querySelector('.speech-steps>article')]);
+  panels.push(audioSettings); audioSettings.mirror(['speech-notice']);
   const speechSettings = createSettingsPanel('speech-settings', '새 음성 전사 설정', [speech.querySelector('.speech-steps')], [$('transcribe')]);
-  panels.push(speechSettings); speechSettings.mirror(['speech-notice', 'speech-status']);
+  panels.push(speechSettings); speechSettings.mirror(['speech-notice']);
   speechToolbar.append(launcher(speechSettings, 'speech-new', '새 전사·이어하기')); version('speech-version', speechToolbar, versions);
   const speechReady = make('p', '', 'readiness'); speechReady.id = 'speech-readiness'; speechToolbar.after(speechReady);
   const speechJob = group(range($('speech-status'), $('speech-stop').parentElement), 'job-status'); speechJob.id = 'speech-job';
   speechReady.after($('speech-notice'), $('speech-search'));
-  const speechExports = speech.querySelector('.exports');
   const speechMaterials = make('section', '', 'task-field-group'); speechMaterials.id = 'speech-materials';
-  speechMaterials.append(make('h3', '추출한 음성과 저장 자료'), $('speech-audio-box'), $('sam-audio-box'), speechExports,
-    make('h3', '전사 범위와 인식이 어려운 구간'), $('speech-coverage'), $('speech-gaps'), speechJob);
+  const audioMaterials = make('section', '', 'task-field-group'); audioMaterials.id = 'audio-materials';
+  audioMaterials.append(make('h3', '추출한 음성과 저장 자료'), $('speech-audio-box'), $('sam-audio-box'));
+  const audioJobSlot = make('div'); audioJobSlot.id = 'audio-job-slot';
+  audioSettings.body.append(audioJobSlot, audioMaterials);
+  speechMaterials.append(make('h3', '전사 범위와 인식이 어려운 구간'), $('speech-coverage'), $('speech-gaps'), speechJob);
   speechSettings.body.prepend(speechMaterials);
 
   const voices = $('voices-panel');
@@ -198,5 +202,5 @@ export function createWorkspaceLayout() {
   const jobs = make('div'); jobs.id = 'global-job-rows'; overview.append(jobs);
   const queueStatus = make('p', '', 'hint'); queueStatus.id = 'global-queue-state'; overview.append(queueStatus);
   const queueLink = make('button', '순차 작업 열기', 'subtle'); queueLink.onclick = () => $('new').click(); overview.append(queueLink);
-  return {closeMore, panels, versions, contextSettings, clipSettings, speechSettings, voiceSettings, queueSettings, externalTabs, reportTabs};
+  return {closeMore, panels, versions, contextSettings, clipSettings, audioSettings, speechSettings, voiceSettings, queueSettings, externalTabs, reportTabs};
 }

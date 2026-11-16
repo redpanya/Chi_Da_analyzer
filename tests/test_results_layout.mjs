@@ -11,7 +11,10 @@ class Element{
   querySelector(){return this.workspace;}addEventListener(type,fn){this.listeners[type]=fn;}dispatchEvent(event){this.lastEvent=event;this.listeners[event.type]?.(event);}
   focus(){}setPointerCapture(){}remove(){if(this.parentElement)this.parentElement.children=this.parentElement.children.filter(child=>child!==this);this.parentElement=null;}
 }
-const nodes=new Map(),observers=[];
+const nodes=new Map(),observers=[],frames=new Map();
+let frameId=0;
+globalThis.requestAnimationFrame=callback=>{frames.set(++frameId,callback);return frameId;};
+globalThis.cancelAnimationFrame=id=>frames.delete(id);
 globalThis.document={cookie:'',createElement:tag=>new Element(tag),getElementById:id=>nodes.get(id)};
 globalThis.localStorage={getItem(){return null;},setItem(){}};
 globalThis.CustomEvent=class{constructor(type,options){this.type=type;Object.assign(this,options);}};
@@ -39,7 +42,10 @@ for(const id of nodes.keys()){
   const separator=box.children[1].children[0];assert.equal(separator.attributes['aria-valuemin'],320);
 }
 bindResultLayouts();assert.equal(nodes.get('context-view-panel').workspace.children.length,3); // 다시 열어도 핸들을 중복 추가하지 않는다.
-nodes.get('context-view-panel').workspace.clientWidth=640;observers[0].fn();
+observers[0].fn();assert.equal(frames.size,0);
+nodes.get('context-view-panel').workspace.clientWidth=640;observers[0].fn();observers[0].fn();
+assert.equal(frames.size,1);assert.equal(detailBox.style.gridTemplateColumns,'450px 10px 550px');
+for(const callback of frames.values())callback();frames.clear();
 assert.equal(bindings[0].widths().reduce((a,b)=>a+b,0),630);assert.ok(bindings[0].widths()[0]>=320);assert.ok(bindings[0].widths()[1]>=300);
 const original=new Element(),timeline=new Element(),notes=new Element(),error=new Element(),detail=new Element(),clips=new Element(),video1=new Element(),video2=new Element();
 original.append(notes,error,timeline);detail.append(video1);clips.append(video2);timeline.zoom='2분';timeline.selection='candidate-a';

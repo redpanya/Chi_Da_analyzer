@@ -16,6 +16,12 @@ def effective(request, clip):
 def profiles(request):
     return [effective(request,c) for c in request['clips']]
 
+def new_clip_options(options):
+    """구형 초안에 새 구간을 넣을 때만 과거 공통값과 다른 초기 설정을 지정한다."""
+    from .clip_contract import default_options
+    defaults = default_options()
+    return {key: defaults[key] for key in CLIP_KEYS if key in options and options[key] != defaults[key]}
+
 def prepare(path, request):
     """각 구간의 사용 글꼴을 확정하고 이미지 존재를 확인한다. 미사용 기본값은 건드리지 않는다."""
     for clip in request['clips']:
@@ -68,7 +74,8 @@ def dispatch(action,data,project=None):
             options=preset_options(data.get('options'))
             if options.get('image'):
                 if project is None:raise ValueError('PNG를 저장할 VOD를 선택하세요')
-                studio_images.copy_asset(project,path,options['image'])
+                with ProjectLock(project, read=['studio-images']):
+                    studio_images.copy_asset(project,path,options['image'])
             item=dict(schema=2,id=old['id'] if old else uuid.uuid4().hex,name=name,options=options,
                       revision=old['revision']+1 if old else 1,created_at=old['created_at'] if old else stamp(),updated_at=stamp())
             if old:
@@ -83,7 +90,8 @@ def dispatch(action,data,project=None):
                 raise Conflict('프리셋이 변경되거나 제거됐습니다. 목록을 다시 불러오세요')
             if item['options'].get('image'):
                 if project is None:raise ValueError('프리셋을 적용할 VOD를 선택하세요')
-                studio_images.copy_asset(path,project,item['options']['image'])
+                with ProjectLock(project, write=['studio-images']):
+                    studio_images.copy_asset(path,project,item['options']['image'])
             return {'options':copy.deepcopy(item['options'])}
         if action=='delete':
             id=template_id(data.get('id'))

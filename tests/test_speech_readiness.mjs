@@ -47,11 +47,17 @@ assert.deepEqual(actions.at(-1),{action:'speech-start',data:{root:'/검증',vod_
 for(let n=0;n<5;n++)select({...current,tasks:{...current.tasks,chat:{state:'running',progress:{messages:n}}}});
 await settle();assert.equal(infoCalls,1,'채팅 진행 폴링으로 영상 정보를 반복 조회하면 안 됨');
 
-// 영상 완료 뒤 채팅 등 다른 작업의 잠금이 풀려야 시작 가능하다.
+// 채팅 수집 중에도 검증된 영상의 오디오 트랙은 읽을 수 있다.
 select(project('verifying',{locked:true}));
-select(project('complete',{locked:true}));await settle();
 assert.equal($('extract-audio').disabled,true);
-select({...current,locked:false});assert.equal($('extract-audio').disabled,false);
+const ready=project('complete',{locked:true});
+ready.tasks.chat={state:'running'};
+select(ready);await settle();
+assert.equal($('extract-audio').disabled,false);
+const count=actions.length;
+await $('extract-audio').onclick();
+assert.equal(actions.length,count+1);
+assert.deepEqual(actions.at(-1),{action:'speech-start',data:{root:'/검증',vod_id:'1',action:'audio',track:1}});
 assert.equal(infoCalls,2);
 
 // 동일 VOD 재검증/파일 교체 시 이전 요청의 실패·성공 모두 최신 정보를 덮어쓰면 안 된다.

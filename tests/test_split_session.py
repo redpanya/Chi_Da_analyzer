@@ -9,6 +9,7 @@ from unittest.mock import patch
 from archive import split_contract as contract
 from archive.source import Cancelled
 from archive.split_jobs import Splitter
+from archive.work_queue import WorkQueue
 from archive.storage import ProjectLock, save_json
 
 
@@ -24,6 +25,7 @@ class SplitSession(unittest.TestCase):
         self.source = self.root/'원본.mp4'
         self.source.write_bytes(b'original')
         self.manager = SimpleNamespace(guard=threading.RLock())
+        self.manager.tasks = WorkQueue(self.manager)
         self.split = Splitter(self.manager, self.old)
         self.manager.speech_idle = self.split.idle
         self.source_id = 'b'*32

@@ -20,12 +20,13 @@ const localPreferences={
 };
 export function bindDesktopPanels({container,panels,key,initial,minWidths,flexIndex=1,preferences=localPreferences}){
   let requested=[...initial],current=[...initial],destroyed=false,changed=false;
+  let renderedWidth=0,resizeFrame=0;
   const handles=[],original=container.style.gridTemplateColumns;
   container.classList.add('desktop-panels');
-  const available=()=>Math.max(0,container.clientWidth-(panels.length-1)*GUTTER);
   function render(){
-    if(!container.clientWidth)return;
-    current=fitPanelWidths(requested,available(),minWidths,flexIndex);
+    const width=container.clientWidth;renderedWidth=width;
+    if(!width)return;
+    current=fitPanelWidths(requested,Math.max(0,width-(panels.length-1)*GUTTER),minWidths,flexIndex);
     container.style.gridTemplateColumns=current.map(n=>n+'px').join(` ${GUTTER}px `);
     handles.forEach(({separator},i)=>{
       separator.setAttribute('aria-valuemin',minWidths[i]);
@@ -67,7 +68,13 @@ export function bindDesktopPanels({container,panels,key,initial,minWidths,flexIn
     };
     gutter.append(separator,controls);panel.after(gutter);handles.push({gutter,separator});
   });
-  const observer=new ResizeObserver(render);observer.observe(container);render();
+  const observer=new ResizeObserver(()=>{
+    const width=container.clientWidth;
+    if(width&&width!==renderedWidth&&!resizeFrame){
+      resizeFrame=requestAnimationFrame(()=>{resizeFrame=0;render();});
+    }
+  });
+  observer.observe(container);render();
   Promise.resolve(preferences.read(key)).then(value=>{if(!destroyed&&!changed&&Array.isArray(value)&&value.length===panels.length){requested=value;render();}}).catch(()=>{});
-  return {reset,apply(value){if(Array.isArray(value)&&value.length===panels.length){changed=true;requested=[...value];render();}},widths:()=>[...current],destroy(){destroyed=true;observer.disconnect();handles.forEach(({gutter})=>gutter.remove());container.classList.remove('desktop-panels');container.style.gridTemplateColumns=original;}};
+  return {reset,apply(value){if(Array.isArray(value)&&value.length===panels.length){changed=true;requested=[...value];render();}},widths:()=>[...current],destroy(){destroyed=true;observer.disconnect();if(resizeFrame)cancelAnimationFrame(resizeFrame);handles.forEach(({gutter})=>gutter.remove());container.classList.remove('desktop-panels');container.style.gridTemplateColumns=original;}};
 }

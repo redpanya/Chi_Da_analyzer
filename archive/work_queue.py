@@ -1,11 +1,13 @@
-"""앱 안의 무거운 요청을 직렬 실행한다. 대기 요청은 종료 시 취소한다."""
+"""충돌하는 요청만 기다리고 독립 작업은 함께 실행한다. 대기 요청은 종료 시 취소한다."""
+from collections import deque
 import copy
+import time
 import threading
 import uuid
 
 from . import error_log
 from .source import safe_error
-from .storage import Conflict, load_project, project_path, stamp
+from .storage import ResourceBusy, Conflict, load_project, project_path, stamp
 
 
 HEAVY = {
@@ -40,7 +42,8 @@ def execute(manager, action, data):
         return manager.analyze(root, vod, data.get('settings', {}), data.get('allow_partial', False))
     if action == 'video-quality':
         from .video_quality import change
-        return change(manager, root, vod, data['expected'], data['format_id'], data.get('existing'))
+        return change(manager, root, vod, data['expected'], data['format_id'], data.get('existing'),
+                      data.get('concurrent_fragments'))
     raise ValueError('지원하지 않는 대기 작업입니다')
 
 
@@ -52,13 +55,34 @@ class WorkQueue:
         self.active = None
         self.thread = None
         self.stopping = threading.Event()
+        self.local = threading.local()
+        self.runners = set()
+        self.workers = []
+        self.completions = deque(maxlen=512)
+
+    def notify_complete(self, title, label):
+        with self.manager.guard:
+            self.completions.append(dict(id=uuid.uuid4().hex, time=int(time.time()*1000), title=title, label=label))
 
     def owns_thread(self):
-        return self.thread is threading.current_thread()
+        return bool(getattr(self.local, "owner", False))
+
+    def track(self, kind, worker):
+        self.workers = [(k, w) for k, w in self.workers if not w.closed or getattr(w, 'report_thread', None) and w.report_thread.is_alive()]
+        self.workers.append((kind, worker))
+        self.local.worker = worker
+        return worker
+
+    def find(self, kind, path=None, file=None):
+        for k, worker in reversed(self.workers):
+            owner = getattr(worker, 'path', getattr(getattr(worker, 'project', None), 'path', None))
+            if k == kind and not worker.closed and (path is None or owner == path) and (file is None or getattr(worker, 'file', None) == file):
+                return worker
+        return None
 
     def busy(self):
         m = self.manager
-        return (m.automation.running or m.analysis_path is not None or any(
+        return bool(m.automation.running or bool(m.analysis_paths) or any(not w.closed for _, w in self.workers) or any(
             job and not job.closed for job in
             (m.job, m.speech_job, m.voice_job, m.context_job, m.import_job, m.studio.job, m.splitter.job)))
 
@@ -66,10 +90,11 @@ class WorkQueue:
         if not self.owns_thread() and not self.manager.automation.owns_thread() and any(i['state'] in LIVE for i in self.items):
             raise Conflict('대기·실행 중인 작업이 있습니다. 작업 대기열을 먼저 완료하거나 취소하세요')
 
-    def project_idle(self, path):
+    def project_idle(self, path, *, include_queued=False):
         if self.owns_thread() or self.manager.automation.owns_thread():
             return
-        if any(i['state'] in LIVE and str(path) in i['paths'] for i in self.items):
+        states = LIVE if include_queued else ('starting', 'running')
+        if any(i['state'] in states and str(path) in i['paths'] for i in self.items):
             raise Conflict('이 VOD의 대기·실행 작업이 있습니다. 작업을 완료하거나 대기열에서 취소한 뒤 변경하세요')
 
     def split_idle(self):
@@ -81,7 +106,7 @@ class WorkQueue:
 
     def status(self):
         with self.manager.guard:
-            return {'items': [self.public(i) for i in self.items], 'busy': bool(self.busy())}
+            return {'items': [self.public(i) for i in self.items], 'busy': bool(self.busy()), 'completions': list(self.completions)}
 
     @staticmethod
     def identity(path):
@@ -123,13 +148,15 @@ class WorkQueue:
                 title = source.get('name', '')
                 if owner:
                     paths, identity = [str(owner)], self.identity(owner)
-            # 빈 슬롯은 기존 응답을 유지한다. 오래 걸리는 채팅 분석만 별도 스레드로 시작한다.
-            if action != 'analyze' and not self.busy() and not any(i['state'] in LIVE for i in self.items):
-                return execute(self.manager, action, data)
             item = dict(id=uuid.uuid4().hex, action=action, label=HEAVY[action], title=title,
                         root=data.get('root'), vod_id=data.get('vod_id'), state='queued',
-                        created_at=stamp(), message='앞 작업이 끝나면 자동으로 시작합니다',
+                        created_at=stamp(), message='사용할 자료와 실행 자리를 확인합니다',
                         paths=paths, identity=identity, data=copy.deepcopy(data))
+            if action == 'speech-start':
+                item['stage'] = data.get('action')
+                item['label'] = {'audio': '음성 처리', 'transcribe': '전사', 'model': '전사 모델 준비'}.get(item['stage'], item['label'])
+            elif action == 'start':
+                item['stage'] = data.get('kind','all')
             if split_source_id:
                 item['source_id'] = split_source_id
             self.items = [i for i in self.items if i['state'] in LIVE] + [i for i in self.items if i['state'] not in LIVE][-30:]
@@ -147,76 +174,95 @@ class WorkQueue:
             item.update(state='cancelled', message='시작 전에 취소했습니다')
             return self.status()
 
-    def worker(self, action):
-        m = self.manager
-        if action.startswith('studio-'): return m.studio.job
-        if action.startswith('split-'): return m.splitter.job
-        return {'start': m.job, 'video-quality': m.job, 'speech-start': m.speech_job,
-                'voices-start': m.voice_job, 'context-start': m.context_job}.get(action)
-
     def run(self):
         while not self.stopping.is_set():
             with self.manager.guard:
-                item = next((i for i in self.items if i['state'] == 'queued'), None)
-                if item is not None and not self.busy():
-                    self.active = item
-                    item.update(state='starting', message='작업 준비 중')
-                else:
-                    item = None
-            if item is None:
-                self.stopping.wait(.2)
-                continue
-            try:
-                if item['identity'] is not None:
-                    from pathlib import Path
-                    if self.identity(Path(item['paths'][0])) != item['identity']:
-                        raise Conflict('대기 중 영상 또는 프로젝트가 변경됐습니다. 현재 자료를 확인해 다시 요청하세요')
-                result = execute(self.manager, item['action'], item['data'])
-                worker = self.worker(item['action'])
-                path = getattr(worker, 'path', getattr(getattr(worker, 'project', None), 'path', None))
-                if path and str(path) not in item['paths']:
-                    worker = None
-                if item['action'] == 'video-quality' and item['data'].get('existing') is None:
-                    worker = None
-                with self.manager.guard:
-                    item.update(state='running', message='실행 중 · 해당 작업 화면에서 진행을 확인하세요')
-                    if item['action'].startswith(('studio-', 'split-')) and result.get('id'):
-                        item['run'] = result['id']
-                while self.busy() and not self.stopping.wait(.2):
-                    pass
-                if self.stopping.is_set():
-                    return
-                observer = getattr(worker, 'report_thread', None)
-                if observer:
-                    observer.join()
-                state = getattr(worker, 'value', {}) or {}
-                if worker and item['action'] in ('speech-start', 'voices-start'):
-                    from . import speech_store, voice_store
-                    state = (speech_store if item['action'] == 'speech-start' else voice_store).state(worker.path)
-                if item['action'] == 'queue-start':
-                    state = self.manager.automation.read(item['data']['root'])
-                    if any(i['state'] in ('error', 'partial', 'paused') for i in state['items']):
-                        state = dict(state, state='review')
-                if worker and hasattr(worker, 'project'):
-                    tasks = worker.work.snapshot()['tasks'].values()
-                    state = next((v for v in tasks if v['state'] in ('error', 'paused', 'review')), {})
-                with self.manager.guard:
-                    item.update(state='error' if state.get('state') in ('error', 'paused', 'review') else 'complete',
-                                message=state.get('message') or '처리가 끝났습니다. 결과 화면을 확인하세요')
-            except Exception as error:
-                error_log.record('work-queue-'+item['action'], error, vod=item.get('vod_id'))
-                with self.manager.guard:
-                    item.update(state='error', message=safe_error(error))
-            finally:
-                with self.manager.guard:
-                    self.active = None
+                for item in self.items:
+                    if item['state'] != 'queued':
+                        continue
+                    item.update(state='starting', message='사용할 자료를 확인합니다')
+                    runner = threading.Thread(target=self.run_item, args=(item,), name='work-'+item['id'], daemon=True)
+                    self.runners.add(runner)
+                    runner.start()
+            self.stopping.wait(.2)
+
+    def run_item(self, item):
+        self.local.owner = True
+        self.local.worker = None
+        try:
+            if self.stopping.is_set():
+                return
+            if item['identity'] is not None:
+                from pathlib import Path
+                if self.identity(Path(item['paths'][0])) != item['identity']:
+                    raise Conflict('대기 중 영상 또는 프로젝트가 변경됐습니다. 현재 자료를 확인해 다시 요청하세요')
+            result = execute(self.manager, item['action'], item['data'])
+            worker = self.local.worker
+            path = getattr(worker, 'path', getattr(getattr(worker, 'project', None), 'path', None))
+            if path and item['paths'] and str(path) not in item['paths']:
+                worker = None
+            if item['action'] == 'video-quality' and item['data'].get('existing') is None:
+                worker = None
+            with self.manager.guard:
+                item.update(state='running', message='실행 중: 해당 작업 화면에서 진행을 확인하세요')
+                if item['action'].startswith(('studio-', 'split-')) and result.get('id'):
+                    item['run'] = result['id']
+            while (self.manager.automation.running if item['action'] == 'queue-start' else worker and not worker.closed) and not self.stopping.wait(.2):
+                pass
+            if self.stopping.is_set():
+                return
+            observer = getattr(worker, 'report_thread', None)
+            if observer:
+                observer.join()
+            state = getattr(worker, 'value', {}) or {}
+            if item['action'] == 'queue-start':
+                state = self.manager.automation.read(item['data']['root'])
+                if any(i['state'] in ('error', 'partial', 'paused') for i in state['items']):
+                    state = dict(state, state='review')
+            if worker and hasattr(worker, 'project'):
+                tasks = worker.work.snapshot()['tasks']
+                state = next((tasks[k] for k in worker.workers if tasks[k]['state'] in ('error', 'paused', 'review')), {})
+            with self.manager.guard:
+                item.update(state='error' if state.get('state') in ('error', 'paused', 'review', 'partial', 'cancelled') else 'complete', finished_at=stamp(),
+                            message=state.get('message') or '처리가 끝났습니다. 결과 화면을 확인하세요')
+                if item['state'] == 'complete' and item['action'] != 'queue-start':
+                    self.notify_complete(item['title'], item['label'])
+        except ResourceBusy as error:
+            with self.manager.guard:
+                item.update(state='cancelled' if self.stopping.is_set() else 'queued', message=str(error))
+        except Exception as error:
+            error_log.record('work-queue-'+item['action'], error, vod=item.get('vod_id'))
+            with self.manager.guard:
+                item.update(state='error', message=safe_error(error), finished_at=stamp())
+        finally:
+            with self.manager.guard:
+                self.runners.discard(threading.current_thread())
 
     def close(self):
         self.stopping.set()
         with self.manager.guard:
             for item in self.items:
-                if item['state'] == 'queued':
+                if item['state'] in ('queued', 'starting'):
                     item.update(state='cancelled', message='앱 종료로 대기를 취소했습니다')
         # 실행 중인 작업의 종료와 합류는 기존 Manager.close가 맡는다.
         if self.thread and self.thread is not threading.current_thread():
             self.thread.join()
+
+    def close_workers(self):
+        for runner in list(self.runners):
+            runner.join()
+        workers = [w for _, w in self.workers]
+        for worker in workers:
+            if not worker.closed:
+                if hasattr(worker, 'cancel'):
+                    worker.cancel('all') if hasattr(worker, 'project') else worker.cancel()
+                else:
+                    worker.stop.set()
+        for worker in workers:
+            if worker.thread and worker.thread.ident is not None:
+                worker.thread.join()
+            report = getattr(worker, 'report_thread', None)
+            if report and report.ident is not None:
+                report.join()
+        for runner in list(self.runners):
+            runner.join()

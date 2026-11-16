@@ -139,8 +139,8 @@ class InputTests(unittest.TestCase):
             with self.assertRaises(OSError):result_deletion.voices(self.path,self.voice)
         self.assertEqual(voices.local(self.path,'state.json').read_bytes(),state)
         manager=Manager(self.fixture.root)
-        manager.analysis_path=self.path
-        with patch('archive.deletion.trash_path') as trash:
+        self.addCleanup(manager.close)
+        with ProjectLock(self.path,read=['speech','voices']), patch('archive.deletion.trash_path') as trash:
             with self.assertRaises(Conflict):manager.voices_edit(str(self.fixture.root),'1','delete',{'run':self.voice})
             with self.assertRaises(Conflict):manager.speech_edit(str(self.fixture.root),'1','delete',run=self.second['id'])
             trash.assert_not_called()

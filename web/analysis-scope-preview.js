@@ -21,12 +21,14 @@ export function createAnalysisScopePreview({api,onOpen}){
     const modes=[...fields.querySelectorAll('[name=scope-ai-mode]:checked')].map(i=>i.value);
     if(stages.includes('context')&&!modes.length)throw Error('AI 모드를 1개 이상 선택하세요.');
     const id=$('scope-transcript').value;
-    return {...range,settings:{steps:stages,summary_modes:modes,backend:$('scope-backend').value,thinking:$('scope-thinking').checked,allow_partial_chat:$('scope-partial-chat').checked,height:Number($('scope-quality').value)},
+    const concurrent_fragments=$('scope-remote').checked?$('scope-fragments').valueAsNumber:1;
+    if(!Number.isInteger(concurrent_fragments)||concurrent_fragments<1||concurrent_fragments>32)throw Error('동시 다운로드 개수는 1~32 사이의 정수로 입력하세요.');
+    return {...range,settings:{steps:stages,summary_modes:modes,backend:$('scope-backend').value,thinking:$('scope-thinking').checked,allow_partial_chat:$('scope-partial-chat').checked,height:Number($('scope-quality').value),concurrent_fragments},
       selection:id?{transcript_run:id,speaker_run:$('scope-speaker').value||null}:null};
   }
   function render(clearError=true){
     const partial=fields.querySelector('[name=analysis-scope-mode]:checked').value==='range',remote=$('scope-remote').checked;
-    $('analysis-scope-range').hidden=!partial;$('scope-quality-label').hidden=!remote;$('scope-transcript').disabled=remote;
+    $('analysis-scope-range').hidden=!partial;$('scope-quality-label').hidden=$('scope-fragments-label').hidden=!remote;$('scope-transcript').disabled=remote;
     if(clearError)$('analysis-scope-error').textContent='';action.disabled=running||!project;
     try{const r=request();$('analysis-scope-summary').textContent=`${partial?'선택 구간':'전체 영상'} ${timecode(r.end_ms-r.start_ms)} · ${r.settings.steps.length}개 작업 · 별도 결과 보관`;
       if(remote&&r.selection)throw Error('서버 구간 다운로드에서는 기존 전사 재사용을 해제하세요.');
@@ -46,7 +48,7 @@ export function createAnalysisScopePreview({api,onOpen}){
         const card=el('article');card.append(el('strong',title),el('p',new Date(r.created_at).toLocaleString('ko-KR')),el('p',r.message||r.state),el('p','소요 시간 '+timecode((r.elapsed_seconds||0)*1000)));
         const bar=el('progress');bar.max=1;if(r.state==='complete'||r.progress>0)bar.value=r.progress||1;card.append(bar);
         if(r.project){const b=el('button','이 범위 결과 열기');b.onclick=()=>{panel.close();onOpen(r.project.root,r.project.vod_id);};card.append(b);}
-        if(r.state==='running'){const b=el('button','중단');b.onclick=()=>api('studio-stop',identity()).then(refresh).catch(error);card.append(b);}
+      if(r.state==='running'){const b=el('button','중단');b.onclick=()=>api('studio-stop',{...identity(),run:r.id}).then(refresh).catch(error);card.append(b);}
         else if(r.state!=='complete'){const b=el('button','완료 자료에서 이어하기');b.onclick=()=>api('studio-resume',{...identity(),run:r.id}).then(refresh).catch(error);card.append(b);}
         list.append(card);
       }

@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from archive import download_scope, range_download, video, video_quality
+from archive import download_scope, range_download, video, video_quality, work_queue
 from archive.automation import options
 from archive.jobs import Job, Manager
 from archive.storage import Conflict, Project, ProjectLock, load_project, save_json
@@ -45,19 +45,24 @@ class QualityTests(unittest.TestCase):
 
     def test_full_restart_uses_new_path_and_queue_format(self):
         old = self.prepare()
-        view = self.change()
+        view = work_queue.execute(self.manager, 'video-quality', dict(root=self.root, vod_id='1',
+                                  expected='f480', format_id='f1080', concurrent_fragments=32))
         row = self.manager.automation.status(self.base)['items'][0]
         self.assertEqual((view['format_id'],row['format'],row['options']['height']), ('f1080','f1080',1080))
+        self.assertEqual(row['options']['concurrent_fragments'], 32)
+        self.assertEqual(view['tasks']['video']['concurrent_fragments'], 32)
         self.assertEqual(view['tasks']['chat'], old['tasks']['chat'])
         with ProjectLock(self.path) as lock:
             project = Project(self.path,load_project(self.path,'1'),lock)
             # 새 전송까지 진행하되 실제 네트워크에서 영상은 받지 않는다.
-            with patch.object(video, 'YoutubeDL') as factory:
+            with patch.object(video, 'YoutubeDL') as factory, patch.object(video.http_download, 'download', return_value=False) as transfer:
                 dl = factory.return_value.__enter__.return_value
                 dl.extract_info.return_value = {'format_id':'f1080','id':'1','protocol':'https','ext':'mp4'}
                 dl.process_info.side_effect = InterruptedError('전송 진입')
                 with self.assertRaisesRegex(InterruptedError,'전송 진입'):
                     video.download(project, threading.Event())
+                self.assertEqual(factory.call_args.args[0]['concurrent_fragment_downloads'], 32)
+                self.assertEqual(transfer.call_args.args[-1], 32)
                 dest = Path(factory.call_args.args[0]['outtmpl'])
                 self.assertNotEqual(dest.parent,self.part.parent)
                 self.assertEqual(dest.parent,video_quality.media_directory(project))
@@ -91,6 +96,15 @@ class QualityTests(unittest.TestCase):
         self.assertEqual(register(480),old_root)
         with self.assertRaisesRegex(Conflict,'이미 있습니다'):
             video_quality.change(self.manager,old_root,'1','f480','f1080')
+
+    def test_invalid_concurrency_preserves_task_without_format_lookup(self):
+        data = self.prepare()
+        with patch('archive.source.inspect') as inspect:
+            for count in (0, 33, True, 2.5, '4'):
+                with self.subTest(count=count), self.assertRaises(ValueError):
+                    video_quality.change(self.manager, self.root, '1', 'f480', 'f1080', concurrent_fragments=count)
+            inspect.assert_not_called()
+        self.assertEqual(load_project(self.path, '1'), data)
 
     def test_running_complete_and_unavailable_do_not_modify_anything(self):
         data=self.prepare()

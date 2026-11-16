@@ -9,8 +9,8 @@ import './pattern-background.js';
 setBasePath(new URL('./vendor/webawesome/', import.meta.url).href);
 // 사용자가 새 아이콘을 추가해도 CDN으로 요청하지 않습니다. 내부 시스템 아이콘은 번들에 있습니다.
 setIconPath(new URL('./vendor/webawesome/icons/', import.meta.url).href);
+bindDocumentMotion();
 function connectThemeControls() {
- bindDocumentMotion();
   document.querySelectorAll('[data-theme-select]').forEach(select => window.ChidaTheme?.connect(select));
   exposeDetails();
   const notice = document.getElementById('notice');

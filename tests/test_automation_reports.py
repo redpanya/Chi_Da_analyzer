@@ -11,7 +11,9 @@ from archive.jobs import Manager
 from archive.automation import options
 from archive.automation_steps import Paused, Prerequisite, wait
 from archive import report_schema
-from archive.storage import Conflict, ProjectLock, project_path, save_json
+from archive.job_detail import detail
+from archive.source import check_cancel
+from archive.storage import Conflict, ProjectLock, ResourceBusy, project_path, save_json
 
 HARDWARE = dict(os='Darwin', os_version='25', architecture='arm64', cpu='Apple M1', gpu='Apple M1', cores=8, threads=8, ram_bytes=16*1024**3)
 
@@ -26,6 +28,11 @@ class AutomationTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = str(Path(self.tmp.name))
+        model_cache = Path(self.root) / 'models'
+        model_cache.mkdir()
+        paths = patch('archive.model_paths.root', return_value=model_cache)
+        paths.start()
+        self.addCleanup(paths.stop)
         self.manager = Manager(self.root)
         self.hardware = patch('archive.report_hardware.collect', return_value=HARDWARE)
         self.hardware.start()
@@ -53,10 +60,107 @@ class AutomationTests(unittest.TestCase):
         with patch('archive.automation.steps.execute', side_effect=lambda q,e,s: calls.append((e['vod'],s)) or 'complete'):
             self.manager.automation.start(self.root)
             result = self.finish()
-        self.assertEqual(calls, [('1', s) for s in ['download','audio','transcribe','diarize','reactions','summary']] + [('2','download')])
-        self.assertTrue(all(i['state']=='complete' for i in result['items']))
+        self.assertEqual(sorted(calls, key=lambda call: call[0]), [('1', s) for s in ['download','audio','transcribe','diarize','reactions','summary']] + [('2','download')])
+        self.assertEqual(result['items'], [])
+        self.assertEqual([i['state'] for i in result['results']], ['complete', 'complete'])
         with self.assertRaises(ValueError):
             options({'separation': True})
+
+    def test_next_download_overlaps_transcription(self):
+        self.add('1', {'steps': ['download', 'audio', 'transcribe']})
+        self.add('2')
+        downloading = threading.Event()
+        transcribing = threading.Event()
+        first_finished = threading.Event()
+        def execute(queue, entry, stage):
+            if entry['vod'] == '1' and stage == 'download':
+                first_finished.set()
+            elif stage == 'transcribe':
+                transcribing.set()
+                self.assertTrue(downloading.wait(3))
+            elif entry['vod'] == '2':
+                self.assertTrue(first_finished.is_set())
+                downloading.set()
+                self.assertTrue(transcribing.wait(3))
+            return 'complete'
+        with patch('archive.automation.steps.execute', side_effect=execute):
+            self.manager.automation.start(self.root)
+            result = self.finish()
+        self.assertEqual([item['state'] for item in result['results']], ['complete', 'complete'])
+        self.assertNotEqual(result['results'][0]['report'], result['results'][1]['report'])
+
+    def test_stop_queue_detail_pauses_only_selected_entry(self):
+        first = self.add('1', {'steps':['transcribe']})
+        self.add('2', {'steps':['transcribe']})
+        started = {vod: threading.Event() for vod in ('1', '2')}
+        release = threading.Event()
+        def execute(queue, entry, stage):
+            started[entry['vod']].set()
+            if entry['vod'] == '1':
+                self.assertTrue(queue.stop.wait(3))
+                raise Paused()
+            self.assertTrue(release.wait(3))
+            check_cancel(queue.stop)
+            return 'complete'
+        with patch('archive.automation.steps.execute', side_effect=execute):
+            self.manager.automation.start(self.root)
+            try:
+                for event in started.values(): self.assertTrue(event.wait(3))
+                panel = detail(self.manager, {'kind':'queue', 'root':self.root, 'vod_id':'1', 'id':first['id']})
+                action, = panel['actions']
+                self.assertEqual(action['action'], 'queue-pause-item')
+                self.manager.automation.dispatch('pause-item', action['data'])
+            finally:
+                release.set()
+            result = self.finish()
+        self.assertEqual([row['state'] for row in result['items']], ['paused'])
+        self.assertEqual([i['vod'] for i in result['results']], ['2'])
+
+    def test_stop_video_keeps_sibling_chat_and_next_vod_running(self):
+        self.add('1')
+        self.add('2')
+        started, chat_started, release_chat = (threading.Event() for _ in range(3))
+        def video(project, stop):
+            if project.data['vod_id'] == '1':
+                started.set()
+                self.assertTrue(stop.wait(3))
+                check_cancel(stop)
+            project.update('video', state='complete')
+        def chat(project, stop):
+            if project.data['vod_id'] == '1':
+                chat_started.set()
+                self.assertTrue(release_chat.wait(3))
+            check_cancel(stop)
+            project.update('chat', state='empty')
+        with patch('archive.jobs.video.download', video), patch('archive.jobs.chat.collect', chat):
+            self.manager.automation.start(self.root)
+            try:
+                self.assertTrue(started.wait(3) and chat_started.wait(3))
+                self.manager.stop(self.root, '1', 'video')
+                self.assertFalse(self.manager.job.stops['chat'].is_set())
+            finally:
+                release_chat.set()
+            result = self.finish()
+        self.assertEqual([row['state'] for row in result['items']], ['paused'])
+        self.assertEqual([i['vod'] for i in result['results']], ['2'])
+        self.assertEqual(self.manager.view(self.root, '1')['tasks']['chat']['state'], 'empty')
+
+    def test_busy_stage_retries_while_another_vod_proceeds(self):
+        self.add('1', {'steps': ['transcribe']})
+        self.add('2', {'steps': ['audio']})
+        blocked, available = threading.Event(), threading.Event()
+        def execute(queue, entry, stage):
+            if entry['vod'] == '1' and not available.is_set():
+                blocked.set()
+                raise ResourceBusy('자료 사용 중')
+            if entry['vod'] == '2':
+                self.assertTrue(blocked.wait(3))
+                available.set()
+            return 'complete'
+        with patch('archive.automation.steps.execute', side_effect=execute):
+            self.manager.automation.start(self.root)
+            result = self.finish()
+        self.assertEqual([i['state'] for i in result['results']], ['complete', 'complete'])
 
     def test_duplicate_and_remove_preserve_project_and_sources(self):
         item = self.add()
@@ -84,8 +188,9 @@ class AutomationTests(unittest.TestCase):
             return 'partial' if s=='timestamps' else 'complete'
         with patch('archive.automation.steps.execute', side_effect=execute):
             self.manager.automation.start(self.root); result=self.finish()
-        self.assertEqual(calls, [('1',s) for s in ['download','audio','transcribe','reactions','timestamps','summary','clips']]+[('2','download')])
-        self.assertEqual([i['state'] for i in result['items']], ['partial','complete'])
+        self.assertEqual(sorted(calls, key=lambda call: call[0]), [('1',s) for s in ['download','audio','transcribe','reactions','timestamps','summary','clips']]+[('2','download')])
+        self.assertEqual([i['state'] for i in result['items']], ['partial'])
+        self.assertEqual([i['vod'] for i in result['results']], ['2'])
 
     def test_single_clip_and_legacy_queue(self):
         self.add('1', {'mode':'analysis','summary_modes':['clips']})
@@ -94,8 +199,9 @@ class AutomationTests(unittest.TestCase):
         calls=[]
         with patch('archive.automation.steps.execute', side_effect=lambda q,e,s:calls.append((e['vod'],s)) or 'complete'):
             self.manager.automation.start(self.root); result=self.finish()
-        self.assertEqual(calls,[(vod,s) for vod,last in [('1','clips'),('2','summary')] for s in ['download','audio','transcribe','reactions',last]])
-        self.assertTrue(all(i['state']=='complete' for i in result['items']))
+        self.assertEqual(sorted(calls, key=lambda call: call[0]),[(vod,s) for vod,last in [('1','clips'),('2','summary')] for s in ['download','audio','transcribe','reactions',last]])
+        self.assertEqual(result['items'], [])
+        self.assertEqual([i['state'] for i in result['results']], ['complete', 'complete'])
 
     def test_clip_error_report_mode(self):
         self.add('1', {'mode':'analysis','summary_modes':['clips']})
@@ -116,7 +222,8 @@ class AutomationTests(unittest.TestCase):
         with patch('archive.automation.steps.execute', side_effect=execute):
             self.manager.automation.start(self.root)
             result = self.finish()
-        self.assertEqual([i['state'] for i in result['items']], ['error', 'complete'])
+        self.assertEqual([i['state'] for i in result['items']], ['error'])
+        self.assertEqual([i['vod'] for i in result['results']], ['2'])
         saved=self.manager.reports.snapshot(self.root,'1',result['items'][0]['report'])
         self.assertEqual(saved['payload']['stages'][0]['state'],'error')
 
@@ -137,14 +244,15 @@ class AutomationTests(unittest.TestCase):
             self.manager.automation.start(self.root)
             self.assertTrue(entered.wait(2))
             with self.assertRaises(Conflict): self.manager.speech_idle()
-            with self.assertRaises(Conflict): self.manager.start(self.root, '2', '720p', 'all')
+            self.assertTrue(self.manager.automation.is_processing(project_path(self.root, '1')))
+            self.assertFalse(self.manager.automation.is_processing(project_path(self.root, '2')))
             item=self.manager.automation.status(self.root)['items'][0]
             with self.assertRaises(Conflict): self.manager.automation.remove_or_retry(self.root,item['id'])
             self.manager.automation.pause();result=self.finish()
         self.assertEqual(result['items'][0]['state'],'paused')
         with patch('archive.automation.steps.execute', return_value='complete'):
             self.manager.automation.start(self.root);result=self.finish()
-        self.assertEqual([i['state'] for i in result['items']],['complete','complete'])
+        self.assertEqual([i['state'] for i in result['results']], ['complete','complete'])
 
     def test_restart_is_paused_not_autostart(self):
         self.add()
@@ -209,9 +317,9 @@ class AutomationTests(unittest.TestCase):
             stack.enter_context(patch('archive.context_full.prepare',return_value={'inference':None,'source':{}}))
             self.manager.automation.start(self.root)
             result=self.finish()
-        self.assertEqual(result['items'][0]['state'],'complete',result['items'][0]['message'])
+        self.assertEqual(result['results'][0]['state'],'complete',result['results'][0]['message'])
         self.assertEqual(calls,['audio','transcribe','summary'])
-        payload=self.manager.reports.snapshot(self.root,'1',result['items'][0]['report'])['payload']
+        payload=self.manager.reports.snapshot(self.root,'1',result['results'][0]['report'])['payload']
         self.assertEqual([s['stage'] for s in payload['stages']],['download','audio','transcribe','reactions','summary'])
         self.assertEqual(payload['counts']['transcript_segments'],1)
         self.assertEqual((project_path(self.root,'1')/'original.mp4').read_bytes(),b'original-video')

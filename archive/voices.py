@@ -51,7 +51,8 @@ class VoiceJob:
         self.thread = threading.Thread(target=self.run, daemon=True)
 
     def update(self, **values):
-        store.update(self.path, **values)
+        self.value = store.update(self.path, **values)
+        return self.value
 
     def cancel(self):
         self.stop.set()

@@ -59,3 +59,9 @@ Windows의 Microsoft VC 런타임은 Microsoft의 재배포 조건을 따릅니�
 Jua, Gaegu Bold, Black And White Picture 원본 글꼴을 SIL Open Font License 1.1에 따라 동봉합니다. 공식 Google Fonts 저장소의 고정 리비전 파일이며 글꼴 파일은 수정하지 않았습니다. 각 저작권·예약 글꼴 이름·OFL 원문은 `web/fonts/*/OFL.txt`, 출처 URL·리비전·SHA-256은 `web/fonts/sources.json`에 보존합니다. 배포 고지 묶음에도 해당 원문과 출처를 포함합니다.
 
 사용자가 운영체제에 설치한 글꼴은 조회·렌더링에만 사용하며 앱에 복사하거나 외부로 전송하지 않습니다. 설치 글꼴의 영상 제작·상업적 사용 조건은 해당 글꼴 라이선스를 확인해야 합니다. SRT·ASS에는 폰트 파일을 포함하지 않습니다.
+
+## 데스크톱 창과 업데이트
+
+Electron 45.3.3의 MIT 라이선스, 포함 Chromium의 구성요소별 고지, Node.js 24.22.3의 라이선스를 앱의 고지 폴더와 운영체제별 고지 ZIP에 동봉합니다. 설정에서 오프라인으로 열 수 있습니다. 화면 재생용 FFmpeg 원본과 적용 패치 및 빌드 자료는 `electron-media-sources.zip`에 있습니다. 버전별 라이선스와 코덱 관련 권리는 개별 구성요소에 따릅니다. [소스 및 라이브러리 교체 안내](docs/third-party-source-guide.md)
+
+이 프로그램은 스트리머와 클리퍼를 위한 비공식 도구입니다. 네이버 및 치지직과 관계가 없습니다.

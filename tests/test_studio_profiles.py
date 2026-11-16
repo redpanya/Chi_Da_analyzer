@@ -32,6 +32,20 @@ class Profiles(unittest.TestCase):
         fast={'clips':[self.raw['clips'][0]|{'options':{'ratio':'original','caption':False}}],
               'options':{'caption':True,'ratio':'9:16','speed':'fast','sidecar':False}}
         self.assertFalse(p.profiles(c.validate(fast,self.src))[0]['caption'])
+    def test_legacy_draft_reopens_with_same_profiles_and_new_clips_use_defaults(self):
+        image=dict(asset='a'*64,name='이전 그림',x=10,y=20,width=35,opacity=90)
+        self.raw['options'].update(ratio='4:5',volume=67,font_size=23.5,image=image,mode='joined')
+        self.raw['clips'][1]['options'].update(image=None,volume=0)
+        old=c.validate(self.raw,self.src,draft=True)
+        fresh=p.new_clip_options(old['options'])
+        self.assertEqual(fresh,{'ratio':'original','volume':100,'font_size':22,'image':None})
+        new={'id':'new','title':'새 구간','start_ms':8100,'end_ms':8500,'options':fresh}
+        edit=c.validate(old | {'clips':[*old['clips'],new]},self.src,draft=True)
+        self.assertEqual(edit['options'],old['options'])
+        self.assertEqual(edit['clips'][:-1],old['clips'])
+        self.assertEqual(p.profiles(edit)[:-1],p.profiles(old))
+        self.assertEqual(p.effective(edit,new),c.default_options() | {'mode':'joined'})
+
     def test_presets_reject_invalid_options_and_preserve_applied(self):
         opts=p.preset_options({'ratio':'9:16','caption':True,'font_size':24})
         with patch.object(p.runtime,'SUPPORT',self.path):

@@ -1,6 +1,6 @@
 const notifications = new Map();
 
-export function showToast(message, {key = message, action, actionLabel = '작업 열기'} = {}) {
+export function showToast(message, {key = message, action, actionLabel = '작업 열기', persistent = false} = {}) {
   if (!message || notifications.has(key)) return;
   let region = document.getElementById('ui-toasts');
   if (!region) {
@@ -24,12 +24,13 @@ export function showToast(message, {key = message, action, actionLabel = '작업
     const open = document.createElement('button'); open.textContent = actionLabel;
     open.onclick = () => {close(); action();}; item.append(open);
   }
-  const dismiss = document.createElement('button'); dismiss.textContent = '×'; dismiss.setAttribute('aria-label', '알림 닫기 (15초 후 자동 닫힘)');
-  dismiss.onclick = close; item.append(countdown, dismiss); region.append(item);
-  notifications.set(key, {item, close, timer: setTimeout(close, 15000), ticker: setInterval(updateCountdown, 1000)});
-  notifications.get(key).timer.unref?.();
-  notifications.get(key).ticker.unref?.();
-  while (notifications.size > 4) notifications.values().next().value.close();
+  const dismiss = document.createElement('button'); dismiss.textContent = '×'; dismiss.setAttribute('aria-label', persistent ? '완료 알림 닫기' : '알림 닫기 (15초 후 자동 닫힘)');
+  dismiss.onclick = close; if (!persistent) item.append(countdown); item.append(dismiss); region.append(item);
+  notifications.set(key, {item, close, persistent, timer: persistent ? null : setTimeout(close, 15000), ticker: persistent ? null : setInterval(updateCountdown, 1000)});
+  notifications.get(key).timer?.unref?.();
+  notifications.get(key).ticker?.unref?.();
+  const timed = [...notifications.values()].filter(n => !n.persistent);
+  if (timed.length > 4) timed[0].close();
 }
 
 export function exposeDetails(root = document) {
