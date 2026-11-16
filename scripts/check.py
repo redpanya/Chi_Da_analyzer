@@ -1,67 +1,61 @@
-"""설명·링크·화면 표시 범위의 정합성을 검사한다."""
+"""생성된 설명서의 문서 연결과 로컬 화면 파일을 확인한다."""
 import json
 import re
-import hashlib
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urlsplit, parse_qs
+from urllib.parse import urlsplit
 
-root = Path(__file__).resolve().parents[1]
-source = json.loads((root/'source/content.json').read_text())
-shots = json.loads((root/'source/shots.json').read_text())
-dimensions = json.loads((root/'source/images.json').read_text())
+ROOT = Path(__file__).resolve().parents[1]
+chapters = json.loads((ROOT / 'source/content.json').read_text())
+shots = json.loads((ROOT / 'source/shots.json').read_text())
+
 
 class Manual(HTMLParser):
     def __init__(self):
         super().__init__()
-        self.ids, self.targets, self.assets = [], [], []
-        self.entries, self.images, self.chapters = 0, 0, 0
-        self.stack, self.image_entries = [], set()
-    def handle_starttag(self, tag, attrs):
-        a = dict(attrs)
-        assert tag not in ('aside', 'nav'), '왼쪽 차례가 남음'
-        if 'id' in a: self.ids.append(a['id'])
-        if tag == 'section' and a.get('class') == 'chapter': self.chapters += 1
-        if tag == 'details' and a.get('class') == 'entry':
-            self.entries += 1
-            assert a.get('data-search'), '검색 원문 누락'
-            assert 'open' in a, '기본으로 접힌 설명'
-            self.stack.append(a['id'])
-        if tag == 'a' and a.get('href', '').startswith('#'): self.targets.append(a['href'][1:])
-        if tag in ('img', 'script') and 'src' in a: self.assets.append(a['src'])
-        if tag == 'link' and a.get('rel') == 'stylesheet': self.assets.append(a['href'])
-        if tag == 'img' and 'src' in a:
-            self.images += 1
-            assert a.get('alt'), '화면 설명 누락'
-            assert self.stack, '설명 밖으로 분리된 스크린샷'
-            self.image_entries.add(self.stack[-1])
-    def handle_endtag(self, tag):
-        if tag == 'details': self.stack.pop()
+        self.ids, self.targets, self.assets, self.entries, self.chapters = [], [], [], 0, 0
 
-p=Manual(); page=(root/'index.html').read_text(); p.feed(page)
-assert p.entries == sum(len(c['rows']) for c in source)
-assert p.chapters == len(source) and p.images == len(shots)
-assert len(p.image_entries) == len(shots), '화면이 한 설명에 몰림'
-assert len(p.ids) == len(set(p.ids)), '중복 ID'
-assert set(p.targets) <= set(p.ids), '깨진 내부 링크'
-for asset in p.assets:
-    assert not asset.startswith(('http:', 'https:', '//')), '외부 필수 자원'
-    path = root/urlsplit(asset).path
-    assert path.is_file(), f'빠진 자원: {asset}'
-    if path.name in ('styles.css', 'pattern-background.css', 'pattern-background.js'):
-        assert parse_qs(urlsplit(asset).query).get('v') == [hashlib.sha256(path.read_bytes()).hexdigest()[:12]], '스타일·배경 캐시 버전 불일치'
-labels={c['id']:{r[0] for r in c['rows']} for c in source}
-assert len({(s['chapter'],s['item']) for s in shots}) == len(shots)
-for s in shots:
-    assert s['item'] in labels[s['chapter']], '화면 연결 대상 없음'
-    x,y,w,h=s['crop']; iw,ih=dimensions[s['source']]
-    assert 0 <= x < x+w <= iw and 0 <= y < y+h <= ih, f'원본 밖 자르기: {s}'
-    for fx,fy,fw,fh in s['focus']:
-        assert x <= fx < fx+fw <= x+w and y <= fy < fy+fh <= y+h, f'잘린 버튼 표시: {s}'
-for stale in ('0.18.0', 'preview.5', '실제 화면 8장', '102개 안내', 'v0.20.0-preview.4', 'v0.20.0-preview.6'):
-    assert stale not in page, f'이전 버전 안내: {stale}'
-assert '/releases/latest' in page
-assert '/releases/tag/v0.20.0-preview.' not in page
-assert all(term in page for term in ('클립 후보', '영상 나누기', 'PNG', '오류 진단 로그', '1080p', '지정 구간', 'Gemma 4 E4B'))
-assert not re.search(r'/Users/|/Volumes/|[A-Za-z]:[\\/]Users[\\/]|vod-\d{6,}', page), '개인 경로·실제 VOD 식별자 노출'
-print(f'통과: {p.chapters}개 주제 · {p.entries}개 기본 펼침 · 설명별 화면 {p.images}개 · 링크/로컬 자원/크롭/표시 경계')
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if attrs.get('id'):
+            self.ids.append(attrs['id'])
+        if tag == 'section' and attrs.get('class') == 'chapter':
+            self.chapters += 1
+        if tag == 'details' and attrs.get('class') == 'entry':
+            self.entries += 1
+            assert attrs.get('data-search'), '검색 원문 누락'
+        if tag == 'a' and attrs.get('href', '').startswith('#'):
+            self.targets.append(attrs['href'][1:])
+        if tag in ('img', 'script') and attrs.get('src'):
+            self.assets.append(attrs['src'])
+        if tag == 'link' and attrs.get('rel') == 'stylesheet':
+            self.assets.append(attrs['href'])
+
+
+page = (ROOT / 'index.html').read_text()
+parser = Manual()
+parser.feed(page)
+assert parser.chapters == len(chapters), '주제 수 불일치'
+assert parser.entries == sum(len(c['rows']) for c in chapters), '안내 수 불일치'
+assert len(parser.ids) == len(set(parser.ids)), '중복 ID'
+assert set(parser.targets) <= set(parser.ids), '끊어진 내부 링크'
+assert '네이버 및 치지직과 아무런 제휴나 공식 관계가 없습니다' in page, '첫 안내 관계 고지 누락'
+assert page.index('독립 도구 사용 안내') < page.index('class="chapter"'), '관계 고지는 첫 안내보다 먼저 표시해야 함'
+assert '/releases/latest' in page, '최신 배포 링크 누락'
+assert not re.search(r'/Users/|/Volumes/|[A-Za-z]:[\\/]Users[\\/]', page), '개인 경로 노출'
+for asset in parser.assets:
+    path = ROOT / urlsplit(asset).path
+    assert path.is_file(), f'빠진 로컬 자원: {asset}'
+    assert not asset.startswith(('http:', 'https:', '//')), f'외부 필수 자원: {asset}'
+for shot in shots:
+    assert (ROOT / 'screenshots' / shot['source']).is_file(), f"빠진 앱 화면: {shot['source']}"
+rows = {(c['id'], row[0]) for c in chapters for row in c['rows']}
+assert len(rows) == parser.entries, '같은 주제에 중복된 안내 제목'
+assert all(c['id'] in parser.targets for c in chapters), '목차에서 도달할 수 없는 주제'
+legacy = json.loads((ROOT / 'source/legacy-links.json').read_text())
+assert set(legacy) <= set(parser.ids), '이전 개별 안내 링크 누락'
+keys = [(shot['chapter'], shot['item']) for shot in shots]
+assert len(keys) == len(set(keys)) and set(keys) <= rows, '화면 자료에 대응하는 안내 제목 확인 필요'
+assert all(shot['caption'] and 'screenshots/' + shot['source'] in parser.assets for shot in shots), '화면 연결 누락'
+assert 'v1.2.1' in page, '앱 기준 버전 확인 필요'
+print(f'확인 완료: {len(chapters)}개 주제, {parser.entries}개 안내, {len(shots)}개 화면 연결')

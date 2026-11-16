@@ -1,518 +1,122 @@
 [
   {
+    "chapter": "models",
+    "item": "기능별 필수 모델 고르기",
+    "source": "example-models.jpg",
+    "caption": "각 기능에 필요한 모델과 별도 설치 버튼을 확인하는 화면입니다."
+  },
+  {
+    "chapter": "library",
+    "item": "자료 준비의 다섯 단계 읽기",
+    "source": "example-prepare.jpg",
+    "caption": "왼쪽에 영상과 채팅부터 AI 문맥까지 다섯 단계가 순서대로 표시됩니다."
+  },
+  {
     "chapter": "start",
-    "item": "버튼은 어디로 갔나요?",
-    "source": "p8-more.jpg",
-    "crop": [
-      1000,
-      10,
-      240,
-      280
-    ],
-    "focus": [
-      [
-        1048,
-        78,
-        174,
-        176
-      ]
-    ],
-    "caption": "오른쪽 위 더보기에서 클립 만들기·작업 기록·외부 AI를 열어요. · 설명용 가상 자료"
+    "item": "방송 하나의 장면을 영상으로 저장하기",
+    "source": "example-work.jpg",
+    "caption": "선택한 방송의 작업 화면에서 클립 만들기, 외부 AI 분석 또는 리포트를 열 수 있습니다."
   },
   {
-    "chapter": "setup",
-    "item": "보관함·모델 폴더 정하기",
-    "source": "p8-settings.jpg",
-    "crop": [
-      245,
-      373,
-      985,
-      257
-    ],
-    "focus": [],
-    "caption": "설정에서 영상 보관함과 모델 저장 폴더를 확인해요. · 설명용 가상 자료"
+    "chapter": "library",
+    "item": "제목, 채널, VOD 번호로 찾기",
+    "source": "example-library.jpg",
+    "caption": "두 예제 방송이 들어 있는 보관함의 검색, 상태 필터, 방송 목록입니다."
   },
   {
-    "chapter": "import",
-    "item": "다시보기 주소를 여러 개 등록",
-    "source": "p8-import.jpg",
-    "crop": [
-      245,
-      140,
-      1000,
-      530
-    ],
-    "focus": [],
-    "caption": "주소 입력칸과 작업 설정을 확인한 뒤 목록에 등록해요. · 설명용 가상 자료"
+    "chapter": "library",
+    "item": "작업 상세에서 최근 기록 읽고 이어가기",
+    "source": "example-job-detail.jpg",
+    "caption": "영상 작업의 정보와 최근 기록이 오른쪽 패널에 열립니다."
   },
   {
-    "chapter": "import",
-    "item": "작업 설정에서 필요한 단계만 체크",
-    "source": "p8-work-settings.jpg",
-    "crop": [
-      695,
-      438,
-      545,
-      205
-    ],
-    "focus": [],
-    "caption": "AI 문맥은 원하는 모드를 하나 이상 체크해요. · 설명용 가상 자료"
+    "chapter": "clips",
+    "item": "직접 구간을 추가하고 시작과 끝 다듬기",
+    "source": "example-clip-range.jpg",
+    "caption": "클립 제목과 시작, 끝을 오른쪽에서 정하고 변경을 적용합니다."
   },
   {
-    "chapter": "import",
-    "item": "다운로드 화질과 전체·지정 구간",
-    "source": "p8-work-settings.jpg",
-    "crop": [
-      695,
-      242,
-      545,
-      185
-    ],
-    "focus": [
-      [
-        703,
-        272,
-        527,
-        113
-      ]
-    ],
-    "caption": "화질을 고르고 지정 구간의 시작·끝을 입력해요. · 설명용 가상 자료"
+    "chapter": "clips",
+    "item": "세로 영상에 게임과 얼굴을 함께 배치하기",
+    "source": "example-clip-frame.jpg",
+    "caption": "화면 비율과 화면 구성을 정하는 편집 패널입니다."
   },
   {
-    "chapter": "import",
-    "item": "이미 저장한 VOD도 자동화 목록에",
-    "source": "p8-import-ready.jpg",
-    "crop": [
-      251,
-      518,
-      515,
-      110
-    ],
-    "focus": [
-      [
-        260,
-        575,
-        118,
-        42
-      ]
-    ],
-    "caption": "선택한 VOD의 가져오기 아래 자동화 목록 등록을 눌러요. · 설명용 가상 자료"
+    "chapter": "clips",
+    "item": "초안, MP4와 자막 파일 저장하기",
+    "source": "example-clip-save.jpg",
+    "caption": "원하는 저장 방식을 고른 뒤 초안 저장이나 영상 생성을 실행합니다."
   },
   {
-    "chapter": "import",
-    "item": "다운로드 완료와 중단 복구",
-    "source": "p8-import-ready.jpg",
-    "crop": [
-      253,
-      166,
-      983,
-      249
-    ],
-    "focus": [],
-    "caption": "영상과 채팅의 완료 상태를 각각 확인해요. 예시는 실측 자료가 아니에요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "import",
-    "item": "다운로드 후 일부만 분석하고 싶다면",
-    "source": "p8-import-ready.jpg",
-    "crop": [
-      254,
-      421,
-      980,
-      84
-    ],
-    "focus": [
-      [
-        1084,
-        439,
-        137,
-        49
-      ]
-    ],
-    "caption": "다운로드 범위와 별도로 분석 범위를 선택해요. · 설명용 가상 자료"
+    "chapter": "comments",
+    "item": "댓글 담기와 클립 담기 전환하기",
+    "source": "example-comments.jpg",
+    "caption": "왼쪽 전사 발언 하나를 오른쪽 댓글 목록에 담은 상태입니다."
   },
   {
     "chapter": "transcribe",
-    "item": "원음 오디오 추출하기",
-    "source": "p8-transcript-options.jpg",
-    "crop": [
-      686,
-      126,
-      543,
-      204
-    ],
-    "focus": [],
-    "caption": "대화가 있는 트랙을 선택하고 원음을 추출해요. · 설명용 가상 자료"
+    "item": "잘못 인식한 이름이나 발언 고치기",
+    "source": "example-correction.jpg",
+    "caption": "전사 원문과 교정 입력칸을 함께 열어 수정하거나 원문으로 복원할 수 있습니다."
   },
   {
-    "chapter": "transcribe",
-    "item": "전사 모델·언어·발화 검출 고르기",
-    "source": "p8-transcript-options.jpg",
-    "crop": [
-      686,
-      345,
-      543,
-      211
-    ],
-    "focus": [],
-    "caption": "기본 전사 모델을 준비·검사하고 언어를 선택해요. · 설명용 가상 자료"
+    "chapter": "external",
+    "item": "외부 AI 파일 분석",
+    "source": "example-external.jpg",
+    "caption": "전사와 결과 종류를 고르고 외부 분석 자료를 내보내는 화면입니다."
   },
   {
-    "chapter": "transcribe",
-    "item": "전사를 검색하고 해당 영상보기",
-    "source": "p8-transcript.jpg",
-    "crop": [
-      257,
-      583,
-      525,
-      111
-    ],
-    "focus": [
-      [
-        601,
-        591,
-        105,
-        46
-      ]
-    ],
-    "caption": "음성 듣기와 해당 영상보기로 인식 내용을 확인해요. · 설명용 가상 자료"
+    "chapter": "mix",
+    "item": "×로 믹스에서 한 구간만 빼기",
+    "source": "example-mix-range.jpg",
+    "caption": "미리보기 아래 믹스 카드에서 개별 구간을 선택하고 오른쪽 위 ×로 뺄 수 있습니다."
   },
   {
-    "chapter": "transcribe",
-    "item": "전사 버전·저장 자료 관리",
-    "source": "p8-transcript.jpg",
-    "crop": [
-      251,
-      148,
-      980,
-      89
-    ],
-    "focus": [],
-    "caption": "날짜와 이름으로 버전을 고르고 버전 정보·삭제 기능을 사용해요. · 설명용 가상 자료"
+    "chapter": "mix",
+    "item": "현재 믹스 구간과 프리셋 적용 대상 구분하기",
+    "source": "example-mix-preset.jpg",
+    "caption": "믹스 전체를 선택하면 적용 대상인 두 구간의 제목이 함께 나타납니다."
+  },
+  {
+    "chapter": "mix",
+    "item": "컷 또는 디졸브로 한 영상 저장하기",
+    "source": "example-mix-save.jpg",
+    "caption": "믹스 저장 단계에서 전환 방식을 고르고 한 영상으로 저장합니다."
+  },
+  {
+    "chapter": "split",
+    "item": "영상 나누기 시작",
+    "source": "example-split.jpg",
+    "caption": "영상 나누기에서 원본 파일을 직접 선택하는 첫 화면입니다."
+  },
+  {
+    "chapter": "import",
+    "item": "새 VOD 주소 입력",
+    "source": "example-register.jpg",
+    "caption": "등록할 주소와 방송 배경을 입력하고 여러 주소를 추가할 수 있습니다."
+  },
+  {
+    "chapter": "download",
+    "item": "동시 다운로드 개수 1~32 설정하기",
+    "source": "example-process.jpg",
+    "caption": "작업을 선택한 뒤 다운로드 설정에서 최대 화질, 범위와 동시 다운로드 개수를 정합니다."
+  },
+  {
+    "chapter": "summary",
+    "item": "상세 문맥 정리",
+    "source": "example-summary.jpg",
+    "caption": "상세 문맥, 타임스탬프, 클립 후보 모드와 로컬 또는 외부 분석 방법을 고르는 화면입니다."
   },
   {
     "chapter": "speakers",
-    "item": "실행 도구와 모델 준비",
-    "source": "p8-speaker-tools.jpg",
-    "crop": [
-      697,
-      130,
-      545,
-      378
-    ],
-    "focus": [],
-    "caption": "선택한 엔진의 도구·모델을 준비해요. 설치 상태와 경로는 컴퓨터마다 달라요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "summary",
-    "item": "상세 문맥·타임스탬프·클립 후보 차이",
-    "source": "p8-clip-candidates.jpg",
-    "crop": [
-      250,
-      145,
-      978,
-      78
-    ],
-    "focus": [],
-    "caption": "세 모드의 결과는 각각의 탭에서 확인해요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "summary",
-    "item": "방송 상황·추가 요청 적기",
-    "source": "p8-ai-settings.jpg",
-    "crop": [
-      686,
-      178,
-      544,
-      255
-    ],
-    "focus": [],
-    "caption": "방송 상황과 이 모드의 추가 요청을 구분해 저장해요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "summary",
-    "item": "분석에 쓸 전사·화자 버전 선택",
-    "source": "p8-ai-settings.jpg",
-    "crop": [
-      686,
-      456,
-      544,
-      169
-    ],
-    "focus": [],
-    "caption": "분석에 사용할 전사를 선택하고 필요하면 화자 결과를 연결해요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "summary",
-    "item": "검색·시각 찾기·페이지 넘기기",
-    "source": "p8-clip-candidates.jpg",
-    "crop": [
-      252,
-      434,
-      533,
-      105
-    ],
-    "focus": [],
-    "caption": "검색·시각 찾기·이전·다음으로 결과를 좁혀 보세요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "summary",
-    "item": "요약 실패 항목·버전 관리",
-    "source": "p8-clip-candidates.jpg",
-    "crop": [
-      251,
-      234,
-      977,
-      64
-    ],
-    "focus": [],
-    "caption": "기존 결과를 고르거나 선택 버전을 삭제하고 새 분석을 시작해요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "comments",
-    "item": "세 모드 모두 댓글에 포함",
-    "source": "p8-summary.jpg",
-    "crop": [
-      258,
-      86,
-      515,
-      482
-    ],
-    "focus": [],
-    "caption": "댓글에 포함을 체크하면 선택한 문맥이 시간순으로 모여요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "comments",
-    "item": "제목·시간 직접 고치기",
-    "source": "p8-comment-time.jpg",
-    "crop": [
-      310,
-      140,
-      650,
-      430
-    ],
-    "focus": [],
-    "caption": "댓글용 시각 편집에서 시작·끝을 수정해요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "comments",
-    "item": "선택한 구간만 이어 재생",
-    "source": "p8-summary.jpg",
-    "crop": [
-      784,
-      361,
-      440,
-      330
-    ],
-    "focus": [],
-    "caption": "시간·제목을 확인하고 목록 구간 이어 재생을 눌러요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "external",
-    "item": "외부 AI 페이지 열기",
-    "source": "p8-external.jpg",
-    "crop": [
-      248,
-      146,
-      982,
-      77
-    ],
-    "focus": [],
-    "caption": "이 화면은 파일을 준비하고 받는 곳이에요. AI 서비스 전송은 직접 진행해요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "external",
-    "item": "입력과 추가 요청 확인",
-    "source": "p8-external.jpg",
-    "crop": [
-      252,
-      258,
-      481,
-      752
-    ],
-    "focus": [],
-    "caption": "전사·화자·모드·채팅 포함과 추가 요청을 확인해요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "external",
-    "item": "분할 JSON과 작업서 ZIP 내보내기",
-    "source": "p8-external.jpg",
-    "crop": [
-      254,
-      1021,
-      475,
-      439
-    ],
-    "focus": [],
-    "caption": "분석 자료 만들기를 누르면 작업서와 분할 JSON을 ZIP으로 준비해요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "external",
-    "item": "결과 검사·미리보기 후 저장",
-    "source": "p8-external.jpg",
-    "crop": [
-      741,
-      223,
-      487,
-      236
-    ],
-    "focus": [],
-    "caption": "결과 JSON·ZIP을 선택한 뒤 검사·미리보기, 새 결과 저장 순서예요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "clips",
-    "item": "클립 만들기 열고 구간 담기",
-    "source": "p8-studio.jpg",
-    "crop": [
-      0,
-      68,
-      948,
-      645
-    ],
-    "focus": [],
-    "caption": "왼쪽에서 구간을 담고 중앙 미리보기와 담은 구간 목록을 확인해요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "clips",
-    "item": "화면 비율과 세로 2단 구성",
-    "source": "p8-frame.jpg",
-    "crop": [
-      967,
-      74,
-      307,
-      566
-    ],
-    "focus": [],
-    "caption": "화면 구성에서 세로 2단과 게임·얼굴 영역을 조절해요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "clips",
-    "item": "전사로 자막 입히기와 내용 수정",
-    "source": "p8-caption-overview.jpg",
-    "crop": [
-      967,
-      75,
-      307,
-      566
-    ],
-    "focus": [],
-    "caption": "자막을 켜고 전사·내용·스타일·위치 설정을 차례로 열어요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "clips",
-    "item": "자막 스타일·설치 글꼴 선택",
-    "source": "p8-fonts.jpg",
-    "crop": [
-      968,
-      129,
-      304,
-      511
-    ],
-    "focus": [],
-    "caption": "언어·검색으로 좁힌 뒤 실제 글꼴 미리보기를 눌러 선택해요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "clips",
-    "item": "색상·효과를 내 템플릿으로 저장",
-    "source": "p8-caption-design.jpg",
-    "crop": [
-      968,
-      129,
-      304,
-      511
-    ],
-    "focus": [],
-    "caption": "고정 미리보기를 보면서 색상·효과를 펼쳐 조절해요. 저장 버튼은 아래에 있어요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "clips",
-    "item": "정확한 저장과 빠른 저장 선택",
-    "source": "p8-export.jpg",
-    "crop": [
-      967,
-      74,
-      307,
-      566
-    ],
-    "focus": [],
-    "caption": "출력 방식·해상도·자막 파일을 확인한 뒤 저장해요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "split",
-    "item": "분할점 직접 추가·일정 간격 나누기",
-    "source": "p8-split.jpg",
-    "crop": [
-      805,
-      0,
-      425,
-      208
-    ],
-    "focus": [],
-    "caption": "시각을 추가하거나 분 단위 간격으로 분할점을 만들어요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "split",
-    "item": "실제 분할 시각 확인하기",
-    "source": "p8-split-save.jpg",
-    "crop": [
-      246,
-      162,
-      982,
-      242
-    ],
-    "focus": [],
-    "caption": "지정 시각과 실제 키프레임 시각의 차이를 확인해요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "split",
-    "item": "전체 오디오 또는 선택 트랙만 유지",
-    "source": "p8-split.jpg",
-    "crop": [
-      804,
-      216,
-      427,
-      319
-    ],
-    "focus": [],
-    "caption": "새 파일에 남길 오디오만 체크해요. 원본에는 모든 트랙이 남아요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "split",
-    "item": "선택한 트랙 미리듣기",
-    "source": "p8-split.jpg",
-    "crop": [
-      254,
-      253,
-      520,
-      168
-    ],
-    "focus": [],
-    "caption": "미리듣기 트랙을 선택하고 선택 트랙으로 미리보기를 눌러요. · 설명용 가상 자료"
+    "item": "화자 구분은 필요할 때 실행",
+    "source": "example-speakers.jpg",
+    "caption": "화자 구분에 사용할 엔진과 실행 도구의 준비 상태를 확인하는 곳입니다."
   },
   {
     "chapter": "reports",
-    "item": "오류 진단 로그 저장 켜기·끄기",
-    "source": "p8-settings.jpg",
-    "crop": [
-      249,
-      163,
-      979,
-      202
-    ],
-    "focus": [],
-    "caption": "설정에서 새 오류 진단 로그 저장을 켜거나 끌 수 있어요. · 설명용 가상 자료"
-  },
-  {
-    "chapter": "reports",
-    "item": "이메일에 보낼 JSON 확인·저장",
-    "source": "p8-errors.jpg",
-    "crop": [
-      257,
-      393,
-      966,
-      505
-    ],
-    "focus": [],
-    "caption": "첨부할 JSON을 확인·저장하고 동의한 뒤 직접 이메일에 첨부해요. · 설명용 가상 자료"
+    "item": "현재 방송의 오류 기록 확인",
+    "source": "example-errors.jpg",
+    "caption": "오류 기록 탭에는 현재 선택한 예제 방송의 번호와 기록 건수가 표시됩니다."
   }
 ]

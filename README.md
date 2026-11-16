@@ -1,17 +1,14 @@
-# 치다 분석기 HTML 사용설명서
+# 치다분석기 사용설명서
 
-[매뉴얼 바로 열기](https://redpanya.github.io/Chi_Da_analyzer/) · [앱 다운로드](https://github.com/redpanya/Chi_Da_analyzer/releases/latest)
+앱 v1.2.1을 기준으로 처음 설정부터 영상 저장과 문제 해결까지 17개 주제, 100개 안내를 제공합니다. 앱의 설정 → 앱 정보 → 사용설명서에서도 열 수 있습니다. [사용설명서 열기](https://redpanya.github.io/Chi_Da_analyzer/)
 
-2026-10-31, v1 정식 릴리즈 기준 (preview.8과 동일한 기능). 13개 주제·83개 안내·설명별 화면 37개입니다. 구간 다운로드·부분 분석, AI 세 모드, 댓글 시간 편집, 클립 편집·자막·PNG, 오디오 트랙을 선택하는 영상 나누기, 오류 기록 안내를 포함합니다.
+## 사용법
 
-화면은 별도 가상 자료로 촬영했습니다. 실제 AI 품질·처리 성능 측정 결과가 아닙니다. 설명 기본 펼침, 검색, 화면 확대, 8종 픽셀 배경과 기존 디자인을 유지합니다.
+`index.html`을 브라우저에서 여세요. 오프라인에서는 같은 폴더에 스타일, 스크립트, 앱 아이콘과 화면 자료가 있어야 합니다. 목차와 개별 안내는 자바스크립트 없이도 열 수 있습니다.
 
-## 수정·확인
+## 갱신과 검증
 
-- 본문: `source/content.json`
-- 화면 배치·강조: `source/shots.json`, `source/images.json`
-- 생성: `python3 scripts/build.py`
-- 확인: `python3 scripts/check.py`, `node --check manual.js`
-- 정리와 확인: [정리 기록](docs/2026-11-13-불필요파일-정리.md)
-
-GitHub Pages는 `codex/manual-site` 브랜치 루트에서 게시합니다. 앱 코드·패키징과는 별개입니다. 오프라인에서는 `index.html`, CSS·JS 파일, `patterns/`, `screenshots/`를 함께 보관하세요.
+- 안내 본문은 `source/content.json`, 화면과 설명 연결은 `source/shots.json`에서 수정합니다.
+- 주제를 옮기거나 안내 제목을 바꾸면 `source/legacy-links.json`에서 이전 공개 링크의 연결 대상도 확인하세요.
+- `python3 scripts/build.py`로 페이지를 만들고 `python3 scripts/check.py`로 목차, 개별 링크, 화면 연결과 로컬 자원을 검사합니다.
+- 공개판의 신규 화면은 예제 방송으로 촬영한 자료를 사용합니다. [작업 기록](docs/2026-11-17-v1.2.1-매뉴얼-보강.md)
