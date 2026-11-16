@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import secrets
 import shutil
+import threading
 from urllib.parse import parse_qs, urlsplit, quote
 
 from .source import safe_error
@@ -45,6 +46,15 @@ def byte_range(value, size):
 def make_server(manager, port=0, *, annotation_preview=False):
     csp = content_security_policy(annotation_preview)
     prefix = '/' + secrets.token_urlsafe(24)
+    control_key = os.environ.pop('CHIDA_DESKTOP_CONTROL', '')
+    gate = threading.Lock()
+    requests, frozen = 0, False
+
+    def desktop_busy():
+        from .work_queue import LIVE
+        with manager.guard, manager.mix.guard:
+            return bool(manager.tasks.busy() or any(i['state'] in LIVE for i in manager.tasks.items)
+                        or any(job['thread'].is_alive() for job in manager.mix.jobs.values()))
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -76,8 +86,36 @@ def make_server(manager, port=0, *, annotation_preview=False):
             self.wfile.write(body)
 
         def do_POST(self):
+            nonlocal requests, frozen
             if not self.allowed():
                 return
+            if control_key:
+                action = urlsplit(self.path).path[len(prefix):]
+                if action in ('/api/desktop-freeze', '/api/desktop-thaw'):
+                    if not secrets.compare_digest(self.headers.get('X-Chida-Control', ''), control_key):
+                        self.reply(403, {'error': '앱 실행기에서만 처리할 수 있습니다'})
+                        return
+                    with gate:
+                        if action.endswith('-freeze') and (requests or desktop_busy()):
+                            self.reply(409, {'error': '작업이 끝난 뒤 업데이트하세요'})
+                            return
+                        frozen = action.endswith('-freeze')
+                    self.reply(200, {'frozen': frozen})
+                    return
+                with gate:
+                    if frozen:
+                        self.reply(409, {'error': '업데이트 적용을 준비하고 있습니다'})
+                        return
+                    requests += 1
+                try:
+                    self.dispatch_post()
+                finally:
+                    with gate:
+                        requests -= 1
+                return
+            self.dispatch_post()
+
+        def dispatch_post(self):
             action = urlsplit(self.path).path[len(prefix):]
             data = {}
             try:
@@ -277,11 +315,7 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     self.reply(404, {'error': safe_error(error)})
                 return
             if path == '/api/desktop-activity':
-                from .work_queue import LIVE
-                with manager.guard, manager.mix.guard:
-                    busy = (manager.tasks.busy() or any(i['state'] in LIVE for i in manager.tasks.items)
-                            or any(job['thread'].is_alive() for job in manager.mix.jobs.values()))
-                    result = {'busy': bool(busy), 'library': manager.default_root, 'models': str(runtime.MODEL_ROOT)}
+                result = {'busy': desktop_busy(), 'library': manager.default_root, 'models': str(runtime.MODEL_ROOT)}
                 self.reply(200, result)
                 return
             if path == '/api/config':

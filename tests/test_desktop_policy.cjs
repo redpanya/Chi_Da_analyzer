@@ -1,0 +1,12 @@
+const assert = require('node:assert/strict');
+const { readyAddress, trustedPage, inside } = require('../desktop/policy.cjs');
+const path = require('node:path');
+const url = 'http://127.0.0.1:53103/'+'a'.repeat(32)+'/';
+const root = readyAddress({url,pid:42},42);
+for (const page of [url,url+'?root=one#settings',url+'clip-studio.html',url+'mix-studio.html#range',url+'video-split.html']) assert.ok(trustedPage(root,page));
+for (const page of ['file:///tmp/local.html',url+'api/config',url+'file?key=playback',url+'%2f..%2f',url.replace(':53103',':53102'),url.replace('127.0.0.1','sample.invalid')]) assert.ok(!trustedPage(root,page));
+for (const bad of [url.replace('127.0.0.1','localhost'),url.replace('http:','https:'),url+'#token',url+'clip-studio.html']) assert.throws(()=>readyAddress({url:bad,pid:42},42));
+assert.throws(()=>readyAddress({url,pid:12},42));
+const install = path.resolve('portable');
+assert.ok(inside(install,install) && inside(install,path.join(install,'data')));
+assert.ok(!inside(install,install+'-copy') && !inside(install,path.dirname(install)));

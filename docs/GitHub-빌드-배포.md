@@ -2,7 +2,7 @@
 
 ## 범위
 
-`ChiDaanalyzer.app`을 담은 macOS Apple Silicon 앱 ZIP, Windows x64 CPU + Vulkan 선택형 포터블 ZIP을 각 OS의 GitHub Actions에서 빌드합니다. DMG는 만들지 않습니다. 기본 화자 엔진 sherpa와 미디어·전사·요약 실행 도구를 포함하며 모델은 설치 후 다운로드합니다. 기존 전체 macOS 개발 패키징 스크립트와 로컬 결과는 유지합니다.
+`ChiDaanalyzer.app`을 담은 macOS Apple Silicon DMG, Windows x64 CPU + Vulkan 선택형 포터블 ZIP을 각 OS의 GitHub Actions에서 빌드합니다. 기본 화자 엔진 sherpa와 미디어·전사·요약 실행 도구를 포함하며 모델은 설치 후 다운로드합니다. 기존 전체 macOS 개발 패키징 스크립트와 로컬 결과는 유지합니다.
 
 저장소는 `redpanya/Chi_Da_analyzer` 공개 저장소입니다. Actions의 `앱 빌드`를 수동 실행하면 두 OS 빌드와 간단한 실행 검사를 거쳐 아티팩트를 생성합니다. `draft_tag`를 입력하면 두 빌드가 모두 성공했을 때만 초안 Release와 체크섬·대응 소스를 함께 올립니다. 빈 값이면 아티팩트만 생성합니다. 초안 Release는 공개 게시 전까지 일반 이용자에게 보이지 않습니다.
 
@@ -16,10 +16,12 @@ python packaging/release/fetch_sources.py
 python packaging/release/build_native.py
 bash packaging/release/build_ffmpeg.sh
 python -m PyInstaller --noconfirm --clean --distpath build/frozen --workpath build/pyinstaller packaging/release/backend.spec
-python packaging/release/assemble.py --version 0.19.0
+python packaging/release/assemble.py
 python packaging/release/smoke.py
 python packaging/release/archive_release.py
 ```
+
+Windows에서는 패키지 구성 전에 `python -m PyInstaller --onefile --noconsole --name chida-update --distpath build/desktop-helper --workpath build/desktop-helper-work --specpath build desktop/replace_windows.py`로 교체 도구를 함께 빌드합니다. 완료한 ZIP은 `python packaging/release/windows_update_smoke.py`로 확인합니다.
 
 Windows에서는 `setup_vulkan.py`를 먼저 실행하고 출력된 `VULKAN_SDK` 경로를 환경 변수에 지정한 뒤 `python packaging/release/build_native.py --vulkan`을 추가 실행합니다. CPU와 Vulkan 실행기를 별도 디렉터리에 함께 포함해야 합니다. SDK 설치 파일은 공식 1.4.328.1과 SHA-256으로 고정하고 앱에는 포함하지 않습니다.
 
@@ -31,7 +33,7 @@ Windows의 FFmpeg 빌드 명령만 MSYS2 UCRT64 셸에서 실행합니다. 나�
 - FFmpeg+x264는 직접 빌드하며 사용한 전체 소스 압축 파일·명령·설정·라이선스 사본을 배포합니다. 기본 빌드의 FFmpeg는 GPLv2 이상 구성입니다.
 - Python 의존성은 직접 버전을 고정하고 최종 환경 목록·라이선스 사본을 패키지에 보존합니다. 전이 의존성까지 완전히 잠근 비트 단위 재현 빌드는 아닙니다.
 - 모델·HF 토큰·설정·쿠키·VOD·전사·요약·개인 로그는 소스와 배포물에서 제외합니다.
-- macOS 임시 서명만 수행합니다. Windows 서명, Apple 공증, 자동 업데이트는 포함하지 않습니다.
+- macOS는 Apple Silicon 실행에 필요한 로컬 서명을 적용합니다. DMG 수동 교체와 Windows 포터블 교체 후 재실행을 지원합니다. 정식 릴리스에는 `node packaging/release/sign_update.cjs 배포폴더 --key 개인키파일`로 만든 배포 목록과 서명을 함께 올립니다. 초안 생성만으로는 정식 업데이트를 공개하지 않습니다.
 
 ## 예외와 사이드이펙트
 
@@ -45,7 +47,7 @@ Windows의 FFmpeg 빌드 명령만 MSYS2 UCRT64 셸에서 실행합니다. 나�
 
 ## 공개 전 검증 기준
 
-자동: 두 OS Python 검사, 잠금 중복 거부와 자식 잠금 유지, 앱 강제 종료 시 Windows 자식 종료, 한글·공백 경로, 패키지 독립 실행, 포함 도구 버전, H.264/AAC 영상 생성·probe·디코딩, 서버 페이지·정적 모듈, 준비 파일 생성·종료, 체크섬. macOS 최종 ZIP은 ditto·unzip 두 방식으로 해제한 뒤 서명과 ASCII 번들 경로를 확인하고 LaunchServices로 실제 앱을 시작해 HTTP 응답을 확인합니다. Gatekeeper 허용 결과는 별도로 기록하며 임시 서명 초안의 거부를 공증 통과로 표시하지 않습니다.
+자동: 두 OS Python 검사, 잠금 중복 거부와 자식 잠금 유지, 앱 강제 종료 시 Windows 자식 종료, 한글·공백 경로, 패키지 독립 실행, 포함 도구 버전, H.264/AAC 영상 생성·probe·디코딩, 서버 페이지·정적 모듈, 준비 파일 생성·종료, 체크섬. 최종 DMG를 읽기 전용으로 마운트하고 Windows ZIP을 빈 폴더에 푼 뒤 실제 Electron 창, 격리된 Python 서버와 설정을 검사합니다. Gatekeeper 허용 결과는 별도로 기록하며 임시 서명 초안의 거부를 공증 통과로 표시하지 않습니다.
 
 수동: 깨끗한 실제 Mac과 Windows PC에서 VOD 리스트 등록→다운로드→전사→선택 화자 구분→Gemma 요약→반응 이동→댓글 편집/복사. 중단·재실행, 외장 보관함, 모델 최초 다운로드·오프라인 재사용, 휴지통 복원. 기존 원본·수동 교정·화자 배정·분석 보존. CPU 속도와 메모리 측정.
 

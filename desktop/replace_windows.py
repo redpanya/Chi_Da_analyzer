@@ -39,7 +39,7 @@ def read_plan(config):
     if plan.get('app') != APP or not work.name.startswith('.chida-update-'):
         raise ValueError('업데이트 작업 폴더를 확인하세요.')
     target = Path(plan['target'])
-    if (not target.is_absolute() or target.parent.resolve(strict=True) != work.parent or target == work
+    if (not target.is_absolute() or target.parent.resolve(strict=True) != work.parent or target in (work, work.parent)
             or not VERSION.fullmatch(plan['version']) or not VERSION.fullmatch(plan['previousVersion'])
             or not TOKEN.fullmatch(plan['token']) or not re.fullmatch('[a-f0-9]{64}', plan['sha256'])
             or not 0 < plan['size'] <= MAX_BYTES or plan['pid'] < 1):
@@ -65,6 +65,11 @@ def inspect_install(root, version):
         raise ValueError('프로그램 파일 목록과 실행 파일을 확인하세요.')
     files.add(INVENTORY)
     dirs = {str(parent) for name in files for parent in PurePosixPath(name).parents}
+    declared_dirs = inventory.get('directories', [])
+    if not isinstance(declared_dirs, list):
+        raise ValueError('프로그램 폴더 목록의 형식이 올바르지 않습니다.')
+    for name in declared_dirs:
+        dirs.add(relative_name(name).as_posix().casefold())
     present = set()
     for current, folders, names in os.walk(root, onerror=raise_error):
         for name in folders:
@@ -279,4 +284,8 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:]))
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except Exception:
+        # 결과는 main에서 기록한다. 무인 교체 실패 시 콘솔 없는 실행기를 종료한다.
+        sys.exit(1)

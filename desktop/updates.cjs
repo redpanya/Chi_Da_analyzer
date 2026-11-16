@@ -125,13 +125,13 @@ function contained(parent, child) {
 
 function runHelper(exe, args) {
   return new Promise((resolve,reject) => {
-    const child = spawn(exe,args,{windowsHide:true,stdio:'ignore'});
+    const child = spawn(exe,args,{cwd:path.dirname(exe),windowsHide:true,stdio:'ignore'});
     child.once('error',reject);
     child.once('exit',code => code === 0 ? resolve() : reject(Error('Windows 업데이트 준비에 실패했습니다.')));
   });
 }
 
-function createUpdater({app, dialog, shell, getWindow, prepareToQuit, quitForUpdate,
+function createUpdater({app, dialog, shell, getWindow, prepareToQuit, quitForUpdate, resumeAfterFailedUpdate,
     platform=process.platform, arch=process.arch, fetchImpl=globalThis.fetch, publicKeyFile=path.join(__dirname,'release-public.pem')}) {
   const currentVersion = app.getVersion(), events = new EventEmitter();
   const updateRoot = path.join(app.getPath('userData'),'updates');
@@ -145,13 +145,14 @@ function createUpdater({app, dialog, shell, getWindow, prepareToQuit, quitForUpd
     void fs.readFile(path.join(updateRoot,'last-result.json'),'utf8').then(async text=>{
       const last = JSON.parse(text);
       if (state.phase === 'idle' && !closed) set({message:String(last.message || '').slice(0,450)});
-      const folder = last.folder, target = path.dirname(app.getPath('exe'));
-      if (typeof folder !== 'string' || path.dirname(folder) !== path.dirname(target) ||
+      const folder = last.folder, target = await fs.realpath(path.dirname(app.getPath('exe')));
+      if (typeof folder !== 'string' || !path.isAbsolute(folder) ||
           !/^\.chida-update-[a-zA-Z0-9]{6}$/.test(path.basename(folder))) return;
-      if ((await fs.lstat(folder)).isSymbolicLink() || await fs.realpath(folder) !== folder) return;
+      if ((await fs.lstat(folder)).isSymbolicLink() ||
+          path.relative(path.join(path.dirname(target),path.basename(folder)),await fs.realpath(folder))) return;
       const plan = JSON.parse(await fs.readFile(path.join(folder,'plan.json'),'utf8'));
       const step = JSON.parse(await fs.readFile(path.join(folder,'step.json'),'utf8'));
-      if (step.phase !== 'complete' || plan.token !== last.token || plan.target !== target) return;
+      if (step.phase !== 'complete' || plan.token !== last.token || path.relative(await fs.realpath(plan.target),target)) return;
       const names = await fs.readdir(folder);
       if (names.some(n=>!['plan.json','step.json','chida-update.exe'].includes(n))) return;
       for (const name of ['chida-update.exe','step.json','plan.json']) await fs.unlink(path.join(folder,name));
@@ -221,10 +222,10 @@ function createUpdater({app, dialog, shell, getWindow, prepareToQuit, quitForUpd
   async function apply() {
     if (platform !== 'win32' || state.phase !== 'ready' || !downloaded || operation || closed) return snapshot();
     operation = new AbortController();
-    let work, launched=false;
+    let work, launched=false, preparedToQuit=false;
     try {
       const target = await fs.realpath(path.dirname(app.getPath('exe')));
-      if (!app.isPackaged || path.basename(target) === '' || contained(target,updateRoot))
+      if (!app.isPackaged || path.basename(target) === '' || contained(target,await fs.realpath(updateRoot)))
         throw Error('전용 포터블 앱 폴더에서만 적용할 수 있습니다.');
       const token = randomUUID();
       work = await fs.mkdtemp(path.join(path.dirname(target),'.chida-update-'));
@@ -239,13 +240,18 @@ function createUpdater({app, dialog, shell, getWindow, prepareToQuit, quitForUpd
         throw Error(result || err.message);
       }
       await prepareToQuit();
-      const child = spawn(helper,['replace',config],{detached:true,windowsHide:true,stdio:'ignore'});
+      preparedToQuit=true;
+      const child = spawn(helper,['replace',config],{cwd:work,detached:true,windowsHide:true,stdio:'ignore'});
       await new Promise((resolve,reject)=>{child.once('error',reject);child.once('spawn',resolve);});
       launched=true;child.unref();
       await quitForUpdate();
       return snapshot();
     } catch(err) {
       if (launched) await fs.writeFile(path.join(work,'cancel'),'1',{flag:'wx'}).catch(()=>{});
+      if (preparedToQuit && resumeAfterFailedUpdate) {
+        try {await resumeAfterFailedUpdate();}
+        catch(resumeError) {return set({phase:'ready',message:errorText(err) + ' / ' + errorText(resumeError)});}
+      }
       return set({phase:'ready',message:errorText(err)});
     }
     finally {

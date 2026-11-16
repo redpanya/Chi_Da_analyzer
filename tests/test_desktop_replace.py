@@ -76,6 +76,17 @@ class PortableReplaceTests(unittest.TestCase):
         self.assertTrue((self.target/'new-note.txt').is_file())
         self.assertFalse((self.work/'previous').exists())
 
+    def test_empty_packaged_directory_is_replaceable(self):
+        folder = self.target / 'locales'
+        folder.mkdir()
+        marker = self.target / helper.INVENTORY
+        data = json.loads(marker.read_text())
+        data['directories'] = ['locales']
+        marker.write_text(json.dumps(data),encoding='utf-8')
+        helper.prepare(self.work,self.target,self.plan)
+        helper.replace(self.work,self.target,self.plan,wait=lambda _:None,check=lambda *_:None)
+        self.assertEqual((self.target/helper.IMAGE).read_bytes(),b'1.3.0')
+
     def test_reject_malformed_zip_and_modified_download(self):
         for name in ['ChiDaanalyzer/../outside','ChiDaanalyzer/alpha./key','ChiDaanalyzer/aux.txt','/escape']:
             with self.subTest(name=name), tempfile.TemporaryDirectory() as stage:
@@ -105,7 +116,8 @@ class Probe {
 }''', encoding='utf-8')
         env = dict(os.environ, CHIDA_TEST_SOURCE=str(code), CHIDA_TEST_OUTPUT=str(sample))
         subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',
-                        'Add-Type -Path $env:CHIDA_TEST_SOURCE -OutputAssembly $env:CHIDA_TEST_OUTPUT '
+                        'Add-Type -TypeDefinition ([IO.File]::ReadAllText($env:CHIDA_TEST_SOURCE)) '
+                        '-OutputAssembly $env:CHIDA_TEST_OUTPUT '
                         '-OutputType WindowsApplication -ErrorAction Stop'],env=env,check=True,timeout=45)
         files = self.files('1.3.0')
         files[helper.IMAGE] = sample.read_bytes()
@@ -125,5 +137,5 @@ class Probe {
                 subprocess.run([*cmd,command,str(config)],env=env,check=True,timeout=45)
         finally:
             parent.wait(timeout=10)
-        self.assertEqual(Path((self.updates/'restarted').read_text()),self.target)
+        self.assertTrue(Path((self.updates/'restarted').read_text(encoding='utf-8-sig')).samefile(self.target))
         self.assertEqual(json.loads((self.work/'step.json').read_text())['phase'],'complete')

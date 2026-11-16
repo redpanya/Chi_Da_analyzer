@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def main():
     modules = (
-        'test_desktop_replace', 'test_design_system_assets', 'test_video', 'test_automation_selection',
+        'test_desktop_replace', 'test_desktop_server', 'test_design_system_assets', 'test_video', 'test_automation_selection',
         'test_automation_external', 'test_candidate_review', 'test_clip_fingerprint',
         'test_context_exchange_repair', 'test_job_detail', 'test_job_detail_external',
         'test_job_resume', 'test_path_picker', 'test_ui_workspace',
@@ -36,7 +36,7 @@ def main():
     ):
         subprocess.run(['node', str(ROOT/'tests'/f'test_{name}.mjs')],
                        cwd=ROOT, check=True)
-    for name in ('pattern_background', 'brand_mark', 'desktop_updates'):
+    for name in ('pattern_background', 'brand_mark', 'desktop_policy', 'desktop_updates'):
         subprocess.run(['node', str(ROOT/'tests'/f'test_{name}.cjs')],
                        cwd=ROOT, check=True)
 

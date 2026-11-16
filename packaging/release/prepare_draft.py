@@ -20,6 +20,7 @@ for label in ('macOS-arm64','Windows-x64'):
     shutil.copy2(folder/(f'ChiDaanalyzer-{version}-{label}' + ('.dmg' if label.startswith('macOS') else '.zip')),out)
     shutil.copy2(folder/'smoke.json',out/(label+'-smoke.json'))
     shutil.copy2(folder/('license-notices-'+label+'.zip'),out)
+shutil.copy2(root/'package-Windows-x64/windows-update-smoke.json',out)
 for name in ('native-corresponding-sources.zip','electron-media-sources.zip'):
     shutil.copy2(root/'package-macOS-arm64'/name,out)
 source_name='legal-corresponding-sources.zip'

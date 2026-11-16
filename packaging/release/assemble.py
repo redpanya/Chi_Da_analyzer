@@ -126,8 +126,9 @@ def assemble(version):
         verify_bundle(package)
     else:
         files = sorted(p.relative_to(package).as_posix() for p in package.rglob('*') if p.is_file())
-        (package / 'chida-package.json').write_text(json.dumps({'app': NAME, 'version': version, 'files': files}),
-                                                   encoding='utf-8')
+        directories = sorted(p.relative_to(package).as_posix() for p in package.rglob('*') if p.is_dir())
+        inventory = {'app': NAME, 'version': version, 'files': files, 'directories': directories}
+        (package / 'chida-package.json').write_text(json.dumps(inventory), encoding='utf-8')
     print(package)
 
 

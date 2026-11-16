@@ -134,6 +134,12 @@ jobs:
         run: python packaging/release/smoke.py
       - name: 배포 이미지 실행 검사와 대응 소스 생성
         run: python packaging/release/archive_release.py
+      - name: Windows 배포 ZIP의 교체와 실패 복원 검증
+        if: runner.os == 'Windows'
+        run: |
+          python -m unittest discover -s tests -p test_desktop_replace.py
+          python packaging/release/windows_update_smoke.py
+          Copy-Item build/windows-update-smoke.json dist/artifacts/windows-update-smoke.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: package-${{ matrix.label }}
