@@ -1,0 +1,24 @@
+.coachmark-target{outline:2px solid var(--ds-accent)!important;outline-offset:2px;anchor-name:--coachmark-focus}
+body.step-workspace.coachmark-rail{--rail-expansion:20px;--rail-label-visible:1}
+section.coachmark{
+  position:fixed;inset:auto;z-index:10000;box-sizing:border-box;margin:0;
+  width:min(320px,calc(100vw - 20px));max-height:calc(100dvh - 20px);overflow:auto;
+  padding:16px;background:var(--ds-raised);color:var(--ds-text);border:1px solid var(--ds-accent);
+  border-radius:12px;box-shadow:0 6px 24px #0005;text-align:start;font-size:14px;line-height:1.55;
+}
+.coachmark .coachmark-group{margin:0 0 4px;color:var(--ds-muted);font-size:12px}
+.coachmark h2{margin:0;font-size:17px;line-height:1.4}
+.coachmark #coachmark-text{margin:6px 0 12px;overflow-wrap:anywhere}
+.coachmark-actions,.coachmark-dismiss{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.coachmark-actions{justify-content:flex-end}
+.coachmark-dismiss{margin-top:10px;border-top:1px solid var(--ds-line);padding-top:6px;justify-content:space-between}
+:root[data-theme] .coachmark-dismiss button{background:transparent;color:var(--ds-muted);font-size:12px;padding:4px 2px;min-height:28px}
+.coachmark [hidden]{display:none!important}
+.coachmark::backdrop{
+  position:fixed;position-anchor:--coachmark-focus;
+  inset:var(--coachmark-inset);
+  inset:clamp(0px,anchor(top) - 4px,100%) clamp(0px,anchor(right) - 4px,100%)
+        clamp(0px,anchor(bottom) - 4px,100%) clamp(0px,anchor(left) - 4px,100%);
+  background:transparent;border-radius:6px;
+  box-shadow:0 0 0 100vmax var(--ds-backdrop);pointer-events:none;
+}

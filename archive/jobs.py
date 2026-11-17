@@ -2,6 +2,8 @@ from .storage import ResourceBusy
 """화면 수명과 분리된 작업, 개별 중단, 재시작 복구."""
 from . import error_log
 
+import os
+import tempfile
 import threading
 import time
 
@@ -9,7 +11,7 @@ from . import analysis_store, chat, source, video, speech, speech_store, speech_
 from . import task_timing, local_import, speech_options, compute, download_scope
 from .video_replacement import ReplacementProject, transfer_tasks, cleanup
 from . import voices, voice_store, voice_models, deletion, context_job, context_input, model_paths, context_model
-from .storage import (Project, ProjectLock, Conflict, FINISHED, ACTIVE, create_or_load,
+from .storage import (Project, ProjectLock, Conflict, LibraryFolderRequired, FINISHED, ACTIVE, create_or_load,
                       library, load_project, project_path, recover)
 
 
@@ -88,8 +90,11 @@ class Job:
 
 
 class Manager:
-    def __init__(self, default_root):
-        self.default_root = str(library(str(default_root)))
+    def __init__(self, default_root=None):
+        from . import runtime
+        chosen = default_root if default_root is not None else runtime.saved_library()
+        self.download_library = str(library(str(chosen))) if chosen else ''
+        self.default_root = self.download_library or str(runtime.library_default())
         from .media_readers import MediaReaders
         self.media_readers = MediaReaders()
         self.guard = threading.RLock()
@@ -115,6 +120,30 @@ class Manager:
         from .work_queue import WorkQueue
         self.tasks = WorkQueue(self)
 
+    def set_library_folder(self, root):
+        from . import runtime, ui_workspace
+        catalog = ui_workspace.catalog(root)
+        if catalog['status'] not in ('ready', 'empty', 'partial'):
+            raise ValueError(catalog['message'])
+        with self.guard:
+            try:
+                with tempfile.TemporaryFile(dir=catalog['root']):
+                    pass
+            except OSError as error:
+                raise ValueError('선택한 보관함 폴더에 쓸 수 없습니다. 폴더 권한을 확인하세요.') from error
+            runtime.remember_library(catalog['root'])
+            self.default_root = self.download_library = catalog['root']
+        return catalog
+
+    def require_download_library(self, root):
+        if not self.download_library:
+            raise LibraryFolderRequired('다운로드하려면 설정에서 VOD 보관함 폴더를 먼저 선택하세요.')
+        base = download_scope.base_root(root)
+        if str(base) != self.download_library:
+            raise LibraryFolderRequired('이 VOD를 받으려면 설정에서 해당 보관함 폴더를 선택하세요.')
+        if not base.is_dir() or not os.access(base, os.W_OK | os.X_OK):
+            raise LibraryFolderRequired('VOD 보관함에 쓸 수 없습니다. 드라이브 연결과 폴더 권한을 확인하세요.')
+
     def folders(self):
         with self.guard:
             try:
@@ -127,7 +156,7 @@ class Manager:
                 problem = ''
             except (OSError, ValueError) as error:
                 problem = source.safe_error(error)
-            return {'models': str(model_paths.root()), 'busy': busy, 'problem': problem, 'compute': compute.status(),
+            return {'library': self.download_library, 'models': str(model_paths.root()), 'busy': busy, 'problem': problem, 'compute': compute.status(),
                     'ready': {name: not problem and module.status()['ready'] for name, module in
                               [('speech', speech_model), ('voices', voice_models), ('context', context_model)]}}
 
@@ -243,6 +272,7 @@ class Manager:
         return sorted(results, key=lambda x: x['updated_at'], reverse=True)
 
     def start(self, root, vod, format_id, kind, concurrent_fragments=None):
+        self.require_download_library(root)
         if concurrent_fragments is not None:
             source.fragment_concurrency(concurrent_fragments)
         if kind not in ('all', 'video', 'chat'):

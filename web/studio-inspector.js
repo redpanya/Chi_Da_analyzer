@@ -59,7 +59,10 @@ export function createStudioInspector(){
   for(const id of ['caption-count','caption-load-state','caption-font-note','caption-size-error','caption-design-error','caption-design-state','font-selected','image-name','image-status','decoration-state','image-preview-state'])observer.observe($(id),{childList:true,characterData:true,subtree:true});
   document.addEventListener('studio-profile-change',update);
   update();
-  return {open,setTab(name,animate=true){
+  return {open,showGuidePanel(key){
+    if(active===key)return;
+    active=key;stack=parents[key]?[parents[key]]:[];render(0);
+  },setTab(name,animate=true){
     const direction=name===tab?(active?-1:0):Math.sign(studioSteps.indexOf(name)-studioSteps.indexOf(tab));
     tab=name;active='';stack=[];render(animate?direction:0);
   }};

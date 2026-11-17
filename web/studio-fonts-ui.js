@@ -25,7 +25,7 @@ export function studioFonts({api,identity,onChange}){
   const value=$('caption-font'),language=$('caption-language'),note=$('caption-font-note'),list=$('font-preview-list'),variant=$('font-variant');
   let fonts=[],languages={},page=0,loading=false,failed=false,serial=0,loadSerial=0,cache=new Map();
   const current=()=>fonts.find(f=>f.id===value.value);
-  const opened=()=>!$('inspector-font').hidden&&!$('panel-caption').hidden&&$('font-options').open;
+  const opened=()=>!list.closest('[hidden]');
   function sample(){return languages[language.value]?.sample||'오늘도 즐거운 방송입니다! 123';}
   function notify(){value.dispatchEvent(new Event('change',{bubbles:true}));onChange();}
   function choices(){
@@ -97,7 +97,6 @@ export function studioFonts({api,identity,onChange}){
   $('font-search').oninput=()=>{page=0;void previews();};
   $('font-prev').onclick=()=>{page--;void previews();};$('font-next').onclick=()=>{page++;void previews();};
   document.addEventListener('studio-inspector-change',()=>{if(opened())void previews();else serial++;});
-  $('font-options').addEventListener('toggle',()=>{if(opened())void previews();else serial++;});
   window.addEventListener('pagehide',()=>{serial++;});window.addEventListener('pageshow',()=>{if(fonts.length)void previews();});
   return {sample,blocked:()=>loading||failed||!matchingFonts(fonts,language.value).length||(value.value!=='auto'&&!fonts.some(f=>f.id===value.value&&f.languages.includes(language.value))),
     restore(options){language.value=options.caption_language||'ko';value.value=options.font||'auto';choices();void previews();onChange();},

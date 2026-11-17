@@ -1,3 +1,4 @@
+import {createTutorial} from './tutorial.js';
 import {animateUI} from './workspace-motion.js';
 import {createMixStudio} from './mix-studio.js';
 import {createStudioWorkspace,studioSteps,nextStudioStep,previewFrameGeometry,studioReturnLinks,setStudioMenuLinks} from './studio-workspace.js';
@@ -373,7 +374,17 @@ async function init(){
   await editor.init(project,info.value);
 }
 editor=createStudioTools({api,identity,mix,video,isMediaReady:()=>mediaReady,onUndoPoint:(label,restore)=>editUndo.record(label,restore),onCaptionPreview:previewCaption,rangeDrafts:()=>rangeDrafts,restoreRangeDrafts:value=>{rangeDrafts=value;fields();},selection:()=>[...chosen.values()],getActive:()=>active,getRatio:()=>ratio,setRatio:value=>{ratio=value;for(const b of document.querySelectorAll('[data-ratio]'))b.setAttribute('aria-pressed',String(b.dataset.ratio===value));resizeFrame();renderExport();},restore:clips=>{chosen.clear();manualId=Math.max(manualId,...clips.map(c=>Number(/^manual-(\d+)$/.exec(c.id||'')?.[1])||0));for(const [i,c] of clips.entries()){const match=rows.find(r=>c.id?r.id===c.id:r.title===c.title&&r.start_ms===c.start_ms&&r.end_ms===c.end_ms);const row={...match,...c,id:c.id||match?.id||'draft-'+i,original_start:match?.original_start??c.start_ms,original_end:match?.original_end??c.end_ms};chosen.set(row.id,row);}rows=rows.map(r=>chosen.get(r.id)||r);if(chosen.size)selectRow([...chosen.values()][0]);else{active=null;fields();renderSelection();renderList();}}});
-renderExport();const initialized=init().catch(error=>{
+renderExport();const initialized=init().then(()=>true).catch(error=>{
   if(selectionPending){selectionPending=false;fields();renderSelection();$('active-title').textContent='구간을 불러오지 못했습니다.';}
   $('media-empty').hidden=false;notice(error.message);$('source-state').textContent='자료를 불러오지 못했습니다.';$('media-empty').textContent=mix?'믹스 목록에서 구간을 다시 선택하세요.':'보관함 연결을 확인해 주세요.';});
 window.addEventListener('pagehide',()=>{video.pause();stopSequence();});
+
+initialized.then(async ready=>{
+  if(!ready&&!mix)return;
+  const tutorial=createTutorial({api,report:notice,showClipStep:mix?undefined:({tab,panel})=>{
+    if(document.body.dataset.studioStep!==tab)showTab(tab);
+    if(document.body.dataset.studioStep!==tab)return false;
+    workspace.reveal();inspector.showGuidePanel(panel);return true;
+  }});
+  await tutorial.init(await api('tutorial',{}),mix?'mix':'clip',false);
+}).catch(error=>notice('튜토리얼을 불러오지 못했습니다. '+error.message));

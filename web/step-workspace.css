@@ -195,4 +195,4 @@ body[data-opening-workspace="true"] #workspace-loading{display:block}
 .model-library li small {margin-top:4px;color:var(--ds-muted)}
 .model-library-actions {display:flex;align-items:center;gap:8px}
 #model-library-notice {overflow-wrap:anywhere}
-#model-library-notice:empty,#model-folder-state:empty {display:none}
+#model-library-notice:empty,#model-folder-state:empty,#library-folder-notice:empty {display:none}

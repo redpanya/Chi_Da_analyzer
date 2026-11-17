@@ -1,13 +1,14 @@
 import {enterView} from './workspace-motion.js';
 import {bindDesktopSettings} from './desktop-settings.js';
 import {createSettingsPanel} from './settings-panel.js';
+import {registrationSources} from './queue.js';
 const $=id=>document.getElementById(id);
 const make=(tag,text='',cls='')=>{const node=document.createElement(tag);node.textContent=text;node.className=cls;return node;};
 export const routeSteps={register:1,library:0,jobs:10,split:11,mix:12,settings:9,prepare:2,speech:3,voices:4,explore:5,context:6,report:7,external:8};
 export function workspaceDepth({project=false,task=false,register=false}={}){return task&&project?3:project||register||task?2:1;}
 
 // 초기 배치에서 기존 노드를 옮긴다. 폴링은 텍스트·상태만 갱신한다.
-export function createStepWorkspace({layout,getProject,navigate,enterAnalysis,context}){
+export function createStepWorkspace({layout,onView,getProject,navigate,enterAnalysis,context}){
  document.body.classList.add('step-workspace');
  const main=document.querySelector('body>main'),rail=document.querySelector('body>aside');
  rail.classList.add('step-primary');rail.setAttribute('aria-label','기본 메뉴');
@@ -72,9 +73,16 @@ export function createStepWorkspace({layout,getProject,navigate,enterAnalysis,co
  // 등록 화면은 주소, 옵션, 확인 순서로 진행한다. 실제 등록 버튼과 유효성 검사는 재사용한다.
  const queue=document.querySelector('.queue-section'),address=make('section','','register-address'),confirm=make('section','','register-confirm');
  address.id='register-address';confirm.id='register-confirm';confirm.hidden=true;
- const addressesTitle=$('queue-inputs').previousElementSibling,addRow=$('queue-more').parentElement;
- address.append(make('p','새 VOD · 1 / 3','eyebrow'),make('h2','VOD 주소 입력'),addressesTitle,$('queue-inputs'),addRow);
+ const inputs=$('queue-inputs'),addressesTitle=inputs.previousElementSibling,addRow=$('queue-more').parentElement;
+ address.append(make('p','새 VOD · 1 / 3','eyebrow'),make('h2','VOD 주소 입력'),addressesTitle,inputs,addRow);
  const next=make('button','처리할 작업 선택 →','primary');next.id='registration-next';next.onclick=()=>layout.queueSettings.open(next);address.append(next);
+ function updateRegistrationButtons(){
+  next.disabled=!registrationSources(inputs).length;
+  for(const button of subnav.querySelectorAll('.registration-forward'))button.disabled=next.disabled;
+ }
+ inputs.addEventListener('input',updateRegistrationButtons);
+ new MutationObserver(updateRegistrationButtons).observe(inputs,{childList:true});
+ updateRegistrationButtons();
  const confirmSummary=make('div','','registration-summary');confirmSummary.id='registration-summary';confirm.append(make('h2','등록 내용 확인'),confirmSummary,$('queue-add'));
  const edit=make('button','← 처리 설정 수정','secondary');edit.onclick=()=>layout.queueSettings.open(edit);confirm.append(edit);
  queue.prepend(address,confirm);
@@ -107,6 +115,9 @@ export function createStepWorkspace({layout,getProject,navigate,enterAnalysis,co
   const folders=settings.querySelector('.folder-settings'),errors=$('error-log-enabled')?.closest('section');
   if(folders)storage.prepend(folders);
   if($('compute-settings'))logs.append($('compute-settings'));if(errors)logs.append(errors);
+  const tutorialSettings=make('section','','form-section');
+  tutorialSettings.innerHTML='<h3>튜토리얼</h3><label class="inline-check"><input id="tutorial-enabled" type="checkbox" checked> 처음 연 메뉴에서 안내 보기</label><label for="tutorial-choice">다시 볼 안내</label><select id="tutorial-choice"></select><button id="tutorial-replay" type="button" class="secondary">튜토리얼 다시 보기</button><p id="tutorial-notice" role="status"></p>';
+  general.append(tutorialSettings);
   appearance.remove();settings.append(storage,general,logs);settingsGroups.push(['저장 폴더',storage],['화면·안내',general],['처리·로그',logs]);
   if(info){settings.append(info);settingsGroups.push([window.chidaDesktop?'앱 업데이트':'앱 정보',info]);}
  }
@@ -167,14 +178,15 @@ export function createStepWorkspace({layout,getProject,navigate,enterAnalysis,co
   use.setAttribute('aria-busy','true');
   renderRails();
  }
- function railButton(label,action,current=false,index){const button=make('button','','rail-action');if(index!=null)button.append(make('span',String(index+1),'step-number'));button.append(make('span',label,'rail-label'));button.title=label;if(label.startsWith('←'))button.classList.add('rail-return');button.setAttribute('aria-current',current?'step':'false');button.onclick=action;subnav.append(button);}
+ function railButton(label,action,current=false,index){const button=make('button','','rail-action');if(index!=null)button.append(make('span',String(index+1),'step-number'));button.append(make('span',label,'rail-label'));button.title=label;if(label.startsWith('←'))button.classList.add('rail-return');button.setAttribute('aria-current',current?'step':'false');button.onclick=action;subnav.append(button);return button;}
+ function view(){return {page,use:!use.hidden,task:flow?.panel.dialog.id,registration,settingsTab};}
  function renderRails(){
   const project=getProject(),pendingUse=use.inert;
   const projectScreen=pendingUse||!!project&&(![0,1,9,10,11,12].includes(page)||!!flow&&flow.panel!==layout.queueSettings);
   header.hidden=projectScreen||page===11||page===12;
   selected.hidden=!projectScreen;if(!pendingUse)selectedTitle.textContent=projectScreen?project.metadata?.title||'선택 VOD':'';selectedTitle.title=selectedTitle.textContent;
-  const nextKey=[projectScreen,page,flow?.panel.dialog.id,flow?.index,registration,preparing,settingsTab].join('|');
-  if(railKey===nextKey)return;railKey=nextKey;subnav.replaceChildren();
+  const nextKey=[projectScreen,page,use.hidden,flow?.panel.dialog.id,flow?.index,registration,preparing,settingsTab].join('|');
+  if(railKey===nextKey)return;railKey=nextKey;queueMicrotask(()=>{if(railKey===nextKey)onView?.(view());});subnav.replaceChildren();
   if(flow){
    const {panel,index}=flow;subnav.append(make('strong',preparing?'자료 준비':names.get(panel),'task-rail-title'));
    if(preparing){
@@ -182,7 +194,13 @@ export function createStepWorkspace({layout,getProject,navigate,enterAnalysis,co
    }else if(panel===layout.queueSettings&&page===1){for(const [i,label] of ['주소 입력','처리 선택','등록 확인'].entries())railButton(label,()=>{if(i===1)return;panel.close();showRegistration(i);},i===1,i);}
    else for(const [i,[label]] of (groups.get(panel)||[['설정',panel.body]]).entries())railButton(label,()=>{if(i!==index){flow.index=i;renderTask(Math.sign(i-index));}},i===index,i);
    railButton('← 돌아가기',()=>panel.close());
-  }else if(page===1){subnav.append(make('strong','VOD 등록','task-rail-title'));for(const [i,label] of ['주소 입력','처리 선택','등록 확인'].entries())railButton(label,()=>i===1?layout.queueSettings.open():showRegistration(i),registration===i,i);}
+  }else if(page===1){
+   subnav.append(make('strong','VOD 등록','task-rail-title'));
+   for(const [i,label] of ['주소 입력','처리 선택','등록 확인'].entries()){
+    const button=railButton(label,()=>i===1?layout.queueSettings.open():showRegistration(i),registration===i,i);
+    if(registration===0&&i>0){button.classList.add('registration-forward');button.disabled=next.disabled;}
+   }
+  }
   else if(page===9){subnav.append(make('strong','설정','task-rail-title'));settingsGroups.forEach(([label],i)=>railButton(label,()=>{const changed=settingsTab!==i;settingsTab=i;renderSettings(changed);},settingsTab===i));}
   subnav.hidden=!flow&&![1,9].includes(page);
   document.body.dataset.railDepth=String(workspaceDepth({project:projectScreen,task:!!flow||page===9,register:page===1}));
@@ -213,5 +231,5 @@ export function createStepWorkspace({layout,getProject,navigate,enterAnalysis,co
   if(path!==p?.path){path=p?.path;if(!use.inert){use.hidden=true;delete document.body.dataset.usePage;}}
   renderRails();updatePreparation();
   if(!use.inert)purposes.hidden=!p||[0,1,9,10,11,12].includes(page);
- },showUse,previewUse};
+ },showUse,previewUse,view,openFolders(){settingsTab=0;navigate(9);}};
 }

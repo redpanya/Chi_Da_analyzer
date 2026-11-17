@@ -1,6 +1,6 @@
 import {createCompute} from './compute.js';
 import {createModelLibrary} from './model-library.js';
-export function createFolders({api, onApplied}) {
+export function createFolders({api, onApplied, onPicking, onLibrary}) {
   const $ = id => document.getElementById(id);
   let applied = '', busy = false, saving = false, serial = 0;
   const compute = createCompute({api, onApplying: () => {serial++;}});
@@ -10,6 +10,7 @@ export function createFolders({api, onApplied}) {
     $('apply-model-folder').disabled = saving || busy;
   }
   function set(value) {
+    onLibrary?.(value.library);
     compute.set(value.compute, value.busy);
     if (!applied || $('model-root').value === applied) $('model-root').value = value.models;
     applied = value.models; busy = value.busy;
@@ -21,7 +22,8 @@ export function createFolders({api, onApplied}) {
   $('model-folder-form').onsubmit = async event => {
     event.preventDefault();
     if (saving || busy) return;
-    saving = true; serial++; controls();
+    let failed = false;
+    saving = true; serial++; controls(); onPicking?.('apply-model-folder', true);
     $('model-folder-notice').textContent = '';
     try {
       const selected = await api('pick-path', {kind:'folder'});
@@ -32,8 +34,8 @@ export function createFolders({api, onApplied}) {
       await library.refresh();
       $('model-folder-notice').textContent = '경로를 적용했습니다. 다음 앱 실행에도 유지됩니다. 기존 파일은 그대로 보존했습니다.';
       await onApplied();
-    } catch (error) { $('model-folder-notice').textContent = error.message; }
-    finally { saving = false; controls(); }
+    } catch (error) { failed = true; $('model-folder-notice').textContent = error.message; }
+    finally { saving = false; controls(); onPicking?.('apply-model-folder', false, failed); }
   };
   return {set, async refresh() {
     if (saving || compute.isSaving()) return;

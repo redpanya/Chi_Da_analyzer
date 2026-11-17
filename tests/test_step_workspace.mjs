@@ -191,6 +191,19 @@ assert.equal($('context-panel').hidden,true);assert.equal($('analysis-results-na
 navigate(6);assert.equal(entered.at(-1),'context-panel');assert.equal($('use-page').hidden,true);
 for(const [input,expected] of [[{},1],[{project:true},2],[{register:true},2],[{task:true},2],[{project:true,task:true},3]])assert.equal(workspaceDepth(input),expected);
 navigate(1);assert.equal($('register-address').hidden,false);assert.equal($('register-confirm').hidden,true);
+const forwardButtons=[$('registration-next'),...$('task-rail').querySelectorAll('.registration-forward')];
+assert.equal(forwardButtons.length,3);
+const originalUrl=url.value;
+add('textarea','registration-background',row).value='방송 배경만 작성';
+for(const empty of ['','   ']){
+  url.value=empty;inputs.dispatchEvent(new Event('input'));
+  for(const button of forwardButtons){assert.ok(button.disabled);button.click();}
+  assert.equal(layout.queueSettings.dialog.open,false);
+  assert.equal($('register-address').hidden,false);
+  assert.equal($('register-confirm').hidden,true);
+}
+url.value=originalUrl;inputs.dispatchEvent(new Event('input'));
+assert.ok(forwardButtons.every(button=>!button.disabled));
 $('registration-next').click();assert.equal(layout.queueSettings.dialog.open,true);assert.equal(body.dataset.taskFlow,'queue-options');assert.equal($('task-main').hidden,false);
 $('queue-height').value='1080';$('queue-fragments').value='16';layout.queueSettings.footer.querySelector('.task-next').click();
 assert.equal(layout.queueSettings.dialog.open,false);assert.equal(body.dataset.taskFlow,undefined);assert.equal($('register-address').hidden,true);assert.equal($('register-confirm').hidden,false);

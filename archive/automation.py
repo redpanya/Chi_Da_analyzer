@@ -193,6 +193,7 @@ class Automation:
 
     def add(self, root, url, settings):
         settings = options(settings)
+        self.manager.require_download_library(root)
         if not isinstance(url, str) or len(url) > 2048:
             raise ValueError('VOD 주소를 확인하세요')
         meta = self.manager.inspect(url)
@@ -237,6 +238,8 @@ class Automation:
 
     def add_saved(self, root, vods, settings, source_root=None):
         settings = options(settings)
+        if 'download' in settings['steps']:
+            self.manager.require_download_library(root)
         source_root = str(download_scope.checked_root(root, source_root))
         if not isinstance(vods, list) or not 1 <= len(vods) <= 100:
             raise ValueError('등록할 저장 VOD를 1~100개 선택하세요')
@@ -263,6 +266,8 @@ class Automation:
 
     def update_settings(self, root, ids, settings):
         settings = options(settings)
+        if 'download' in settings['steps']:
+            self.manager.require_download_library(root)
         if not isinstance(ids, list) or not ids or len(ids) > 100 or any(not isinstance(i, str) for i in ids):
             raise ValueError('설정을 적용할 대기 항목을 선택하세요')
         def change(data):
@@ -297,6 +302,8 @@ class Automation:
             if retry:
                 if item['state'] not in ('error', 'partial', 'paused'):
                     raise Conflict('중단·오류 항목만 다시 대기에 넣을 수 있습니다. 완료한 VOD는 새 작업으로 등록하세요')
+                if 'download' in automation_plan.selected(item['options']):
+                    self.manager.require_download_library(root)
                 item.update(state='queued', message='완료 자료 확인 후 다시 진행합니다')
                 self.waiting(data)
             else:

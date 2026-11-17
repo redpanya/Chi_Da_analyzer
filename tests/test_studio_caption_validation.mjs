@@ -13,6 +13,10 @@ globalThis.createImageBitmap=async()=>({width:660,height:180,close(){}});
 for(const id of ['image-x','image-y','image-width','image-opacity'])$(id).value='50';
 $('caption-text').textContent='안녕 하세요';$('caption-version').value='transcript';
 $('inspector-font').hidden=true;$('panel-caption').hidden=true;
+$('font-preview-list').closest=selector=>{
+  assert.equal(selector,'[hidden]');
+  return [$('inspector-font'),$('panel-caption')].find(panel=>panel.hidden)||null;
+};
 let enabled=true,changed=0,pending=[];
 const options=()=>({caption:enabled,sidecar:false,font:$('caption-font').value,caption_language:'ko',ratio:'original',size:'source',image:null,style:'soft',font_size:32});
 const api=async(action,data)=>{

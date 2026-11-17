@@ -186,6 +186,8 @@ def preflight(manager, root):
     data = manager.automation.read(str(base))
     items = [item for item in data['items'] if item.get('state') in ('queued', 'paused', 'running')]
     steps = set(step for item in items for step in automation_plan.selected(item['options']))
+    if 'download' in steps:
+        manager.require_download_library(root)
     checks = []
     def add(label, ready, detail):
         checks.append({'label': label, 'ready': bool(ready), 'detail': detail})

@@ -96,6 +96,7 @@ def main():
                         assert response.headers.get('Content-Security-Policy') == strict_csp
                 for relative in ('video-split.html','video-split.js','video-split-audio.js','clip-studio.html','studio-profiles.js','video-quality.js',
                                  'clip-studio.js','studio-decorations.js','studio-fonts-ui.js',
+                                 'tutorial.js','tutorial-guides.js','coachmark.js','coachmark.css',
                                  'studio-caption-design.js','studio-caption-templates.js','studio-image-editor.js',
                                  'error-capture.js','error-log-ui.js','studio-frame-validation.js','model-library.js'):
                     with http.open(url+relative, timeout=15) as response:

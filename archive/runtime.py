@@ -62,17 +62,17 @@ def configure(*, smoke_root=None):
     os.environ.pop('GGML_BACKEND_PATH', None)
 
 
+def saved_library():
+    value = settings().get('library')
+    return Path(value) if isinstance(value, str) and Path(value).is_absolute() else None
+
+
 def library_default():
-    if FROZEN:
-        value = settings().get('library')
-        if isinstance(value, str) and Path(value).is_absolute():
-            return Path(value)
-    return Path.home() / ('Videos/ChiDaAnalyzer' if os.name == 'nt' else 'Movies/치지직 보관함')
+    return saved_library() or Path.home() / ('Videos/ChiDaAnalyzer' if os.name == 'nt' else 'Movies/치지직 보관함')
 
 
 def remember_library(root):
-    if FROZEN:
-        save_settings(library=root)
+    save_settings(library=root)
 
 
 def diagnose():

@@ -3,6 +3,17 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {studioSteps,nextStudioStep,previewFrameGeometry,createStudioWorkspace,studioReturnLinks,setStudioMenuLinks} from '../web/studio-workspace.js';
 import {createStudioInspector} from '../web/studio-inspector.js';
+import {guides} from '../web/tutorial-guides.js';
+
+test('클립 안내는 실제 단계 순서로 모든 상세 패널을 열고 믹스는 한 번만 설명한다',()=>{
+  const html=readFileSync(new URL('../web/clip-studio.html',import.meta.url),'utf8');
+  const order=guides.clip.map(step=>step.tab).filter((tab,i,all)=>i===0||tab!==all[i-1]);
+  assert.deepEqual(order,studioSteps);
+  const panels=new Set([...html.matchAll(/data-inspector-open="([^"]+)"/g)].map(match=>match[1]));
+  assert.deepEqual(new Set(guides.clip.map(step=>step.panel).filter(Boolean)),panels);
+  assert.equal(guides.mix.length,1);
+  assert.equal(guides.mix[0].tab,undefined);
+});
 
 test('편집 단계 키보드 순서와 세로 영상의 높이 기준 맞춤',()=>{
   assert.deepEqual(studioSteps,['range','preset','frame','caption','export']);

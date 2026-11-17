@@ -6,6 +6,9 @@ const states={queued:'대기',running:'진행 중',paused:'일시정지',complet
 const stages={download:'영상·전체 채팅',audio:'원음 추출',transcribe:'음성 전사',diarize:'화자 구분',reactions:'채팅 반응 분석',summary:'상세 문맥 정리',timestamps:'빠른 타임스탬프',clips:'클립 후보'};
 const languages={ko:'한국어',auto:'자동 감지',ja:'일본어',en:'영어'},vads={standard:'표준',sensitive:'민감',off:'끄기'},backends={sherpa:'sherpa-onnx',pyannote:'pyannote · Community-1',fluid:'FluidAudio · Community-1'};
 const editable=item=>item.state==='queued'&&!item.report&&!item.stage&&!Object.keys(item.stages||{}).length;
+export function registrationSources(inputs){
+ return [...inputs.children].filter(row=>row.project||row.querySelector('input')?.value.trim());
+}
 // 이전 실행기가 반환한 목록에도 같은 표시 기준을 적용한다.
 export const registrationItems=data=>(data?.items||[]).filter(item=>item.state!=='complete');
 export function registrationSummary(data){
@@ -14,7 +17,7 @@ export function registrationSummary(data){
  const message=data.state==='complete'?'목록 처리 종료':data.message||'등록 후 목록 작업을 시작하세요';
  return `전체 ${items.length}개${running?` / ${running}개 처리 중`:''} / ${message}`;
 }
-export function createQueue({api,getRoot,onOpen,onChanged,onLock,onStatus}){
+export function createQueue({api,getRoot,onOpen,onChanged,onLock,onStatus,onGuide}){
  const $=id=>document.getElementById(id);let busy=false,polling=false,last='',root=getRoot(),data=null,importBusy=false;const selected=new Set();
  const node=(tag,text='')=>{const n=document.createElement(tag);n.textContent=text;return n;};
  const picker=createSavedPicker({api,getRoot,getSelected:()=>[...$('queue-inputs').children].flatMap(row=>row.project?[savedKey(row.project)]:[]),onSelect:selectSaved});
@@ -97,7 +100,7 @@ export function createQueue({api,getRoot,onOpen,onChanged,onLock,onStatus}){
  }
  $('queue-more').onclick=()=>row();$('queue-saved').onclick=()=>picker.open();
  $('queue-add').onclick=()=>action(async()=>{
-   const rows=[...$('queue-inputs').children].filter(r=>r.project||r.querySelector('input')?.value.trim());
+   const rows=registrationSources($('queue-inputs'));
    if(!rows.length)throw Error('VOD 주소를 입력하거나 저장한 VOD를 선택하세요');
    const requested=getRoot(),options=settings(),errors=[];let added=0;
    for(const row of rows){
@@ -107,12 +110,17 @@ export function createQueue({api,getRoot,onOpen,onChanged,onLock,onStatus}){
        if(row.project){const result=await api('queue-add-saved',{root:requested,source_root:row.project.root,vod_ids:[row.project.vod_id],options:perVod});if(result.errors.length)throw Error(result.errors[0].message);}
        else await api('queue-add',{root:requested,url:row.querySelector('input').value.trim(),options:perVod});
        row.remove();added++;
-     }catch(error){errors.push(`${row.project?'VOD '+row.project.vod_id:row.querySelector('input').value}: ${error.message}`);}
+     }catch(error){if(error.code==='library_folder_required')throw error;errors.push(`${row.project?'VOD '+row.project.vod_id:row.querySelector('input').value}: ${error.message}`);}
    }
    if(!$('queue-inputs').children.length)row();numbered();
+   if(added&&!errors.length)onGuide?.('queued');
    return `${added}개 등록 완료${errors.length?' · 실패한 자료는 남겨두었습니다.\n'+errors.join('\n'):'. 목록 시작 또는 이어가기를 누르면 진행합니다'}`;
  });
  $('queue-apply').onclick=()=>action(async()=>{await api('queue-settings',{root:getRoot(),ids:[...selected],options:settings()});selected.clear();last='';return '선택한 미실행 대기 항목에 설정을 적용했습니다';});
- $('queue-start').onclick=queuePreflight({api,getRoot,onStart:()=>action(()=>api('queue-start',{root:getRoot()}).then(()=>''))});$('queue-pause').onclick=()=>action(()=>api('queue-pause',{root:getRoot()}).then(()=>''));
+ $('queue-start').onclick=queuePreflight({api,getRoot,onStart:()=>action(async()=>{
+   try{await api('queue-start',{root:getRoot()});}
+   catch(error){if(error.queued)onGuide?.('started');throw error;}
+   onGuide?.('started');
+ })});$('queue-pause').onclick=()=>action(()=>api('queue-pause',{root:getRoot()}).then(()=>''));
  row();return {refresh,rootChanged,selectSaved,setImportBusy(value){importBusy=value;controls();}};
 }

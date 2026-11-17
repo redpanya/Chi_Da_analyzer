@@ -1,3 +1,4 @@
+import {createTutorial} from './tutorial.js';
 import {createStepWorkspace,routeSteps} from './step-workspace.js';
 import {createResultNavigation} from './result-flow.js';
 import {moveResultTimeline} from './results-layout.js';
@@ -34,9 +35,10 @@ let current=null,page=null,busy=false,polling=false,shell=null,stepWorkspace=nul
 const workQueue=createWorkQueue();
 const splitPage=createVideoSplitPage({root:$('video-split-page'),workQueue});
 $('open-video-split').onclick=event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();go(11);};
-const mixPage=createMixPage({api,getRoot:()=>$('root').value});
+let browseRoot='',returnToRegistration=false;
+const mixPage=createMixPage({api,getRoot:()=>browseRoot});
 function setLibraryRoot(root){
- $('root').value=root;
+ browseRoot=root;
  $('open-mix').href=mixMenuURL(root);
 }
 const layout=createWorkspaceLayout();
@@ -51,19 +53,20 @@ const miniPlayer=createMiniPlayer({player,onExplore:showExplore});
 const reactions=createReactions({api,onDone:()=>{explorer.refresh();context.refresh();}});
 const voices=createVoices({api,player,showExplore,showVideo:()=>go(5),onProject:value=>{current=value;render();}});
 const speech=createSpeech({api,player,sceneUsage:context.sceneUsage,showPreview:row=>miniPlayer.open(row),showVoices:range=>{voices.chooseRange(range);go(4);},onProject:value=>{current=value;render();}});
-const folders=createFolders({api,onApplied:async()=>{if(current){current=await api('state',{root:current.root,vod_id:current.vod_id});render();}}});
+const tutorial=createTutorial({api,go,openFolders:()=>stepWorkspace.openFolders(),report:notice});
+const folders=createFolders({api,onLibrary:setConfiguredLibrary,onPicking:tutorial.picking,onApplied:async()=>{if(current){current=await api('state',{root:current.root,vod_id:current.vod_id});render();}}});
 const errorLogs=createErrorLogUI({api,getProject:()=>current});
 const reports=createReports({api,getProject:()=>current});
-const queue=createQueue({api,onStatus:workspace.setQueue,getRoot:()=>$('root').value,onOpen:(root,vod)=>perform(async()=>{stopPlayback();current=await api('state',{root,vod_id:vod});render();go(2);}),onChanged:()=>list().catch(()=>{}),onLock:locked=>{for(const id of ['root','load-library'])$(id).disabled=locked;}});
+const queue=createQueue({api,onGuide:tutorial.queueEvent,onStatus:workspace.setQueue,getRoot:()=>browseRoot,onOpen:(root,vod)=>perform(async()=>{stopPlayback();current=await api('state',{root,vod_id:vod});render();go(2);}),onChanged:()=>list().catch(()=>{}),onLock:locked=>{for(const id of ['root','load-library'])$(id).disabled=locked;}});
 const videoQuality=setupVideoQuality({api,getProject:()=>current,onChanged:async value=>{current=value;render();await queue.refresh();await list();}});
-shell=createProductWorkspace({api,getRoot:()=>$('root').value,getProject:()=>current,navigate:go,openProject:(project,step)=>perform(async()=>{stopPlayback();current=await api('state',{root:project.root,vod_id:project.vod_id});render();go(step??shell.initialPage(current));}),openJobResult,refreshLibrary:()=>perform(list),onDelete:project=>deletion?.open(project)});
+shell=createProductWorkspace({api,getRoot:()=>browseRoot,getProject:()=>current,navigate:go,openProject:(project,step)=>perform(async()=>{stopPlayback();current=await api('state',{root:project.root,vod_id:project.vod_id});render();go(step??shell.initialPage(current));}),openJobResult,refreshLibrary:()=>perform(list),onDelete:project=>deletion?.open(project)});
 resultNavigation=createResultNavigation({getProject:()=>current,navigate:go,context});
-stepWorkspace=createStepWorkspace({layout,getProject:()=>current,navigate:go,enterAnalysis:()=>resultNavigation.enter(),context});
+stepWorkspace=createStepWorkspace({layout,onView:tutorial.workspace,getProject:()=>current,navigate:go,enterAnalysis:()=>resultNavigation.enter(),context});
 $('open-clip-studio').onclick=()=>{
  if(!current)return;
  const url=new URL('clip-studio.html',location.href),run=$(context.mode()==='clips'?'context-clips-version':'context-version').value;
  const returnPage=document.body.dataset.usePage==='true'?'use':Object.keys(routeSteps).find(key=>routeSteps[key]===page)||'use';
- url.search=new URLSearchParams({root:current.root,library_root:current.library_root||$('root').value||current.root,vod_id:current.vod_id,return_page:returnPage,...(run?{run}:{})});
+ url.search=new URLSearchParams({root:current.root,library_root:current.library_root||browseRoot||current.root,vod_id:current.vod_id,return_page:returnPage,...(run?{run}:{})});
  stopPlayback();
  location.assign(url.href);
 };
@@ -71,7 +74,11 @@ function notice(text=''){$('notice').textContent=text;$('notice').hidden=!text;}
 async function api(action,data){
  const response=await fetch(`api/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
  let value;try{value=await response.json();}catch{throw Error('실행기 응답을 읽지 못했습니다. 실행 중인 주소로 다시 연결하세요');}
- if(!response.ok)throw Error(value.error||'작업 요청에 실패했습니다');return action==='job-resume'?value:workQueue.accept(value);
+ if(!response.ok){
+  if(value.code==='library_folder_required')openDownloadFolders(value.error);
+  throw Object.assign(Error(value.error||'작업 요청에 실패했습니다'),{code:value.code});
+ }
+ return action==='job-resume'?value:workQueue.accept(value);
 }
 // 상세 조회와 달리 사용자가 결과 보기를 눌렀을 때만 VOD와 결과 버전을 선택한다.
 async function openJobResult(request,result,isCurrent){
@@ -99,14 +106,14 @@ function stopPlayback(){
 }
 window.addEventListener('pagehide',stopPlayback);
 document.addEventListener('context-mode-change',stopPlayback);
-function go(step,{use=false}={}){delete document.body.dataset.openingWorkspace;step=Math.min(12,Math.max(0,step));stopPlayback();if(step===0&&$('root').value)list().catch(error=>notice(error.message));if(page!==step){window.scrollTo({top:0,left:0,behavior:"instant"});}page=step;['import-panel','download-panel','speech-panel','voices-panel','explore-panel','context-panel','report-panel','external-panel','settings-page'].forEach((id,i)=>$(id).hidden=i===0?![1,2].includes(step):i===1?!current:i+1!==step);[1,2,3,4,5,6,7,8,9].forEach(n=>$(`step${n}`).classList.toggle('current',(n===1&&step===2)||step===n));workspace.navigate(step);$('heading').textContent=['보관함','VOD 등록','자료 관리','전사 검토','화자 검토 · 선택','영상·시간축','장면 탐색','작업 기록','외부 AI 파일 분석','설정','작업센터','영상 나누기','믹스클립'][step];
+function go(step,{use=false}={}){if(step!==9)returnToRegistration=false;delete document.body.dataset.openingWorkspace;step=Math.min(12,Math.max(0,step));stopPlayback();if(step===0&&browseRoot)list().catch(error=>notice(error.message));if(page!==step){window.scrollTo({top:0,left:0,behavior:"instant"});}page=step;['import-panel','download-panel','speech-panel','voices-panel','explore-panel','context-panel','report-panel','external-panel','settings-page'].forEach((id,i)=>$(id).hidden=i===0?![1,2].includes(step):i===1?!current:i+1!==step);[1,2,3,4,5,6,7,8,9].forEach(n=>$(`step${n}`).classList.toggle('current',(n===1&&step===2)||step===n));workspace.navigate(step);$('heading').textContent=['보관함','VOD 등록','자료 관리','전사 검토','화자 검토 · 선택','영상·시간축','장면 탐색','작업 기록','외부 AI 파일 분석','설정','작업센터','영상 나누기','믹스클립'][step];
  player.previewMode(step===3||step===6);if(step!==7)reports.clear();
  if(step===3||step===5||step===6){const target=$(step===3?'speech-video':step===5?'explore-video':context.videoTarget());for(const id of ['video-result','video-unready'])if($(id).parentElement!==target)target.append($(id));}
  if(step===7||step===9)errorLogs.refresh();
  moveResultTimeline(step===6?(context.mode()==='clips'?'context-clips-preview':'context-preview'):null);
  explorer.open(step===3||step===5||step===6);if(step===6)context.refresh();if(step===7)reports.refresh();if(step===8)external.refresh();if(step===9)folders.refresh();shell?.navigate(step);resultNavigation?.navigate(step,{use});splitPage.show(step===11);mixPage.show(step===12);if(page===step)stepWorkspace?.navigate(step,{use});resultNavigation?.update();}
 let listRequest=0;
-async function list(){const ticket=++listRequest,requested=$('root').value,value=await api('library-catalog',{root:requested});if(ticket!==listRequest||requested!==$('root').value)return;shell.setCatalog(value);$('projects').replaceChildren();if(!value.projects.length){const p=document.createElement('p');p.className='muted';p.textContent=value.message||'저장한 VOD가 없습니다.';$('projects').append(p);}for(const project of value.projects.slice(0,8)){const button=document.createElement('button');button.dataset.path=project.path;button.className='project-item'+(current?.path===project.path?' selected':'');const title=document.createElement('strong'),summary=document.createElement('small');title.textContent=vodLabel(project);summary.textContent=`영상 ${labels[project.tasks.video.state]} · 채팅 ${labels[project.tasks.chat.state]}`;button.append(title,summary);button.onclick=()=>perform(async()=>{stopPlayback();current=await api('state',{root:project.root,vod_id:project.vod_id});render();go(shell.initialPage(current));});const row=document.createElement('div');row.className='project-row';row.append(button);$('projects').append(row);}if(value.projects.length>8){const all=document.createElement('button');all.textContent=`보관함 전체 ${value.projects.length}개 보기`;all.onclick=()=>go(0);$('projects').append(all);}}
+async function list(catalog){const ticket=++listRequest,requested=browseRoot,value=catalog??await api('library-catalog',{root:requested});if(ticket!==listRequest||requested!==browseRoot)return;shell.setCatalog(value);tutorial.catalog(value);$('projects').replaceChildren();if(!value.projects.length){const p=document.createElement('p');p.className='muted';p.textContent=value.message||'저장한 VOD가 없습니다.';$('projects').append(p);}for(const project of value.projects.slice(0,8)){const button=document.createElement('button');button.dataset.path=project.path;button.className='project-item'+(current?.path===project.path?' selected':'');const title=document.createElement('strong'),summary=document.createElement('small');title.textContent=vodLabel(project);summary.textContent=`영상 ${labels[project.tasks.video.state]} · 채팅 ${labels[project.tasks.chat.state]}`;button.append(title,summary);button.onclick=()=>perform(async()=>{stopPlayback();current=await api('state',{root:project.root,vod_id:project.vod_id});render();go(shell.initialPage(current));});const row=document.createElement('div');row.className='project-row';row.append(button);$('projects').append(row);}if(value.projects.length>8){const all=document.createElement('button');all.textContent=`보관함 전체 ${value.projects.length}개 보기`;all.onclick=()=>go(0);$('projects').append(all);}}
 async function perform(fn){if(busy)return;busy=true;notice();try{await fn();}catch(error){notice(error.message);}finally{busy=false;}}
 function fileURL(kind,key){return `file?${new URLSearchParams({root:current.root,vod_id:current.vod_id,kind,key,...(kind==='video'?{version:current.video_generation||'original'}:{})})}`;}
 function render(){
@@ -114,7 +121,7 @@ function render(){
  videoQuality.render(current);
  analysisScope.setProject(current);
  miniPlayer.setProject(current);
- if(current)sessionStorage.setItem('project',JSON.stringify({root:current.root,library_root:$('root').value,vod_id:current.vod_id}));
+ if(current)sessionStorage.setItem('project',JSON.stringify({root:current.root,library_root:browseRoot,vod_id:current.vod_id}));
  for(const [name,state] of [['video',current?.video_replacement?.task||current?.tasks.video],['chat',current?.tasks.chat],['speech',current?.speech],['voices',current?.voices],['context',current?.context]])$(name+'-elapsed').textContent=elapsedText(state);
  $('open-clip-studio').disabled=!current||current.tasks?.video?.state!=='complete';$('delete-project').hidden=!current;$('delete-project').disabled=!!current?.locked;
  if(!current)workspace.update(null);
@@ -132,11 +139,30 @@ function render(){
  workspace.update(current);shell?.update();resultNavigation?.update();stepWorkspace?.update();
 }
 async function start(kind){if(!current)throw Error('프로젝트를 먼저 열어주세요');if(current.input&&!current.download_range&&current.tasks.video.state!=='complete'&&kind!=='chat'){go(1);notice('이전 로컬 영상의 가져오기가 미완료입니다. 기존 파일은 보존됩니다. 완료된 로컬 영상은 계속 분석할 수 있습니다.');return;}current=await api('start',{root:current.root,vod_id:current.vod_id,format_id:current.format_id,kind});render();go(2);await list();}
-$('root').oninput=()=>queue.rootChanged();
+function setConfiguredLibrary(root){
+ $('root').value=root||'';
+ $('registration-folder-prompt').hidden=!!root&&root===browseRoot;
+}
+function openDownloadFolders(message){
+ returnToRegistration=page===1;
+ for(const dialog of document.querySelectorAll('dialog:modal'))dialog.close();
+ stepWorkspace.openFolders();
+ $('library-folder-notice').textContent=message;
+ $('load-library').focus();
+}
+$('registration-folder-open').onclick=()=>openDownloadFolders('다운로드에 사용할 VOD 보관함 폴더를 선택하세요.');
 $('refresh').onclick=()=>perform(async()=>{await list();await queue.refresh();});
 $('load-library').onclick=()=>perform(async()=>{
-  const value=await api('pick-path',{kind:'folder'});if(!value.path)return;
-  setLibraryRoot(value.path);queue.rootChanged();await list();await queue.refresh();
+  let failed=false;tutorial.picking('load-library',true);
+  try{
+    const value=await api('pick-path',{kind:'folder'});if(!value.path)return;
+    const catalog=await api('library-folder',{root:value.path});
+    setLibraryRoot(catalog.root);setConfiguredLibrary(catalog.root);queue.rootChanged();
+    $('library-folder-notice').textContent='VOD 보관함 폴더를 설정했습니다.';
+    await list(catalog);await queue.refresh();
+    if(returnToRegistration&&page===9)go(1);
+  }catch(error){failed=true;$('library-folder-notice').textContent=error.message;throw error;}
+  finally{tutorial.picking('load-library',false,failed);}
 });
 function clearProject(){reports.clear();notice();current=null;errorLogs.setProject();analysisScope.setProject(null);sessionStorage.removeItem('project');for(const i of [2,3,4,5,6,8])$(`step${i}`).disabled=true;player.reset();$('player').removeAttribute('src');$('player').load();reactions.setProject(null);speech.setProject(null);voices.setProject(null);explorer.setProject(null);context.setProject(null);external.setProject(null);workspace.update(null);$('open-clip-studio').disabled=true;$('delete-project').hidden=true;go(1);$('queue-inputs').querySelector('input')?.focus();}
 $('new').onclick=()=>{go(1);$('queue-inputs').querySelector('input')?.focus();};
@@ -168,14 +194,15 @@ const globalEntry=[0,1,9,10,11,12].includes(entryStep);
   else document.body.dataset.openingWorkspace='true';
 
   const config=await (await fetch('api/config')).json();
-  showPreviewToast(config.annotation_preview===true);folders.set(config.folders);
-  if(!$('root').value)setLibraryRoot(config.root);
+  showPreviewToast(config.annotation_preview===true);
+  if(!browseRoot)setLibraryRoot(config.root);
+  folders.set(config.folders);
   if(page===null&&globalEntry&&!needsLibraryLookup)go(entryStep);
   if(page===null&&saved&&(!globalEntry||needsLibraryLookup)){
-   const library=$('root').value;
+   const library=browseRoot;
    let project;
    try{project=await api('state',saved);}catch(error){if(page===null)throw error;}
-   if(page===null&&project&&!current&&library===$('root').value){
+   if(page===null&&project&&!current&&library===browseRoot){
     if(!saved.library_root&&project.library_root)setLibraryRoot(project.library_root);
     if(!globalEntry){
      current=project;render();
@@ -183,7 +210,11 @@ const globalEntry=[0,1,9,10,11,12].includes(entryStep);
     }
    }
   }
-  if(page===null&&!applyRoute())go(0);
+  const guides=config.tutorial;
+  const firstLaunch=page===null&&!saved&&!location.hash&&guides&&
+    (guides.guides.welcome==='replay'||(guides.enabled&&!guides.guides.welcome));
+  if(page===null&&!firstLaunch&&!applyRoute())go(0);
+  if(guides)await tutorial.init(guides,stepWorkspace.view(),firstLaunch);
   if(page!==0)await list();
   await queue.refresh();
   if(!config.media_tools)notice('FFmpeg와 ffprobe를 찾지 못했습니다. 영상 다운로드 전 설치 경로를 확인하세요.');

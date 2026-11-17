@@ -105,8 +105,11 @@ class ModelPathTests(unittest.TestCase):
             self.assertEqual(status, 200); self.assertEqual(value['models'], chosen)
             self.assertEqual(request('POST', 'folders', {})[1]['models'], chosen)
             new_library = str(self.base/'새 보관함')
+            Path(new_library).mkdir()
             with patch.object(runtime, 'FROZEN', True):
                 self.assertEqual(request('POST', 'projects', {'root': new_library})[0], 200)
+                self.assertNotEqual(request('GET', 'config')[1]['root'], new_library)
+                self.assertEqual(request('POST', 'library-folder', {'root': new_library})[0], 200)
             self.assertEqual(request('GET', 'config')[1]['root'], new_library)
             self.assertEqual(runtime.settings()['models'], chosen)
             self.assertEqual(request('POST', 'model-folder', {'path': '상대경로'})[0], 400)

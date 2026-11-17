@@ -19,6 +19,10 @@ class Conflict(ValueError):
     pass
 
 
+class LibraryFolderRequired(Conflict):
+    pass
+
+
 class ResourceBusy(Conflict):
     """실행 중인 자료 사용이 끝나면 같은 요청을 재시도할 수 있다."""
     pass

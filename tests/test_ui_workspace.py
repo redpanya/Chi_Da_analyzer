@@ -173,13 +173,14 @@ class WorkspaceCatalogTests(unittest.TestCase):
             {'title': '이미 끝난 전사', 'state': 'complete', 'options': {'steps': ['transcribe', 'context', 'diarize']}},
         ]}
         original = deepcopy(data)
-        manager = SimpleNamespace(automation=SimpleNamespace(read=Mock(return_value=data)))
+        manager = SimpleNamespace(require_download_library=Mock(), automation=SimpleNamespace(read=Mock(return_value=data)))
         before = {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in self.root.rglob('*') if p.is_file()}
         with patch('archive.ui_workspace.shutil.which', return_value='/existing/tool') as which, \
              patch('archive.speech_model.status') as speech, patch('archive.context_model.status') as context, \
              patch('archive.speaker_tools.supported') as speaker:
             value = ui_workspace.preflight(manager, str(self.root))
         self.assertEqual([item['title'] for item in value['items']], ['다운로드만'])
+        manager.require_download_library.assert_called_once_with(str(self.root))
         self.assertTrue(all(check['ready'] for check in value['checks']))
         self.assertEqual({call.args[0] for call in which.call_args_list}, {'ffmpeg', 'ffprobe'})
         speech.assert_not_called(); context.assert_not_called(); speaker.assert_not_called()
@@ -206,7 +207,7 @@ class WorkspaceCatalogTests(unittest.TestCase):
         self.assertEqual(list(self.root.iterdir()), [])
 
     def test_packaged_tools_are_found_without_system_installation(self):
-        manager = SimpleNamespace(automation=SimpleNamespace(read=Mock(return_value={'items': [
+        manager = SimpleNamespace(require_download_library=Mock(), automation=SimpleNamespace(read=Mock(return_value={'items': [
             {'title': '다운로드', 'state': 'queued', 'options': {'steps': ['download']}}
         ]})))
         for layout in ('native/ffmpeg', 'bin'):

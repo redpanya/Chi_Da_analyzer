@@ -25,7 +25,7 @@ def main():
         from archive.windows_runtime import protect_process_tree
         protect_process_tree()
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--library', type=Path, default=runtime.library_default())
+    parser.add_argument('--library', type=Path)
     parser.add_argument('--no-open', action='store_true', help='브라우저 자동 열기 생략')
     parser.add_argument('--annotation-preview', action='store_true', help='개발 소스 실행에서만 주석용 인라인 스타일 허용')
     parser.add_argument('--ready-file', type=Path, help=argparse.SUPPRESS)

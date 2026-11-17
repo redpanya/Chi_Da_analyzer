@@ -4,7 +4,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="icons/chida-16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/chida-32.png">
 <link rel="stylesheet" href="style.css"><link rel="stylesheet" href="pattern-background.css"><link rel="stylesheet" href="workspace.css">
-<link rel="stylesheet" href="mini-player.css"><link rel="stylesheet" href="product-workspace.css"><link rel="stylesheet" href="results-redesign.css"><link rel="stylesheet" href="desktop-panels.css"><link rel="stylesheet" href="vendor/webawesome/styles/themes/default.css"><link rel="stylesheet" href="design-system.css"><link rel="stylesheet" href="step-workspace.css"><link rel="stylesheet" href="video-split.css"><script type="module" src="design-system.js"></script><script src="app.js" type="module" blocking="render"></script><script src="error-capture.js" type="module"></script></head>
+<link rel="stylesheet" href="mini-player.css"><link rel="stylesheet" href="product-workspace.css"><link rel="stylesheet" href="results-redesign.css"><link rel="stylesheet" href="desktop-panels.css"><link rel="stylesheet" href="vendor/webawesome/styles/themes/default.css"><link rel="stylesheet" href="design-system.css"><link rel="stylesheet" href="step-workspace.css"><link rel="stylesheet" href="video-split.css"><script type="module" src="design-system.js"></script><script src="app.js" type="module" blocking="render"></script><script src="error-capture.js" type="module"></script><link rel="stylesheet" href="coachmark.css"></head>
 <body>
 <aside>
   <a class="brand" href="./" aria-label="치(지직) 다(시보기) 분석기"><img class="mark" src="icons/chida-32.png" srcset="icons/chida-64.png 2x" width="32" height="32" alt=""><span class="brand-name" aria-hidden="true"><span class="brand-term">치<small>(지직)</small></span><span class="brand-term">다<small>(시보기)</small></span><span>분석기</span></span></a>
@@ -23,7 +23,7 @@
     <section class="queue-section" aria-labelledby="queue-heading">
       <h2 id="queue-heading" data-help="automation">VOD 리스트 등록</h2>
       <h3>등록할 자료</h3>
-      <div id="queue-inputs"></div><div class="play-actions"><button id="queue-more" class="secondary" type="button">＋ 주소 입력칸 추가</button><button id="queue-saved" class="secondary" type="button">저장한 VOD 선택</button></div>
+      <div id="queue-inputs"></div><div class="play-actions"><button id="queue-more" class="secondary" type="button">＋ 주소 입력칸 추가</button><button id="queue-saved" class="secondary" type="button">저장한 VOD 선택</button><span id="registration-folder-prompt" hidden>다운로드할 보관함 폴더를 먼저 선택하세요. <button id="registration-folder-open" type="button" class="secondary">저장 폴더 설정</button></span></div>
       <h3 data-help="automation">작업 설정 · 새로 등록할 항목에 적용</h3>
       <div id="queue-settings-launcher" class="play-actions"><p id="queue-selection-summary" class="hint" role="status"></p></div>
       <div id="queue-work-options">
@@ -71,7 +71,7 @@
     </section>
     <div class="folder-settings" aria-labelledby="folder-heading">
       <h3 id="folder-heading" data-help="folders">저장 폴더</h3>
-      <div class="folder"><label for="root">VOD 보관함 폴더</label><div class="input-row"><input id="root" type="text" readonly spellcheck="false" placeholder="VOD를 저장할 폴더의 전체 경로"><button id="load-library" class="secondary" type="button">폴더 선택</button></div></div>
+      <div class="folder"><label for="root">VOD 보관함 폴더</label><div class="input-row"><input id="root" type="text" readonly spellcheck="false" placeholder="VOD 보관함 폴더를 선택하세요"><button id="load-library" class="secondary" type="button">폴더 선택</button></div><p id="library-folder-notice" role="status"></p></div>
       <form id="model-folder-form" class="folder"><label for="model-root">공용 AI 모델 폴더</label><div class="input-row"><input id="model-root" type="text" readonly required spellcheck="false" aria-describedby="model-folder-current"><button id="apply-model-folder" class="secondary" type="submit">폴더 선택</button></div><p id="model-folder-current" class="path"></p><p id="model-folder-state" class="hint"></p><p id="model-folder-notice" role="status" aria-live="polite"></p></form>
       <section class="model-library" aria-labelledby="model-library-heading">
         <h3 id="model-library-heading">모델 및 실행 도구</h3>

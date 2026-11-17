@@ -21,7 +21,25 @@ HEAVY = {
 LIVE = {'queued', 'starting', 'running'}
 
 
+def check_download_folder(manager, action, data):
+    if action == 'queue-start':
+        from .automation_plan import selected
+        pending = manager.automation.read(data['root'])['items']
+        needs_folder = any(i['state'] in ('queued', 'running', 'paused') and
+                           'download' in selected(i['options']) for i in pending)
+    elif action == 'studio-resume':
+        from .studio_jobs import run_file
+        from .storage import read_json
+        saved = read_json(run_file(project_path(data['root'], data['vod_id']), data['run']))
+        needs_folder = saved.get('kind') == 'remote' and saved['state'] != 'complete'
+    else:
+        needs_folder = action in ('start', 'studio-remote') or (action == 'video-quality' and data.get('existing') is not None)
+    if needs_folder:
+        manager.require_download_library(data['root'])
+
+
 def execute(manager, action, data):
+    check_download_folder(manager, action, data)
     if action.startswith('studio-'):
         return manager.studio.dispatch(action[7:], data)
     if action.startswith('split-'):
@@ -116,6 +134,7 @@ class WorkQueue:
 
     def submit(self, action, data):
         with self.manager.guard:
+            check_download_folder(self.manager, action, data)
             if self.stopping.is_set():
                 raise Conflict('실행기를 종료하는 중입니다')
             for item in self.items:

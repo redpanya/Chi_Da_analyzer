@@ -14,8 +14,8 @@ from .source import safe_error
 from . import error_log
 from .work_queue import HEAVY
 from .speech_media import local as speech_file
-from . import voice_store, explore, runtime, context_job
-from .storage import Conflict, asset_path, project_path
+from . import voice_store, explore, runtime, context_job, tutorial
+from .storage import Conflict, LibraryFolderRequired, asset_path, project_path
 from .web_security import content_security_policy
 
 WEB = Path(__file__).resolve().parent.parent / 'web'
@@ -155,10 +155,6 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     from . import ui_workspace
                     if action == '/api/library-catalog':
                         result = ui_workspace.catalog(data['root'])
-                        if result['status'] in ('ready', 'empty', 'partial'):
-                            if result['root'] != manager.default_root:
-                                runtime.remember_library(result['root'])
-                            manager.default_root = result['root']
                     elif action == '/api/storage-info':
                         result = ui_workspace.storage_info(data['root'])
                     else:
@@ -177,8 +173,12 @@ def make_server(manager, port=0, *, annotation_preview=False):
                 elif action == '/api/report-submit':
                     self.reply(410, {'error': '자동 제출 기능은 제거되었습니다. JSON을 저장해 이메일에 직접 첨부하세요'})
                     return
+                elif action == '/api/tutorial':
+                    result = tutorial.update(data)
                 elif action == '/api/folders':
                     result = manager.folders()
+                elif action == '/api/library-folder':
+                    result = manager.set_library_folder(data['root'])
                 elif action == '/api/pick-path':
                     from .split_picker import choose
                     result = {'path': choose(kind=data.get('kind', 'folder'))}
@@ -219,10 +219,6 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     result = manager.inspect(data['url'],data.get('local') is True)
                 elif action == '/api/projects':
                     result = manager.projects(data['root'])
-                    root = str(Path(data['root']).expanduser().resolve())
-                    # 실행 인자의 보관함을 열기만 해서는 사용자가 저장한 기본 경로를 덮어쓰지 않는다.
-                    if root!=manager.default_root:runtime.remember_library(root)
-                    manager.default_root = root
                 elif action == '/api/state':
                     result = manager.view(data['root'], data['vod_id'])
                 elif action == '/api/stop':
@@ -258,6 +254,8 @@ def make_server(manager, port=0, *, annotation_preview=False):
                     self.reply(404, {'error': '요청 경로가 없습니다'})
                     return
                 self.reply(200, result)
+            except LibraryFolderRequired as error:
+                self.reply(409, {'error': str(error), 'code': 'library_folder_required'})
             except Conflict as error:
                 if not action.startswith('/api/error-log-'): error_log.record(action, error, vod=data.get('vod_id') if isinstance(data,dict) else None)
                 self.reply(409, {'error': str(error)})
@@ -325,6 +323,7 @@ def make_server(manager, port=0, *, annotation_preview=False):
                 self.reply(200, {'root': manager.default_root,
                                  'folders': manager.folders(),
                                  'annotation_preview': bool(annotation_preview),
+                                 'tutorial': tutorial.state(),
                                  'media_tools': bool(shutil.which('ffmpeg') and shutil.which('ffprobe'))})
                 return
             files = {'/': ('index.html', 'text/html; charset=utf-8'),
@@ -362,9 +361,9 @@ def make_server(manager, port=0, *, annotation_preview=False):
             files['/context-clips.js']=('context-clips.js','text/javascript; charset=utf-8')
             files['/context-clip-evidence.js']=('context-clip-evidence.js','text/javascript; charset=utf-8')
             files.update({f'/{name}.js': (f'{name}.js', 'text/javascript; charset=utf-8')
-                          for name in ('ui-feedback','studio-workspace','step-workspace','workspace-motion','result-flow','theme','design-system','product-workspace','queue-preflight','desktop-panels','studio-edit-undo','studio-source-pages','context-review','context-review-model','result-playback','results-layout','result-quality','scene-usage')})
+                          for name in ('coachmark','tutorial-guides','tutorial','ui-feedback','studio-workspace','step-workspace','workspace-motion','result-flow','theme','design-system','product-workspace','queue-preflight','desktop-panels','studio-edit-undo','studio-source-pages','context-review','context-review-model','result-playback','results-layout','result-quality','scene-usage')})
             files.update({f'/{name}.css': (f'{name}.css', 'text/css; charset=utf-8')
-                          for name in ('studio-workspace','step-workspace','design-system','product-workspace','desktop-panels','results-redesign')})
+                          for name in ('coachmark','studio-workspace','step-workspace','design-system','product-workspace','desktop-panels','results-redesign')})
             vendor = WEB/'vendor/webawesome'
             manifest = json.loads((vendor/'manifest.json').read_text(encoding='utf-8'))
             for asset in manifest['files']:
