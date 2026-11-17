@@ -95,7 +95,7 @@ def check(http, url, fixture):
 
 
 def prepare_recovery(work, movie, ffmpeg):
-    root = work/'복구 보관함'; path = root/'vod-2'
+    root = work/'보관함'; path = root/'vod-2'
     meta = {'id': '2', 'title': '시각 이동·채팅 경계 복구', 'duration': 1,
             'chat_enabled': True, 'formats': [{'id': 'test'}]}
     with ProjectLock(path):

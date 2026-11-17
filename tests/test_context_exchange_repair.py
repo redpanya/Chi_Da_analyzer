@@ -85,5 +85,6 @@ class RepairHttpTests(unittest.TestCase):
         status,packed=post('context-exchange-repair-files',payload|{'token':preview['token']})
         self.assertEqual(status,200);self.assertEqual(packed['chunks'],['001'])
         status,_=post('context-exchange-repair-files',payload|{'token':'stale'});self.assertEqual(status,409)
-        status,_=post('context-exchange-repair-files',payload|{'token':preview['token']},origin='https://example.invalid');self.assertEqual(status,403)
+        # 출처는 본문을 읽기 전에 검사하므로, 거부 응답을 확인할 때는 큰 공백 패딩을 보내지 않는다.
+        status,_=post('context-exchange-repair-files',{'text':json.dumps(reply),'token':preview['token']},origin='https://example.invalid');self.assertEqual(status,403)
         self.assertEqual(before,{str(p):p.read_bytes() for p in self.http.path.rglob('*') if p.is_file()})
